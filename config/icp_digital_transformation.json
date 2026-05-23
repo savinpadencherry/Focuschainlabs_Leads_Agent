@@ -1,0 +1,57 @@
+{
+  "vertical": "Digital Transformation Consulting",
+  "client": "Focus Chain Labs",
+  "target_industries": [
+    "Manufacturing",
+    "Retail and E-commerce",
+    "Logistics and Supply Chain",
+    "Healthcare",
+    "BFSI",
+    "Real Estate"
+  ],
+  "company_size": {
+    "min_employees": 200,
+    "max_employees": 2000,
+    "revenue_band": "50Cr to 500Cr INR"
+  },
+  "locations": ["Bangalore", "Bengaluru"],
+  "target_titles": [
+    "CTO",
+    "CIO",
+    "Chief Technology Officer",
+    "Chief Information Officer",
+    "VP Technology",
+    "VP IT",
+    "Head of IT",
+    "Director Technology",
+    "VP Digital Transformation",
+    "COO",
+    "VP Operations"
+  ],
+  "trigger_keywords": [
+    "new CTO appointed Bangalore 2026",
+    "hired Chief Technology Officer Bangalore 2026",
+    "Series B funding Bangalore startup 2026",
+    "Series C funding Bangalore 2026",
+    "GCC Bangalore digital transformation hiring 2026",
+    "cloud architect hiring Bangalore 2026",
+    "data engineering hiring Bangalore 2026",
+    "SAP ERP migration Bangalore 2026",
+    "legacy system modernisation Bangalore 2026",
+    "IPO filing Bangalore company 2026",
+    "expansion Bangalore manufacturing technology 2026",
+    "Bangalore logistics company technology upgrade 2026",
+    "Bangalore startup raised funding technology 2026",
+    "GCC Bangalore expansion hiring 2026"
+  ],
+  "disqualifiers": [
+    "seed stage only",
+    "pre-revenue",
+    "already partnered with Infosys",
+    "already partnered with TCS",
+    "already partnered with Wipro",
+    "already partnered with Accenture"
+  ],
+  "searches_per_run": 30,
+  "min_score_threshold": 60
+}
