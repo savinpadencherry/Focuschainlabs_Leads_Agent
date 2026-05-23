@@ -45,7 +45,7 @@ SCORING DIMENSIONS:
    12-17 = signal in last 31 to 90 days
    6-11 = signal in last 91 to 180 days
    0-5 = signal older than 180 days or undated
-
+{custom_focus_section}
 ICP:
 {icp_config}
 
@@ -72,9 +72,19 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
     threshold = int(os.getenv("MIN_SCORE_THRESHOLD", 60))
     gemini_limiter.wait()
 
+    custom_focus = icp_config.get("custom_focus", "")
+    custom_focus_section = (
+        f"\nADDITIONAL TARGETING CONTEXT (user-specified, weigh heavily):\n{custom_focus}\n"
+        if custom_focus else ""
+    )
+
+    # Remove internal fields before serializing ICP for the prompt
+    icp_clean = {k: v for k, v in icp_config.items() if k not in ("custom_focus",)}
+
     prompt = SCORING_PROMPT.format(
-        icp_config=json.dumps(icp_config, indent=2),
-        research_bundle=json.dumps(research_bundle, indent=2)
+        custom_focus_section=custom_focus_section,
+        icp_config=json.dumps(icp_clean, indent=2),
+        research_bundle=json.dumps(research_bundle, indent=2),
     )
 
     for attempt in range(2):
@@ -84,13 +94,10 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
                 model="gemini-3.5-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(
-                        thinking_level="low"
-                    )
-                )
+                    thinking_config=types.ThinkingConfig(thinking_level="low")
+                ),
             )
             raw = response.text.strip()
-            # Strip markdown fences if present
             raw = re.sub(r"```json|```", "", raw).strip()
             result = json.loads(raw)
             result["qualify"] = result.get("total_score", 0) >= threshold
@@ -102,14 +109,12 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
                 continue
             print(f"  [SKIP] Scoring failed after retry: {research_bundle['company_name']}")
             return {
-                "total_score": 0,
-                "qualify": False,
-                "error": "scoring_failed",
-                "primary_signal": "",
-                "pain_point": "",
-                "score_reasoning": "Scoring failed."
+                "total_score": 0, "qualify": False, "error": "scoring_failed",
+                "primary_signal": "", "pain_point": "", "score_reasoning": "Scoring failed.",
             }
         except Exception as e:
             print(f"  [ERROR] Gemini call failed: {e}")
-            return {"total_score": 0, "qualify": False, "error": str(e),
-                    "primary_signal": "", "pain_point": "", "score_reasoning": ""}
+            return {
+                "total_score": 0, "qualify": False, "error": str(e),
+                "primary_signal": "", "pain_point": "", "score_reasoning": "",
+            }
