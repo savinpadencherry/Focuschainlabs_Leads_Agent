@@ -341,7 +341,7 @@ h1, h2, h3, h4, p, div, span, label {
 
 /* ── Prompt form — Claude-style unified card ── */
 
-/* Outer card: cream bg, soft border, rounded, clips children cleanly */
+/* Outer card */
 [data-testid="stForm"] {
     background: var(--cream-3) !important;
     border: 1.5px solid var(--line-soft) !important;
@@ -356,12 +356,12 @@ h1, h2, h3, h4, p, div, span, label {
     box-shadow: 0 0 0 4px rgba(46,139,77,.09) !important;
 }
 
-/* Collapse inner vertical gap so textarea + toolbar touch */
+/* Collapse gap between textarea row and button row */
 [data-testid="stForm"] [data-testid="stVerticalBlock"] {
     gap: 0 !important;
 }
 
-/* Textarea: fully borderless & transparent inside the card */
+/* Textarea — borderless & transparent inside the card */
 [data-testid="stForm"] .stTextArea textarea {
     background: transparent !important;
     border: none !important;
@@ -394,47 +394,48 @@ h1, h2, h3, h4, p, div, span, label {
     box-shadow: none !important;
 }
 
-/* Toolbar row (contains the send button): sits flush at the bottom */
-[data-testid="stForm"] [data-testid="element-container"]:has([data-testid="stFormSubmitButton"]) {
-    border-top: 1px solid var(--line-soft) !important;
-    background: transparent !important;
-    padding: 10px 14px !important;
+/* Toolbar: target stFormSubmitButton directly — no :has() needed */
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] {
     display: flex !important;
     justify-content: flex-end !important;
     align-items: center !important;
-    margin: 0 !important;
-    min-height: 60px !important;
+    padding: 10px 14px !important;
+    border-top: 1px solid var(--line-soft) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    background: transparent !important;
+    min-height: 58px !important;
 }
 
-/* Circular send button — exactly like Claude's ↑ button */
-[data-testid="stForm"] [data-testid="stFormSubmitButton"] > button {
-    width: 38px !important;
-    height: 38px !important;
-    min-width: 38px !important;
-    min-height: 38px !important;
+/* Circular send button — green circle, white ↑ arrow */
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
     border-radius: 50% !important;
     padding: 0 !important;
     background: var(--green) !important;
-    color: #fff !important;
+    color: white !important;
+    -webkit-text-fill-color: white !important;
     border: none !important;
-    font-size: 18px !important;
-    font-weight: 400 !important;
-    line-height: 38px !important;
-    text-align: center !important;
-    box-shadow: 0 2px 8px rgba(46,139,77,.28) !important;
-    transition: all .2s ease !important;
+    font-size: 17px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    box-shadow: 0 2px 8px rgba(46,139,77,.30) !important;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease !important;
     cursor: pointer !important;
-    display: flex !important;
+    display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
 }
-[data-testid="stForm"] [data-testid="stFormSubmitButton"] > button:hover {
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:hover {
     background: var(--green-br) !important;
     transform: scale(1.1) !important;
-    box-shadow: 0 4px 16px rgba(46,139,77,.32) !important;
+    box-shadow: 0 4px 14px rgba(46,139,77,.35) !important;
 }
-[data-testid="stForm"] [data-testid="stFormSubmitButton"] > button:active {
-    transform: scale(0.96) !important;
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:active {
+    transform: scale(0.94) !important;
 }
 
 /* ── Text area — standalone (outside forms) ── */
