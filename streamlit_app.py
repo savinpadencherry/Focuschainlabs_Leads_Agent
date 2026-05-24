@@ -339,7 +339,67 @@ h1, h2, h3, h4, p, div, span, label {
     color: var(--ink-mute) !important;
 }
 
-/* ── Text area — Notion/Claude ── */
+/* ── Prompt form — textarea with embedded submit button ── */
+[data-testid="stForm"] {
+    background: var(--cream-3) !important;
+    border: 1.5px solid var(--line-soft) !important;
+    border-radius: var(--r) !important;
+    position: relative !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    transition: border-color .2s, box-shadow .2s, background .2s !important;
+}
+[data-testid="stForm"]:focus-within {
+    border-color: var(--green) !important;
+    box-shadow: 0 0 0 4px rgba(46,139,77,.09) !important;
+    background: #fff !important;
+}
+[data-testid="stForm"] .stTextArea textarea {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 20px 22px 68px 22px !important;
+    box-shadow: none !important;
+    caret-color: var(--green) !important;
+}
+[data-testid="stForm"] .stTextArea textarea:focus {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    outline: none !important;
+}
+[data-testid="stForm"] .stTextArea > div {
+    border: none !important;
+    background: transparent !important;
+}
+/* Embed the submit button at bottom-right inside the form */
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] {
+    position: absolute !important;
+    bottom: 14px !important;
+    right: 14px !important;
+    z-index: 10 !important;
+}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] > button {
+    background: var(--green) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: var(--rs) !important;
+    padding: 10px 22px !important;
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: .01em !important;
+    box-shadow: 0 2px 10px rgba(46,139,77,.22) !important;
+    transition: all .2s !important;
+    cursor: pointer !important;
+}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] > button:hover {
+    background: var(--green-br) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 5px 16px rgba(46,139,77,.30) !important;
+}
+
+/* ── Text area — standalone (outside forms) ── */
 .stTextArea textarea {
     background: var(--cream-3) !important;
     color: var(--ink) !important;
@@ -824,38 +884,34 @@ if st.session_state.stage == "setup":
         label_visibility="collapsed",
     )
 
-    # ── PROMPT ────────────────────────────────────────────────────────────────
+    # ── PROMPT + RUN (embedded button inside textarea) ────────────────────────
     st.markdown('<div class="sec">Your brief <span class="line"></span></div>',
                 unsafe_allow_html=True)
-    prompt = st.text_area(
-        "prompt",
-        height=150,
-        placeholder=(
-            "Describe in plain English — the LLM turns this into the actual searches.\n\n"
-            "e.g. Find Bangalore-based mid-market IT firms or SaaS companies that hired "
-            "a new CTO or CDO in the last 90 days and are publicly discussing legacy "
-            "infrastructure pain. Skip anyone partnered with Infosys or TCS."
-        ),
-        label_visibility="collapsed",
-    )
 
-    # ── KEY STATUS + RUN ──────────────────────────────────────────────────────
     missing_keys = []
     if not os.getenv("GEMINI_API_KEY"): missing_keys.append("GEMINI_API_KEY")
     if not os.getenv("SERPER_API_KEY"): missing_keys.append("SERPER_API_KEY")
 
     if missing_keys:
         st.markdown(
-            f'<div class="notice warn">Missing API keys: {", ".join(missing_keys)} '
-            f'— add them to .env or Streamlit secrets</div>',
+            f'<div class="notice warn" style="margin-bottom:10px">Missing keys: '
+            f'{", ".join(missing_keys)} — add them to .env or Streamlit secrets</div>',
             unsafe_allow_html=True,
         )
 
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-
-    run_col, _ = st.columns([1, 3])
-    with run_col:
-        run = st.button("Run Agent", use_container_width=True, type="primary")
+    with st.form("run_form", border=False, clear_on_submit=False):
+        prompt = st.text_area(
+            "brief",
+            height=160,
+            placeholder=(
+                "Describe in plain English — the LLM turns this into the actual searches.\n\n"
+                "e.g. Find Bangalore-based mid-market IT firms or SaaS companies that hired "
+                "a new CTO or CDO in the last 90 days and are publicly discussing legacy "
+                "infrastructure pain. Skip anyone already with Infosys or TCS."
+            ),
+            label_visibility="collapsed",
+        )
+        run = st.form_submit_button("Run Agent →")
 
     if run:
         if not prompt.strip():
@@ -863,15 +919,15 @@ if st.session_state.stage == "setup":
             st.stop()
         os.environ["MAX_LEADS_PER_RUN"] = str(max_leads)
         os.environ["MIN_SCORE_THRESHOLD"] = str(threshold)
-        st.session_state.industries = list(industries) if industries else all_industries
-        st.session_state.locations  = [location]
-        st.session_state.titles     = list(titles) if titles else all_titles
-        st.session_state.prompt     = prompt.strip()
-        st.session_state.max_leads  = max_leads
-        st.session_state.events     = []
-        st.session_state.sources    = {}
+        st.session_state.industries   = list(industries) if industries else all_industries
+        st.session_state.locations    = [location]
+        st.session_state.titles       = list(titles) if titles else all_titles
+        st.session_state.prompt       = prompt.strip()
+        st.session_state.max_leads    = max_leads
+        st.session_state.events       = []
+        st.session_state.sources      = {}
         st.session_state.stage_status = {}
-        st.session_state.stage      = "running"
+        st.session_state.stage        = "running"
         st.rerun()
 
 
