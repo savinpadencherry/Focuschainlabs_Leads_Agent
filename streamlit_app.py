@@ -1,12 +1,13 @@
 """
-FocusChain LeadGen — Production UI
-Focus Chain Labs brand palette · Glass morphism · Zero emojis · Streamlit Cloud ready.
+FocusChain LeadGen — main UI
+Cream / ink / green brand · 3-stage flow · live agent pipeline.
 """
 
 from __future__ import annotations
 import os
 import json
 import glob
+import time
 import pandas as pd
 from datetime import datetime
 
@@ -28,1062 +29,1242 @@ except Exception:
 
 os.makedirs("output", exist_ok=True)
 
-# ── Page Config ───────────────────────────────────────────────────────────────
+# ── Page Config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Focus Chain Labs — LeadGen",
-    page_icon="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>",
+    page_title="FocusChain Labs — LeadGen",
+    page_icon="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='%232E8B4D'/></svg>",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# ── CSS ───────────────────────────────────────────────────────────────────────
+# ── Brand CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 :root {
-    --bg:          #020b16;
-    --surface:     #010d19;
-    --navy:        #003B5C;
-    --green:       #2EBC5D;
-    --elevated:    rgba(0, 59, 92, 0.18);
-    --glass:       rgba(255, 255, 255, 0.03);
-    --border:      rgba(255, 255, 255, 0.07);
-    --border-m:    rgba(255, 255, 255, 0.12);
-    --border-h:    rgba(255, 255, 255, 0.20);
-    --glow:        rgba(46, 188, 93, 0.10);
-    --glow-strong: rgba(46, 188, 93, 0.18);
-    --t1:          #f8fafc;
-    --t2:          #94a3b8;
-    --t3:          #475569;
-    --amber:       #F59E0B;
-    --amber-bg:    rgba(245, 158, 11, 0.08);
-    --score-hi:    #2EBC5D;
-    --score-mid:   #F59E0B;
-    --score-lo:    #475569;
-    --r:           10px;
-    --rs:          7px;
+    --cream:     #F4F0E7;
+    --cream-2:   #EFEADE;
+    --cream-3:   #FBFAF7;
+    --ink:       #0F2A33;
+    --ink-soft:  #3C5158;
+    --ink-mute:  #5A6E75;
+    --green:     #2E8B4D;
+    --green-br:  #37A85C;
+    --green-bg:  rgba(46,139,77,.08);
+    --green-bg2: rgba(46,139,77,.14);
+    --line:      rgba(15,42,51,.16);
+    --line-soft: rgba(15,42,51,.08);
+    --line-mid:  rgba(15,42,51,.22);
+    --amber:     #B7791F;
+    --amber-bg:  rgba(183,121,31,.10);
+    --red:       #A93D3D;
+    --red-bg:    rgba(169,61,61,.10);
+    --rs:        8px;
+    --r:         12px;
+    --rl:        18px;
 }
 
 /* ── Reset ── */
 html, body { margin: 0; padding: 0; }
 
-/* ── App base — dark + hexagon pattern ── */
+/* ── App base — cream + paper grain ── */
 .stApp {
-    background-color: #020b16 !important;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='84' viewBox='0 0 48 84'%3E%3Cpath d='M24 0L48 14L48 42L24 56L0 42L0 14L24 0Z' fill='%23003B5C' fill-opacity='0.04'/%3E%3C/svg%3E") !important;
-    font-family: 'Inter', -apple-system, sans-serif !important;
-    color: var(--t1) !important;
+    background-color: var(--cream) !important;
+    color: var(--ink) !important;
+    font-family: 'Bricolage Grotesque', -apple-system, sans-serif !important;
+}
+.stApp::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,.55), transparent 60%),
+      radial-gradient(130% 110% at 50% 110%, rgba(15,42,51,.06), transparent 55%);
+}
+.stApp::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    opacity: .45; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='0.045'/></svg>");
 }
 .block-container {
-    padding-top: 20px !important;
-    max-width: 900px !important;
+    padding-top: 28px !important;
+    padding-bottom: 80px !important;
+    max-width: 1040px !important;
+    position: relative; z-index: 1;
 }
 
-/* ── Sidebar ── */
-[data-testid="stSidebar"] {
-    background: var(--surface) !important;
-    border-right: 1px solid var(--border) !important;
+/* hide collapsed sidebar visually */
+[data-testid="stSidebar"] { display: none !important; }
+[data-testid="collapsedControl"] { display: none !important; }
+header[data-testid="stHeader"] {
+    background: transparent !important;
+    height: 0 !important;
 }
-[data-testid="stSidebar"] > div:first-child { padding-top: 20px !important; }
 
-/* ── Primary button — brand gradient ── */
+/* ── Typography ── */
+h1, h2, h3, h4, h5, h6, p, div, span, label {
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    color: var(--ink);
+}
+.mono { font-family: 'JetBrains Mono', monospace !important; }
+
+/* ── Eyebrow ── */
+.eyebrow {
+    display: inline-flex; align-items: center; gap: 14px;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: .42em; text-transform: uppercase;
+    color: var(--green);
+    animation: fadeUp .7s ease .1s both;
+}
+.eyebrow .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 4px rgba(46,139,77,.16);
+}
+.eyebrow .dash {
+    width: 28px; height: 1.5px; background: var(--green);
+}
+
+/* ── Wordmark ── */
+.wordmark {
+    margin: 18px 0 8px;
+    font-weight: 800;
+    font-size: clamp(38px, 6vw, 64px);
+    letter-spacing: -.035em;
+    line-height: .96;
+    color: var(--ink);
+}
+.wordmark .accent { color: var(--green); }
+.wordmark span {
+    display: inline-block; overflow: hidden; vertical-align: bottom;
+}
+.wordmark span i {
+    font-style: normal; display: inline-block;
+    transform: translateY(110%);
+    animation: rise .9s cubic-bezier(.16,1,.3,1) forwards;
+}
+.wordmark .w2 i { animation-delay: .14s; }
+
+.tagline {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 13px; color: var(--ink-soft);
+    letter-spacing: .04em;
+    animation: fadeUp .7s ease .5s both;
+}
+
+/* ── Stage rail (step indicator) ── */
+.steps {
+    display: flex; align-items: center; gap: 14px;
+    margin: 26px 0 38px;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink-mute);
+}
+.steps .num {
+    display: inline-block; width: 22px; height: 22px;
+    border-radius: 50%; border: 1.5px solid var(--line-mid);
+    text-align: center; line-height: 19px;
+    margin-right: 8px;
+    background: var(--cream-3); color: var(--ink-soft);
+}
+.steps .step.active .num {
+    background: var(--ink); color: var(--cream); border-color: var(--ink);
+}
+.steps .step.done .num {
+    background: var(--green); color: #fff; border-color: var(--green);
+}
+.steps .step.active { color: var(--ink); }
+.steps .step.done { color: var(--green); }
+.steps .seg {
+    flex: 1; height: 1.5px; background: var(--line-soft);
+    position: relative; overflow: hidden;
+}
+.steps .seg.done { background: var(--green); }
+
+/* ── Card surfaces ── */
+.card {
+    background: var(--cream-3);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r);
+    padding: 24px 26px;
+    margin-bottom: 14px;
+    transition: border-color .25s ease, transform .25s ease;
+}
+.card:hover { border-color: var(--line); }
+.card-hd {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: .22em; text-transform: uppercase;
+    color: var(--green); margin-bottom: 6px;
+}
+.card-ti {
+    font-size: 16px; font-weight: 700;
+    color: var(--ink); margin-bottom: 4px;
+}
+.card-sb {
+    font-size: 13px; color: var(--ink-soft);
+    line-height: 1.55;
+}
+
+/* ── Section title ── */
+.sec-ti {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: .22em; text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 26px 0 12px;
+    display: flex; align-items: center; gap: 10px;
+}
+.sec-ti .bar {
+    flex: 1; height: 1px; background: var(--line-soft);
+}
+
+/* ── Streamlit overrides ── */
+/* Primary button — ink filled */
 .stButton > button {
-    background: linear-gradient(135deg, #003B5C 0%, #2EBC5D 100%) !important;
-    color: #fff !important;
-    border: none !important;
+    background: var(--ink) !important;
+    color: var(--cream) !important;
+    border: 1.5px solid var(--ink) !important;
     border-radius: var(--rs) !important;
-    font-family: 'Inter', sans-serif !important;
+    font-family: 'Bricolage Grotesque', sans-serif !important;
     font-weight: 600 !important;
     font-size: 14px !important;
-    letter-spacing: 0.01em !important;
-    padding: 10px 18px !important;
-    transition: opacity 0.15s, transform 0.1s, box-shadow 0.2s !important;
+    letter-spacing: .01em !important;
+    padding: 12px 24px !important;
+    transition: all .2s ease !important;
+    box-shadow: 0 1px 0 rgba(15,42,51,.06) !important;
 }
 .stButton > button:hover {
-    opacity: 0.88 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 8px 32px rgba(46, 188, 93, 0.22) !important;
+    background: var(--green) !important;
+    border-color: var(--green) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(46,139,77,.20) !important;
 }
-.stButton > button:active  { transform: translateY(0) !important; }
-.stButton > button:disabled { opacity: 0.35 !important; cursor: not-allowed !important; }
-
-/* ── Select / Multiselect ── */
-[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
-[data-testid="stMultiSelect"] div[data-baseweb="select"] > div {
-    background: var(--elevated) !important;
-    border-color: var(--border-m) !important;
-    border-radius: var(--rs) !important;
-    color: var(--t1) !important;
-}
-span[data-baseweb="tag"] {
-    background: rgba(0,59,92,0.35) !important;
-    border: 1px solid rgba(46,188,93,0.25) !important;
-    border-radius: 99px !important;
+.stButton > button:focus, .stButton > button:active {
+    background: var(--green-br) !important;
+    border-color: var(--green-br) !important;
+    box-shadow: 0 0 0 3px rgba(46,139,77,.18) !important;
 }
 
-/* ── Text inputs ── */
+/* Form labels */
+.stTextArea label, .stTextInput label, .stMultiSelect label,
+.stSelectbox label, .stSlider label, .stRadio label {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10.5px !important; font-weight: 600 !important;
+    letter-spacing: .22em !important; text-transform: uppercase !important;
+    color: var(--ink-soft) !important;
+}
+
+/* Text area — Notion / Claude style */
+.stTextArea textarea {
+    background: var(--cream-3) !important;
+    color: var(--ink) !important;
+    border: 1.5px solid var(--line-soft) !important;
+    border-radius: var(--r) !important;
+    padding: 18px 20px !important;
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    font-size: 15.5px !important;
+    line-height: 1.65 !important;
+    caret-color: var(--green) !important;
+    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease !important;
+    resize: none !important;
+    box-shadow: none !important;
+}
+.stTextArea textarea:focus {
+    border-color: var(--green) !important;
+    background: #fff !important;
+    box-shadow: 0 0 0 4px rgba(46,139,77,.10) !important;
+    outline: none !important;
+}
+.stTextArea textarea::placeholder {
+    color: var(--ink-mute) !important;
+    font-style: italic !important;
+    font-weight: 300 !important;
+    opacity: .75 !important;
+}
+.stTextArea > div { border: none !important; background: transparent !important; }
+
+/* Text inputs */
 .stTextInput input {
-    background: var(--elevated) !important;
-    border-color: var(--border-m) !important;
-    color: var(--t1) !important;
+    background: var(--cream-3) !important;
+    color: var(--ink) !important;
+    border: 1.5px solid var(--line-soft) !important;
     border-radius: var(--rs) !important;
-    font-family: 'Inter', sans-serif !important;
-    font-size: 13px !important;
+    padding: 10px 14px !important;
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    font-size: 14px !important;
+    transition: border-color .2s, box-shadow .2s !important;
 }
 .stTextInput input:focus {
     border-color: var(--green) !important;
-    box-shadow: 0 0 0 3px var(--glow) !important;
+    box-shadow: 0 0 0 3px rgba(46,139,77,.10) !important;
 }
 
-/* ── Prompt textarea — Notion / Claude style ── */
-.stTextArea textarea {
-    background: rgba(255, 255, 255, 0.02) !important;
-    border: 1px solid rgba(255, 255, 255, 0.07) !important;
-    color: var(--t1) !important;
-    border-radius: var(--r) !important;
-    font-family: 'Inter', sans-serif !important;
-    font-size: 14px !important;
-    line-height: 1.75 !important;
-    padding: 14px 16px !important;
-    caret-color: var(--green) !important;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
-    resize: none !important;
+/* Selectbox + Multiselect */
+.stSelectbox > div > div, .stMultiSelect > div > div {
+    background: var(--cream-3) !important;
+    border: 1.5px solid var(--line-soft) !important;
+    border-radius: var(--rs) !important;
+    color: var(--ink) !important;
 }
-.stTextArea textarea:focus {
-    border-color: rgba(46, 188, 93, 0.45) !important;
-    box-shadow: 0 0 0 3px rgba(46, 188, 93, 0.07) !important;
-    background: rgba(255, 255, 255, 0.03) !important;
+.stMultiSelect [data-baseweb="tag"] {
+    background: var(--green-bg) !important;
+    color: var(--green) !important;
+    border: 1px solid var(--green-bg2) !important;
+    border-radius: 6px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
 }
-.stTextArea textarea::placeholder {
-    color: var(--t3) !important;
-    font-style: italic !important;
-    font-weight: 300 !important;
-}
+.stMultiSelect [data-baseweb="tag"] span { color: var(--green) !important; }
 
-/* ── Slider ── */
-[data-testid="stSlider"] [role="slider"] {
+/* Slider */
+.stSlider [role="slider"] { background: var(--green) !important; }
+.stSlider [data-baseweb="slider"] > div > div > div {
     background: var(--green) !important;
-    border: 2px solid #fff !important;
-}
-[data-testid="stSlider"] div[data-testid="stSliderTrackFill"] {
-    background: linear-gradient(90deg, var(--navy), var(--green)) !important;
 }
 
-/* ── Progress bar ── */
-[data-testid="stProgress"] > div {
-    background: rgba(0, 59, 92, 0.3) !important;
-    border-radius: 99px !important;
-    height: 5px !important;
-}
-[data-testid="stProgress"] > div > div {
-    background: linear-gradient(90deg, var(--navy), var(--green)) !important;
-    border-radius: 99px !important;
-}
-
-/* ── Metrics ── */
-[data-testid="stMetric"] {
-    background: var(--glass) !important;
-    border: 1px solid var(--border) !important;
-    backdrop-filter: blur(12px) !important;
-    border-radius: var(--r) !important;
-    padding: 14px 18px !important;
-}
-[data-testid="stMetricLabel"] p {
-    color: var(--t3) !important;
-    font-size: 10px !important;
-    letter-spacing: 0.09em !important;
-    text-transform: uppercase !important;
-    font-weight: 700 !important;
-}
-[data-testid="stMetricValue"] { color: var(--t1) !important; font-weight: 700 !important; }
-
-/* ── Expander ── */
-[data-testid="stExpander"] {
-    background: var(--glass) !important;
-    border: 1px solid var(--border) !important;
+/* Radio buttons (industry pills) */
+.stRadio > div { gap: 10px !important; }
+.stRadio label {
+    background: var(--cream-3) !important;
+    border: 1.5px solid var(--line-soft) !important;
     border-radius: var(--rs) !important;
-    backdrop-filter: blur(8px) !important;
+    padding: 10px 16px !important;
+    transition: all .2s !important;
+    cursor: pointer !important;
+}
+.stRadio label:hover {
+    border-color: var(--green) !important;
+    background: var(--green-bg) !important;
 }
 
-/* ── File uploader ── */
-[data-testid="stFileUploader"] {
-    background: var(--glass) !important;
-    border: 1px dashed var(--border-m) !important;
-    border-radius: var(--r) !important;
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 24px !important;
+    border-bottom: 1px solid var(--line-soft) !important;
 }
-
-/* ── Number input ── */
-[data-testid="stNumberInput"] input {
-    background: var(--elevated) !important;
-    border-color: var(--border-m) !important;
-    color: var(--t1) !important;
-    border-radius: var(--rs) !important;
-}
-
-/* ── Tabs ── */
-[data-testid="stTabs"] [role="tablist"] {
-    border-bottom: 1px solid var(--border) !important;
-    gap: 0 !important;
-}
-button[role="tab"] {
-    color: var(--t3) !important;
-    font-family: 'Inter', sans-serif !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-    padding: 8px 18px !important;
-    border-radius: 0 !important;
-    border-bottom: 2px solid transparent !important;
-    transition: color 0.15s, border-color 0.15s !important;
-}
-button[role="tab"][aria-selected="true"] {
-    color: var(--t1) !important;
-    border-bottom-color: var(--green) !important;
+.stTabs [data-baseweb="tab"] {
     background: transparent !important;
+    color: var(--ink-mute) !important;
+    border: none !important;
+    padding: 8px 0 14px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    letter-spacing: .18em !important;
+    text-transform: uppercase !important;
+}
+.stTabs [aria-selected="true"] {
+    color: var(--ink) !important;
+    border-bottom: 2px solid var(--green) !important;
 }
 
-/* ── Divider ── */
-hr { border-color: var(--border) !important; margin: 12px 0 !important; }
-
-/* ── Animations ── */
-@keyframes pulse    { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.8)} }
-@keyframes fade-up  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-@keyframes scan     { 0%{left:-40%} 100%{left:120%} }
-@keyframes glow-ani { 0%,100%{box-shadow:0 0 0 0 var(--glow)} 50%{box-shadow:0 0 0 6px transparent} }
-
-/* ── Sidebar helpers ── */
-.sb-lbl {
-    display: block;
-    font-size: 10px; font-weight: 700;
-    letter-spacing: .1em; color: var(--t3);
-    text-transform: uppercase; margin: 14px 0 5px;
+/* Progress bar */
+.stProgress > div > div > div {
+    background: var(--green) !important;
 }
-.sb-meta {
-    background: var(--glass); border: 1px solid var(--border);
-    backdrop-filter: blur(8px); border-radius: var(--rs);
-    padding: 10px 13px; margin: 6px 0;
-    font-size: 12px; color: var(--t2);
-}
-.api-row { display:flex; align-items:center; gap:8px; padding:5px 0; }
-.api-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
-.api-name { font-size:12px; flex:1; color:var(--t2); }
-.api-tag  { font-size:10px; color:var(--t3); }
-
-/* ── Radio (ICP selector) ── */
-[data-testid="stRadio"] > div { flex-direction:column; gap:4px; }
-[data-testid="stRadio"] label {
-    background: var(--glass);
-    border: 1px solid var(--border);
-    border-radius: var(--rs);
-    padding: 10px 14px !important;
-    cursor: pointer;
-    transition: border-color .15s, background .15s;
-    font-size: 13px !important;
-    backdrop-filter: blur(8px);
-}
-[data-testid="stRadio"] label:has(input:checked) {
-    border-color: rgba(46,188,93,0.45) !important;
-    background: rgba(46,188,93,0.06) !important;
+.stProgress > div > div {
+    background: var(--line-soft) !important;
+    height: 3px !important;
 }
 
-/* ── Hero ── */
-.hero {
-    text-align: center;
-    padding: 56px 20px 44px;
-    animation: fade-up .45s ease;
+/* Expander */
+.streamlit-expanderHeader {
+    background: var(--cream-3) !important;
+    border: 1px solid var(--line-soft) !important;
+    border-radius: var(--rs) !important;
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: var(--ink) !important;
 }
-.hero-badge {
-    display: inline-block;
-    padding: 4px 16px;
-    margin-bottom: 24px;
-    font-size: 10px; font-weight: 700;
-    letter-spacing: .18em; text-transform: uppercase;
-    color: var(--green);
-    background: rgba(46,188,93,0.08);
-    border: 1px solid rgba(46,188,93,0.20);
-    border-radius: 4px;
-}
-.hero-title {
-    font-size: clamp(28px,4vw,46px);
-    font-weight: 700; line-height: 1.12;
-    letter-spacing: -.03em; color: var(--t1);
-    margin: 0 0 16px;
-}
-.hero-title span {
-    background: linear-gradient(90deg, #ffffff, #2EBC5D);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-.hero-sub {
-    font-size: 15px; color: var(--t2);
-    line-height: 1.7; font-weight: 300;
-    max-width: 480px; margin: 0 auto 48px;
+.streamlit-expanderContent {
+    background: var(--cream-3) !important;
+    border: 1px solid var(--line-soft) !important;
+    border-top: none !important;
+    border-radius: 0 0 var(--rs) var(--rs) !important;
 }
 
-/* ── Feature grid ── */
-.feat-grid {
-    display: grid;
-    grid-template-columns: repeat(4,1fr);
+/* Download button is also a stButton */
+.stDownloadButton > button { background: var(--green) !important; border-color: var(--green) !important; color: #fff !important; }
+.stDownloadButton > button:hover { background: var(--green-br) !important; border-color: var(--green-br) !important; }
+
+/* DataFrame */
+.stDataFrame, .stDataFrame [data-testid="stDataFrameResizable"] {
+    background: var(--cream-3) !important;
+    border-radius: var(--rs) !important;
+    border: 1px solid var(--line-soft) !important;
+}
+
+/* ── Industry chips (rendered as raw HTML, not Streamlit) ── */
+.chip-grid {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 8px 0 4px;
+}
+.chip {
+    padding: 8px 14px;
+    background: var(--cream-3);
+    border: 1.5px solid var(--line-soft);
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: .04em;
+    color: var(--ink-soft);
+    transition: all .2s;
+}
+
+/* ── Pipeline (animated SVG-style nodes via CSS) ── */
+.pipe-wrap {
+    background: var(--cream-3);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rl);
+    padding: 38px 32px 28px;
+    margin: 16px 0 22px;
+}
+.pipe {
+    display: flex; align-items: center; justify-content: space-between;
+    position: relative; margin-bottom: 14px;
+}
+.pipe-track {
+    position: absolute; top: 18px; left: 6%; right: 6%; height: 2px;
+    background: var(--line-soft); border-radius: 2px;
+}
+.pipe-flow {
+    position: absolute; top: 18px; left: 6%; height: 2px;
+    background: var(--green); border-radius: 2px;
+    transition: width 1s cubic-bezier(.65,0,.35,1);
+}
+.pipe-node {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column; align-items: center;
     gap: 10px;
-    max-width: 820px;
-    margin: 0 auto 40px;
+    flex: 1; min-width: 0;
 }
-@media(max-width:680px){ .feat-grid { grid-template-columns: repeat(2,1fr); } }
-.feat {
-    background: var(--glass);
-    border: 1px solid var(--border);
-    backdrop-filter: blur(16px);
-    border-radius: var(--r);
-    padding: 20px 16px;
-    text-align: left;
-    transition: border-color .2s, transform .2s;
-}
-.feat:hover { border-color: var(--border-h); transform: translateY(-2px); }
-.feat-num {
+.pipe-dot {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--cream);
+    border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10px; font-weight: 500;
-    color: var(--green); letter-spacing: .06em;
+    font-size: 12px; font-weight: 700;
+    color: var(--ink-mute);
+    transition: all .35s cubic-bezier(.34,1.56,.64,1);
+}
+.pipe-node.active .pipe-dot {
+    background: var(--cream);
+    border-color: var(--green);
+    color: var(--green);
+    transform: scale(1.12);
+    box-shadow: 0 0 0 6px rgba(46,139,77,.10);
+    animation: pulse 1.4s ease-in-out infinite;
+}
+.pipe-node.done .pipe-dot {
+    background: var(--green); border-color: var(--green); color: #fff;
+}
+.pipe-lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px; font-weight: 600;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink-mute);
+    text-align: center;
+}
+.pipe-node.active .pipe-lbl { color: var(--green); }
+.pipe-node.done .pipe-lbl { color: var(--green); }
+
+/* ── Source feed (live) ── */
+.feed {
+    background: var(--cream-3);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r);
+    padding: 14px 18px;
     margin-bottom: 12px;
-}
-.feat-name { font-size: 12px; font-weight: 600; color: var(--t1); margin-bottom: 4px; }
-.feat-desc { font-size: 11px; color: var(--t3); line-height: 1.55; }
-
-/* ── Tip ── */
-.tip {
-    display: inline-block;
-    background: var(--glass);
-    border: 1px solid var(--border);
-    backdrop-filter: blur(12px);
-    border-radius: var(--r);
-    padding: 12px 20px;
-    font-size: 13px; color: var(--t3);
-    max-width: 560px;
-}
-
-/* ── Pipeline ── */
-.pl-header {
-    display: flex; align-items: center; gap: 12px;
-    padding: 13px 18px;
-    background: var(--glass);
-    border: 1px solid var(--border-m);
-    backdrop-filter: blur(12px);
-    border-radius: var(--r);
-    margin-bottom: 14px;
-    animation: fade-up .3s ease;
-}
-.live-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--green);
-    animation: pulse 1.4s infinite;
-    flex-shrink: 0;
-}
-.pl-stage { font-size: 14px; font-weight: 600; flex: 1; }
-.pl-meta  { font-size: 11px; color: var(--t3); }
-
-/* ── Source cards ── */
-.sources { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-.src {
-    display: flex; align-items: center; gap: 12px;
-    background: var(--glass);
-    border: 1px solid var(--border);
-    backdrop-filter: blur(12px);
-    border-radius: var(--rs); padding: 11px 16px;
-    transition: border-color .3s;
-    position: relative; overflow: hidden;
-}
-.src.running { border-color: rgba(46,188,93,0.35); animation: glow-ani 2s infinite; }
-.src.done    { border-color: rgba(46,188,93,0.25); }
-.src.skip    { opacity: .4; }
-.src.warn    { border-color: rgba(245,158,11,0.25); }
-.scan-line {
-    position: absolute; top: 0; left: 0; width: 38%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(46,188,93,0.06), transparent);
-    animation: scan 2s linear infinite;
-}
-.src-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.src-dot.pending { background: var(--t3); }
-.src-dot.running { background: var(--green); animation: pulse .9s infinite; }
-.src-dot.done    { background: var(--green); }
-.src-dot.skip    { background: var(--t3); }
-.src-dot.warn    { background: var(--amber); }
-.src-lbl  { font-size: 13px; font-weight: 500; flex: 1; }
-.src-badge { font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 99px; }
-.src-badge.done { background: rgba(46,188,93,0.10); color: var(--green); }
-.src-badge.warn { background: var(--amber-bg); color: var(--amber); }
-.src-note  { font-size: 11px; color: var(--t3); }
-
-/* ── Progress block ── */
-.prog-block {
-    background: var(--glass);
-    border: 1px solid var(--border);
-    backdrop-filter: blur(12px);
-    border-radius: var(--r);
-    padding: 15px 18px; margin-bottom: 12px;
-}
-.prog-lbl {
-    font-size: 10px; font-weight: 700;
-    letter-spacing: .09em; color: var(--t3);
-    text-transform: uppercase; margin-bottom: 8px;
-}
-.prog-company {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; color: var(--t3);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 12px;
+}
+.feed-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--line-soft);
+}
+.feed-row:last-child { border-bottom: none; }
+.feed-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--line); flex-shrink: 0;
+}
+.feed-dot.run {
+    background: var(--green);
+    animation: blink 1s ease-in-out infinite;
+}
+.feed-dot.done { background: var(--green); }
+.feed-dot.warn { background: var(--amber); }
+.feed-dot.skip { background: var(--line-mid); }
+.feed-name {
+    flex: 1; color: var(--ink); font-weight: 500;
+}
+.feed-status {
+    color: var(--ink-mute);
+    font-size: 11px;
+    letter-spacing: .04em;
+}
+.feed-count {
+    font-weight: 700; color: var(--ink);
+    background: var(--green-bg);
+    padding: 2px 8px; border-radius: 4px;
+}
+
+/* ── Score chips ── */
+.score-chip {
+    display: inline-flex; align-items: center;
+    padding: 4px 10px; border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: .04em;
+}
+.score-hi { background: var(--green-bg2); color: var(--green); }
+.score-mid { background: var(--amber-bg); color: var(--amber); }
+.score-lo { background: var(--red-bg); color: var(--red); }
+
+/* ── Lead card ── */
+.lead-card {
+    background: var(--cream-3);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r);
+    padding: 22px 24px;
+    margin-bottom: 14px;
+    transition: all .2s;
+}
+.lead-card:hover {
+    border-color: var(--line);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(15,42,51,.05);
+}
+.lead-hd {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 14px; gap: 16px;
+}
+.lead-name {
+    font-size: 18px; font-weight: 700; color: var(--ink);
+    margin-bottom: 4px;
+}
+.lead-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-mute);
+    letter-spacing: .04em;
+}
+.lead-signal {
+    border-left: 2px solid var(--green);
+    padding: 4px 0 4px 14px;
+    margin: 10px 0;
+    font-size: 13.5px; color: var(--ink); line-height: 1.55;
+}
+.lead-line {
+    background: var(--green-bg);
+    border-radius: var(--rs);
+    padding: 12px 16px;
+    margin-top: 12px;
+    font-size: 13.5px;
+    font-style: italic;
+    color: var(--ink);
+    line-height: 1.6;
+}
+.lead-chips {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+}
+.lead-chips .k {
+    color: var(--ink-mute);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-right: 4px;
+}
+
+/* ── Keyframes ── */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes rise   { to   { transform: translateY(0); } }
+@keyframes pulse  { 0%, 100% { box-shadow: 0 0 0 6px rgba(46,139,77,.10); } 50% { box-shadow: 0 0 0 10px rgba(46,139,77,.04); } }
+@keyframes blink  { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+    }
+}
+
+/* ── Misc Streamlit cleanups ── */
+.stApp [data-testid="stToolbar"] { display: none !important; }
+footer { display: none !important; }
+#MainMenu { display: none !important; }
+hr { border-color: var(--line-soft) !important; margin: 32px 0 !important; }
+.element-container { animation: fadeIn .5s ease both; }
+
+/* ── Plan summary chips ── */
+.plan-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+    margin-top: 14px;
+}
+.plan-cell {
+    background: var(--cream-3);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rs);
+    padding: 14px 16px;
+}
+.plan-cell .k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 600;
+    letter-spacing: .22em; text-transform: uppercase;
+    color: var(--green); margin-bottom: 6px;
+}
+.plan-cell .v {
+    font-size: 13px; color: var(--ink); line-height: 1.55;
+}
+@media (max-width: 720px) { .plan-grid { grid-template-columns: 1fr; } }
+
+/* ── Stats row ── */
+.stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    margin: 10px 0 24px;
+}
+.stat {
+    background: var(--cream-3);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r);
+    padding: 18px 16px;
+    text-align: center;
+}
+.stat .num {
+    font-size: 28px; font-weight: 800; color: var(--ink);
+    letter-spacing: -.02em; line-height: 1;
+}
+.stat .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px; font-weight: 600;
+    letter-spacing: .22em; text-transform: uppercase;
+    color: var(--ink-mute);
     margin-top: 8px;
 }
-
-/* ── Score feed ── */
-.feed-hdr {
-    font-size: 10px; font-weight: 700;
-    letter-spacing: .09em; color: var(--t3);
-    text-transform: uppercase; margin: 14px 0 7px;
-}
-.feed-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 7px 0; border-bottom: 1px solid var(--border);
-    animation: fade-up .25s ease;
-}
-.feed-co  { font-size: 12px; color: var(--t2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.feed-bar-bg { width: 68px; height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; }
-.feed-bar    { height: 100%; border-radius: 99px; }
-.feed-num    { font-size: 11px; font-weight: 700; width: 24px; text-align: right; }
-.feed-q      { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 99px; letter-spacing: .04em; }
-.feed-q.yes  { background: rgba(46,188,93,0.10); color: var(--green); }
-.feed-q.no   { background: rgba(71,85,105,.18); color: var(--t3); }
-
-/* ── Results header ── */
-.res-header {
-    display: flex; align-items: center; gap: 14px;
-    padding: 16px 22px;
-    background: rgba(46,188,93,0.06);
-    border: 1px solid rgba(46,188,93,0.18);
-    backdrop-filter: blur(12px);
-    border-radius: var(--r);
-    margin-bottom: 24px;
-    animation: fade-up .3s ease;
-}
-.res-check {
-    width: 32px; height: 32px; border-radius: 8px;
-    background: rgba(46,188,93,0.12);
-    border: 1px solid rgba(46,188,93,0.25);
-    flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-}
-.res-check-inner {
-    width: 14px; height: 10px;
-    border-left: 2px solid var(--green);
-    border-bottom: 2px solid var(--green);
-    transform: rotate(-45deg) translate(1px, -2px);
-}
-.res-title { font-size: 15px; font-weight: 700; }
-.res-sub   { font-size: 12px; color: var(--t2); margin-top: 2px; }
-
-/* ── Lead cards ── */
-.lead-card {
-    background: var(--glass);
-    border: 1px solid var(--border);
-    backdrop-filter: blur(16px);
-    border-radius: var(--r); overflow: hidden;
-    margin: 10px 0; animation: fade-up .3s ease;
-    transition: border-color .2s;
-}
-.lead-card:hover { border-color: var(--border-h); }
-.lead-stripe { height: 3px; }
-.lead-body   { padding: 18px 22px; }
-.lead-top    { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
-.lead-rank   { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; color: var(--t3); width: 22px; flex-shrink: 0; padding-top: 3px; }
-.lead-info   { flex: 1; }
-.lead-name   { font-size: 15px; font-weight: 600; color: var(--t1); margin: 0 0 3px; }
-.lead-sub    { font-size: 12px; color: var(--t3); }
-.lead-score-num   { font-size: 22px; font-weight: 700; line-height: 1; }
-.lead-score-label { font-size: 9px; color: var(--t3); text-align: right; letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
-.lead-bar-bg { height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; margin: 10px 0 14px; }
-.lead-bar    { height: 100%; border-radius: 99px; }
-.chips       { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.chip {
-    display: inline-flex; align-items: center; gap: 5px;
-    background: var(--elevated);
-    border: 1px solid var(--border);
-    border-radius: 99px; padding: 4px 12px;
-    font-size: 11px; color: var(--t2);
-}
-.chip a { color: var(--green) !important; text-decoration: none !important; }
-.chip a:hover { text-decoration: underline !important; }
-.chip-label { font-size: 9px; font-weight: 700; letter-spacing: .07em; color: var(--t3); text-transform: uppercase; }
-.signal-row  { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--t2); margin-bottom: 10px; }
-.sig-line    { width: 2px; height: 14px; background: var(--green); flex-shrink: 0; border-radius: 1px; margin-top: 2px; }
-.sig-line.amber { background: var(--amber); }
-.pitch-box {
-    background: rgba(0, 59, 92, 0.20);
-    border: 1px solid rgba(46,188,93,0.18);
-    border-left: 2px solid var(--green);
-    padding: 12px 16px;
-    border-radius: 0 var(--rs) var(--rs) 0;
-    font-size: 13px; color: var(--t2);
-    font-style: italic; line-height: 1.7;
-}
-
-/* ── Hide Streamlit chrome ── */
-#MainMenu, footer,
-[data-testid="stToolbar"],
-[data-testid="stDecoration"] { display: none !important; }
+@media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Session state ─────────────────────────────────────────────────────────────
+# ── Session state ────────────────────────────────────────────────────────────
 def _init_state():
-    for k, v in {
-        "app_state": "idle",
-        "run_config": {},
-        "final_leads": [],
-        "output_path": None,
-        "stats": {},
-        "pipeline_error": None,
-    }.items():
+    defaults = {
+        "stage":         "setup",      # setup → running → results
+        "icp_path":      None,
+        "industries":    [],
+        "locations":     ["Bangalore"],
+        "titles":        [],
+        "prompt":        "",
+        "max_leads":     10,
+        "events":        [],
+        "leads":         [],
+        "output_path":   None,
+        "stats":         {},
+        "plan":          {},
+        "sources":       {},
+        "current_stage": None,
+        "stage_status":  {},   # stage_name → "running"/"done"
+    }
+    for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
 
 _init_state()
 
-# ── Score helpers ─────────────────────────────────────────────────────────────
-
-def _score_color(score: int) -> str:
-    if score >= 80: return "#2EBC5D"
-    if score >= 60: return "#F59E0B"
-    return "#475569"
-
-
-def _src_card_html(label: str, status: str, count: int = 0, reason: str = "") -> str:
-    scan = '<div class="scan-line"></div>' if status == "running" else ""
-    status_text = {
-        "pending": "waiting",
-        "running": "scanning",
-        "done":    f"{count:,} signals",
-        "skip":    reason or "no key — skipped",
-        "warn":    reason or "limited results",
-    }.get(status, status)
-    badge = ""
-    if status == "done" and count:
-        badge = f'<span class="src-badge done">{count}</span>'
-    elif status == "warn" and count:
-        badge = f'<span class="src-badge warn">{count}</span>'
-    return f"""
-    <div class="src {status}">
-        {scan}
-        <div class="src-dot {status}"></div>
-        <span class="src-lbl">{label}</span>
-        {badge}
-        <span class="src-note">{status_text}</span>
-    </div>"""
+# ── ICP discovery ────────────────────────────────────────────────────────────
+def discover_icps() -> dict:
+    icps = {}
+    for path in sorted(glob.glob("config/*.json")):
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            label = data.get("client") or data.get("vertical") or path
+            icps[label] = {"path": path, "data": data}
+        except Exception:
+            continue
+    return icps
 
 
-def _score_bar_html(score: int) -> str:
-    color = _score_color(score)
-    return f"""
-    <div class="lead-bar-bg">
-        <div class="lead-bar" style="width:{score}%;background:{color};"></div>
-    </div>"""
+ICPS = discover_icps()
 
 
-def _lead_card_html(rank: int, lead: dict) -> str:
-    score  = lead.get("total_score", 0)
-    color  = _score_color(score)
-    name   = lead.get("company_name", "—")
-    web    = lead.get("website", "")
-    src    = lead.get("source", "")
-    vrt    = lead.get("vertical", "")
-    signal = lead.get("primary_signal", "")
-    pain   = lead.get("pain_point", "")
-    pitch  = lead.get("opening_line", "")
-    cname  = lead.get("contact_name", "")
-    ctitle = lead.get("contact_title", "")
-    email  = lead.get("email", "")
-    li_url = lead.get("linkedin_url", "")
+# ─────────────────────────────────────────────────────────────────────────────
+#                                  HEADER
+# ─────────────────────────────────────────────────────────────────────────────
+st.markdown("""
+<div class="eyebrow">
+  <span class="dot"></span>
+  <span class="dash"></span>
+  FOCUSCHAIN LABS · LEAD AGENT
+  <span class="dash"></span>
+  <span class="dot"></span>
+</div>
 
-    chips = ""
-    if cname and "Manual" not in cname:
-        label = f'{cname}{"  ·  " + ctitle if ctitle and "Manual" not in ctitle else ""}'
-        chips += f'<span class="chip"><span class="chip-label">contact</span>{label}</span>'
-    if email and "Manual" not in email:
-        chips += f'<span class="chip"><span class="chip-label">email</span>{email}</span>'
-    if li_url and "Manual" not in li_url:
-        chips += f'<span class="chip"><a href="{li_url}" target="_blank">LinkedIn profile</a></span>'
-    if web and web.startswith("http"):
-        domain = web.split("//")[-1].split("/")[0].replace("www.", "")
-        chips += f'<span class="chip"><a href="{web}" target="_blank">{domain}</a></span>'
-    if src:
-        chips += f'<span class="chip"><span class="chip-label">via</span>{src}</span>'
+<h1 class="wordmark">
+  <span class="w1"><i>Find companies</i></span><br>
+  <span class="w2"><i class="accent">ready to buy</i></span>
+</h1>
 
-    signal_html = f'<div class="signal-row"><div class="sig-line amber"></div><span><b>Signal — </b>{signal}</span></div>' if signal else ""
-    pain_html   = f'<div class="signal-row"><div class="sig-line"></div><span><b>Pain point — </b>{pain}</span></div>' if pain else ""
-    pitch_html  = f'<div class="pitch-box">{pitch}</div>' if pitch else ""
-
-    return f"""
-    <div class="lead-card">
-        <div class="lead-stripe" style="background:{color};"></div>
-        <div class="lead-body">
-            <div class="lead-top">
-                <div class="lead-rank">0{rank}</div>
-                <div class="lead-info">
-                    <div class="lead-name">{name}</div>
-                    <div class="lead-sub">{vrt}</div>
-                </div>
-                <div style="text-align:right;">
-                    <div class="lead-score-num" style="color:{color};">{score}</div>
-                    <div class="lead-score-label">/ 100</div>
-                </div>
-            </div>
-            {_score_bar_html(score)}
-            <div class="chips">{chips}</div>
-            {signal_html}
-            {pain_html}
-            {pitch_html}
-        </div>
-    </div>"""
+<p class="tagline">prompt.intake()&nbsp;&nbsp;→&nbsp;&nbsp;signals.scan&nbsp;&nbsp;→&nbsp;&nbsp;outreach.deploy</p>
+""", unsafe_allow_html=True)
 
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-
-def render_sidebar():
-    with st.sidebar:
-        # Brand mark
-        st.markdown("""
-        <div style="padding:0 4px 16px;">
-            <div style="font-size:15px;font-weight:700;color:#f8fafc;letter-spacing:-.01em;">
-                Focus Chain Labs
-            </div>
-            <div style="font-size:10px;color:#475569;letter-spacing:.12em;text-transform:uppercase;margin-top:2px;">
-                Lead Generation Agent
-            </div>
-        </div>""", unsafe_allow_html=True)
-        st.divider()
-
-        # ICP selector
-        st.markdown('<span class="sb-lbl">Client ICP</span>', unsafe_allow_html=True)
-        config_files = sorted(glob.glob("config/*.json"))
-        if not config_files:
-            st.error("No config files found in /config/")
-            return None
-
-        config_labels = {
-            f.split("/")[-1].replace(".json", "").replace("_", " ").title(): f
-            for f in config_files
-        }
-        selected_label = st.radio("ICP", list(config_labels.keys()), label_visibility="collapsed")
-        selected_config_path = config_labels[selected_label]
-
-        with open(selected_config_path) as _f:
-            icp_preview = json.load(_f)
-
-        st.markdown(f"""
-        <div class="sb-meta">
-            <span style="color:#f8fafc;font-weight:600;">{icp_preview.get('client','')}</span>
-            <span style="color:#475569;"> · {icp_preview.get('vertical','')}</span><br>
-            <span style="color:#475569;font-size:11px;">{', '.join(icp_preview.get('locations',[]))}</span>
-        </div>""", unsafe_allow_html=True)
-
-        st.divider()
-
-        # Prompt field — Notion / Claude style
-        st.markdown("""
-        <div style="font-size:12px;font-weight:500;color:#94a3b8;margin-bottom:6px;letter-spacing:.01em;">
-            Describe what you are looking for
-        </div>""", unsafe_allow_html=True)
-        custom_focus = st.text_area(
-            "focus",
-            placeholder="Manufacturing companies in Bangalore that recently hired a new CTO and are upgrading their ERP infrastructure...",
-            height=110,
-            label_visibility="collapsed",
-            help="Plain language context — Gemini weighs this heavily when scoring each lead.",
-        )
-
-        # Industry filter
-        st.markdown('<span class="sb-lbl">Target industries</span>', unsafe_allow_html=True)
-        all_industries = icp_preview.get("target_industries", [])
-        selected_industries = st.multiselect(
-            "Industries", options=all_industries,
-            default=all_industries, label_visibility="collapsed"
-        )
-
-        # Location
-        st.markdown('<span class="sb-lbl">Location</span>', unsafe_allow_html=True)
-        location_val = st.text_input(
-            "Location",
-            value=", ".join(icp_preview.get("locations", ["Bangalore"])),
-            label_visibility="collapsed"
-        )
-
-        st.divider()
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown('<span class="sb-lbl">Max leads</span>', unsafe_allow_html=True)
-            max_leads = st.number_input("Max Leads", min_value=1, max_value=50,
-                                        value=10, label_visibility="collapsed")
-        with col2:
-            st.markdown('<span class="sb-lbl">Min score</span>', unsafe_allow_html=True)
-            min_score = st.number_input("Min Score", min_value=0, max_value=99,
-                                        value=int(os.getenv("MIN_SCORE_THRESHOLD", 60)),
-                                        label_visibility="collapsed")
-
-        with st.expander("Advanced"):
-            exclusion_file = st.file_uploader(
-                "Exclusion list (Excel)",
-                type=["xlsx"],
-                help="Companies already contacted — skipped automatically."
-            )
-
-        with st.expander("API status"):
-            for name, key, required in [
-                ("Gemini",    "GEMINI_API_KEY",    True),
-                ("Serper",    "SERPER_API_KEY",    True),
-                ("Apollo",    "APOLLO_API_KEY",    True),
-                ("ProxyCurl", "PROXYCURL_API_KEY", False),
-                ("Tracxn",    "TRACXN_API_KEY",    False),
-            ]:
-                has_key   = bool(os.getenv(key))
-                dot_color = "#2EBC5D" if has_key else "#EF4444" if required else "#F59E0B"
-                tag       = "" if has_key else ("required" if required else "optional")
-                st.markdown(f"""
-                <div class="api-row">
-                    <div class="api-dot" style="background:{dot_color};"></div>
-                    <span class="api-name">{name}</span>
-                    <span class="api-tag">{tag}</span>
-                </div>""", unsafe_allow_html=True)
-
-        st.divider()
-
-        is_running  = st.session_state.app_state == "running"
-        run_label   = "Running..." if is_running else "Run Agent"
-        run_clicked = st.button(run_label, use_container_width=True,
-                                disabled=is_running, type="primary")
-
-        if run_clicked and not is_running:
-            exclusion_path = None
-            if exclusion_file:
-                exclusion_path = "output/exclusion_upload.xlsx"
-                with open(exclusion_path, "wb") as _ef:
-                    _ef.write(exclusion_file.read())
-
-            os.environ["MIN_SCORE_THRESHOLD"] = str(int(min_score))
-
-            st.session_state.run_config = {
-                "icp_config_path":    selected_config_path,
-                "exclusion_list_path": exclusion_path,
-                "max_leads":          int(max_leads),
-                "override_industries": selected_industries or all_industries,
-                "custom_focus":       custom_focus.strip() if custom_focus else None,
-            }
-            st.session_state.app_state    = "running"
-            st.session_state.pipeline_error = None
-            st.rerun()
-
-        if st.session_state.app_state == "done":
-            if st.button("New Run", use_container_width=True):
-                st.session_state.app_state    = "idle"
-                st.session_state.final_leads  = []
-                st.session_state.output_path  = None
-                st.session_state.stats        = {}
-                st.rerun()
-
-    return selected_config_path
-
-
-# ── Idle view ─────────────────────────────────────────────────────────────────
-
-def render_idle():
-    st.markdown("""
-    <div class="hero">
-        <div class="hero-badge">Connected Intelligence</div>
-        <h1 class="hero-title">Find companies<br><span>ready to move now</span></h1>
-        <p class="hero-sub">
-            Signal detection across four live sources. AI scoring across four dimensions.
-            One ranked file with the right person and the right opening line.
-        </p>
-        <div class="feat-grid">
-            <div class="feat">
-                <div class="feat-num">01 — Signal detection</div>
-                <div class="feat-name">Four live sources</div>
-                <div class="feat-desc">Google, Tracxn, LinkedIn jobs, and Naukri scanned in sequence for buying signals</div>
-            </div>
-            <div class="feat">
-                <div class="feat-num">02 — AI scoring</div>
-                <div class="feat-name">Gemini 3.5 Flash</div>
-                <div class="feat-desc">Fit, trigger, reachability, and recency scored independently per company</div>
-            </div>
-            <div class="feat">
-                <div class="feat-num">03 — Contact enrichment</div>
-                <div class="feat-name">Apollo lookup</div>
-                <div class="feat-desc">Verified email and title for the most senior reachable decision maker</div>
-            </div>
-            <div class="feat">
-                <div class="feat-num">04 — Outreach</div>
-                <div class="feat-name">Personalised lines</div>
-                <div class="feat-desc">One specific opening line per lead — written from your company's voice, not a template</div>
-            </div>
-        </div>
-        <div class="tip">
-            Select a client ICP in the sidebar, describe what you are looking for, and click Run Agent
-        </div>
+# ─────────────────────────────────────────────────────────────────────────────
+#                                STEP RAIL
+# ─────────────────────────────────────────────────────────────────────────────
+def render_steps(current: str):
+    def cls(step_name, order):
+        order_map = {"setup": 0, "running": 1, "results": 2}
+        cur = order_map.get(current, 0)
+        if order < cur: return "step done"
+        if order == cur: return "step active"
+        return "step"
+    st.markdown(f"""
+    <div class="steps">
+      <div class="{cls('setup', 0)}"><span class="num">1</span>Brief</div>
+      <div class="seg {'done' if current != 'setup' else ''}"></div>
+      <div class="{cls('running', 1)}"><span class="num">2</span>Agent</div>
+      <div class="seg {'done' if current == 'results' else ''}"></div>
+      <div class="{cls('results', 2)}"><span class="num">3</span>Leads</div>
     </div>
     """, unsafe_allow_html=True)
 
 
-# ── Pipeline view (live) ──────────────────────────────────────────────────────
+render_steps(st.session_state.stage)
 
-def render_pipeline_live():
+
+# ─────────────────────────────────────────────────────────────────────────────
+#                               STAGE 1 · SETUP
+# ─────────────────────────────────────────────────────────────────────────────
+if st.session_state.stage == "setup":
+
+    if not ICPS:
+        st.error("No ICP config files found in /config. Add a JSON file there.")
+        st.stop()
+
+    # Pick client
+    st.markdown('<div class="sec-ti">Client <span class="bar"></span></div>',
+                unsafe_allow_html=True)
+    client_choice = st.selectbox(
+        "client",
+        list(ICPS.keys()),
+        label_visibility="collapsed",
+    )
+    base_icp = ICPS[client_choice]["data"]
+    st.session_state.icp_path = ICPS[client_choice]["path"]
+
+    # Industries
+    all_industries = base_icp.get("target_industries", [])
+    st.markdown('<div class="sec-ti">Industries · pick what to target <span class="bar"></span></div>',
+                unsafe_allow_html=True)
+    industries = st.multiselect(
+        "industries",
+        options=all_industries,
+        default=all_industries,
+        label_visibility="collapsed",
+    )
+
+    # Demographics row
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown('<div class="sec-ti">Location <span class="bar"></span></div>',
+                    unsafe_allow_html=True)
+        loc_default = (base_icp.get("locations") or ["Bangalore"])[0]
+        location = st.text_input("location",
+                                 value=loc_default,
+                                 label_visibility="collapsed")
+    with col2:
+        st.markdown('<div class="sec-ti">Max Leads <span class="bar"></span></div>',
+                    unsafe_allow_html=True)
+        max_leads = st.slider(
+            "max_leads",
+            min_value=3, max_value=25, value=10, step=1,
+            label_visibility="collapsed",
+        )
+    with col3:
+        st.markdown('<div class="sec-ti">Score Floor <span class="bar"></span></div>',
+                    unsafe_allow_html=True)
+        threshold = st.slider(
+            "threshold",
+            min_value=40, max_value=85,
+            value=int(os.getenv("MIN_SCORE_THRESHOLD", 60)),
+            step=5,
+            label_visibility="collapsed",
+        )
+
+    # Target titles
+    st.markdown('<div class="sec-ti">Decision-maker titles <span class="bar"></span></div>',
+                unsafe_allow_html=True)
+    titles = st.multiselect(
+        "titles",
+        options=base_icp.get("target_titles", []),
+        default=base_icp.get("target_titles", [])[:6],
+        label_visibility="collapsed",
+    )
+
+    # Prompt — the Notion/Claude textarea
+    st.markdown('<div class="sec-ti">Your brief · what should the agent hunt for? <span class="bar"></span></div>',
+                unsafe_allow_html=True)
+    prompt = st.text_area(
+        "prompt",
+        height=160,
+        placeholder=(
+            "Describe in plain English. The LLM will translate this into the "
+            "actual searches.\n\n"
+            "e.g. Find Bangalore-based mid-market manufacturers (500-2000 "
+            "employees) that hired a new CTO or CIO in the last 90 days and "
+            "are publicly discussing legacy ERP pain or cloud migration. "
+            "Skip anyone partnered with Infosys, TCS, or Wipro."
+        ),
+        label_visibility="collapsed",
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # CTA
+    cta1, cta2 = st.columns([1, 4])
+    with cta1:
+        run = st.button("Run Agent", use_container_width=True, type="primary")
+    with cta2:
+        missing = []
+        if not os.getenv("GEMINI_API_KEY"): missing.append("GEMINI_API_KEY")
+        if not os.getenv("SERPER_API_KEY"): missing.append("SERPER_API_KEY")
+        if missing:
+            st.markdown(
+                f'<div class="tagline" style="padding-top:10px;color:var(--amber)">'
+                f'set {", ".join(missing)} in .env or Streamlit secrets'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div class="tagline" style="padding-top:10px">'
+                'keys detected · ready to run'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+    if run:
+        if not prompt.strip():
+            st.warning("Add a brief — even one sentence — so the planner has something to work with.")
+            st.stop()
+        os.environ["MAX_LEADS_PER_RUN"] = str(max_leads)
+        os.environ["MIN_SCORE_THRESHOLD"] = str(threshold)
+        st.session_state.industries = industries
+        st.session_state.locations = [location]
+        st.session_state.titles = titles
+        st.session_state.prompt = prompt.strip()
+        st.session_state.max_leads = max_leads
+        st.session_state.events = []
+        st.session_state.sources = {}
+        st.session_state.stage = "running"
+        st.rerun()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#                              STAGE 2 · RUNNING
+# ─────────────────────────────────────────────────────────────────────────────
+elif st.session_state.stage == "running":
     from main import run_pipeline_streaming
 
-    cfg = st.session_state.run_config
+    PIPE_STAGES = [
+        ("plan",     "Plan"),
+        ("search",   "Search"),
+        ("research", "Research"),
+        ("score",    "Score"),
+        ("enrich",   "Enrich"),
+        ("pitch",    "Pitch"),
+    ]
 
-    header_ph   = st.empty()
-    sources_ph  = st.empty()
-    progress_ph = st.empty()
-    feed_ph     = st.empty()
+    def render_pipe(status: dict):
+        active_idx = -1
+        for i, (k, _) in enumerate(PIPE_STAGES):
+            s = status.get(k)
+            if s == "running":
+                active_idx = i; break
+            if s == "done":
+                active_idx = i + 1
+        active_idx = max(active_idx, 0)
+        pct = min(100, int((active_idx / max(len(PIPE_STAGES) - 1, 1)) * 100))
 
-    ps = {
-        "stage": "search",
-        "sources": {
-            "serper":    {"label": "Google Search (Serper)",     "status": "pending", "count": 0, "reason": ""},
-            "tracxn":    {"label": "Tracxn — Funded Startups",   "status": "pending", "count": 0, "reason": ""},
-            "proxycurl": {"label": "LinkedIn Jobs (ProxyCurl)",  "status": "pending", "count": 0, "reason": ""},
-            "naukri":    {"label": "Naukri Job Board",           "status": "pending", "count": 0, "reason": ""},
-        },
-        "research_idx": 0, "research_total": 0,
-        "score_idx":    0, "score_total":    0,
-        "enrich_idx":   0, "enrich_total":   0,
-        "pitch_idx":    0, "pitch_total":    0,
-        "current_company": "",
-        "feed_items": [],
-    }
-
-    STAGE_LABELS = {
-        "search":   "01 — Scanning signal sources",
-        "research": "02 — Researching companies",
-        "score":    "03 — Scoring with Gemini 3.5 Flash",
-        "enrich":   "04 — Finding decision makers",
-        "pitch":    "05 — Writing personalised opening lines",
-    }
-
-    pilot = os.getenv("PILOT_MODE", "true").lower() == "true"
-    pilot_tag = '<span class="pl-meta">pilot mode</span>' if pilot else ""
-
-    def _header():
-        header_ph.markdown(f"""
-        <div class="pl-header">
-            <div class="live-dot"></div>
-            <span class="pl-stage">{STAGE_LABELS.get(ps["stage"], ps["stage"])}</span>
-            {pilot_tag}
-        </div>""", unsafe_allow_html=True)
-
-    def _sources():
-        html = '<div class="sources">'
-        for sid, src in ps["sources"].items():
-            html += _src_card_html(src["label"], src["status"], src["count"], src["reason"])
-        html += "</div>"
-        sources_ph.markdown(html, unsafe_allow_html=True)
-
-    def _progress():
-        stage = ps["stage"]
-        idx_map = {
-            "research": (ps["research_idx"], ps["research_total"], "Researching"),
-            "score":    (ps["score_idx"],    ps["score_total"],    "Scoring"),
-            "enrich":   (ps["enrich_idx"],   ps["enrich_total"],   "Enriching contacts"),
-            "pitch":    (ps["pitch_idx"],    ps["pitch_total"],    "Writing opening lines"),
-        }
-        if stage not in idx_map:
-            progress_ph.empty()
-            return
-        idx, total, lbl = idx_map[stage]
-        with progress_ph.container():
-            st.markdown(f'<div class="prog-block"><div class="prog-lbl">{lbl}</div>', unsafe_allow_html=True)
-            st.progress(idx / max(total, 1))
-            st.markdown(
-                f'<div class="prog-company">{ps["current_company"]}'
-                f'<span style="float:right;">{idx} / {total}</span></div></div>',
-                unsafe_allow_html=True
+        nodes = ""
+        for i, (k, lbl) in enumerate(PIPE_STAGES):
+            s = status.get(k)
+            klass = ""
+            if s == "done": klass = "done"
+            elif s == "running": klass = "active"
+            nodes += (
+                f'<div class="pipe-node {klass}">'
+                f'  <div class="pipe-dot">{i+1:02d}</div>'
+                f'  <div class="pipe-lbl">{lbl}</div>'
+                f'</div>'
             )
 
-    def _feed():
-        items = ps["feed_items"]
-        if not items:
-            feed_ph.empty()
-            return
-        html = '<div class="feed-hdr">Scoring feed</div>'
-        for item in items[-8:]:
-            sc = item.get("score", 0)
-            cl = _score_color(sc)
-            qc = "yes" if item.get("qualify") else "no"
-            qt = "QF" if item.get("qualify") else "NQ"
-            html += f"""
-            <div class="feed-item">
-                <span class="feed-co">{item["company"]}</span>
-                <div class="feed-bar-bg"><div class="feed-bar" style="width:{sc}%;background:{cl};"></div></div>
-                <span class="feed-num" style="color:{cl};">{sc}</span>
-                <span class="feed-q {qc}">{qt}</span>
-            </div>"""
-        feed_ph.markdown(html, unsafe_allow_html=True)
+        return f"""
+        <div class="pipe-wrap">
+          <div class="pipe">
+            <div class="pipe-track"></div>
+            <div class="pipe-flow" style="width:{pct}%"></div>
+            {nodes}
+          </div>
+        </div>
+        """
 
-    _header()
-    _sources()
+    def render_sources(sources: dict) -> str:
+        if not sources:
+            return ""
+        rows = ""
+        for name, info in sources.items():
+            status = info.get("status", "run")
+            label  = info.get("label", name)
+            count  = info.get("count", 0)
+            reason = info.get("reason", "")
+            ddot = "run"
+            if status == "done": ddot = "done"
+            elif status == "warn": ddot = "warn"
+            elif status == "skip": ddot = "skip"
+            status_text = {
+                "run":  "scanning…",
+                "done": "complete",
+                "warn": "warning",
+                "skip": "skipped",
+            }.get(status, status)
+            right = (f'<span class="feed-count">{count}</span>'
+                     if status == "done" and count
+                     else f'<span class="feed-status">{reason or status_text}</span>')
+            rows += (
+                f'<div class="feed-row">'
+                f'  <span class="feed-dot {ddot}"></span>'
+                f'  <span class="feed-name">{label}</span>'
+                f'  {right}'
+                f'</div>'
+            )
+        return f'<div class="feed">{rows}</div>'
 
+    def render_progress(events: list) -> str:
+        # show last 6 progress events
+        progress_types = {"research_progress", "score_progress",
+                          "enrich_progress", "pitch_progress",
+                          "score_result", "enrich_result"}
+        recent = [e for e in events if e.get("type") in progress_types][-6:]
+        if not recent:
+            return ""
+        rows = ""
+        for ev in recent:
+            t = ev.get("type", "")
+            if t == "score_result":
+                q = ev.get("qualify", False)
+                score = ev.get("score", 0)
+                cls = "score-hi" if score >= 80 else "score-mid" if score >= 60 else "score-lo"
+                tag = "QUALIFIED" if q else "skipped"
+                line = (f'<span class="feed-name">{ev.get("company", "")}</span>'
+                        f'<span class="score-chip {cls}">{score}</span>'
+                        f'<span class="feed-status">{tag}</span>')
+            elif t == "enrich_result":
+                line = (f'<span class="feed-name">{ev.get("company", "")}</span>'
+                        f'<span class="feed-status">contact {ev.get("status", "")}</span>')
+            else:
+                idx = ev.get("idx", "?"); total = ev.get("total", "?")
+                stage_lbl = t.replace("_progress", "")
+                line = (f'<span class="feed-name">{ev.get("company", "")}</span>'
+                        f'<span class="feed-status">{stage_lbl} · {idx}/{total}</span>')
+            rows += (f'<div class="feed-row">'
+                     f'<span class="feed-dot run"></span>{line}</div>')
+        return f'<div class="feed" style="margin-top:8px">{rows}</div>'
+
+    # ── Render scaffolding ──
+    pipe_slot     = st.empty()
+    sources_slot  = st.empty()
+    progress_slot = st.empty()
+    plan_slot     = st.empty()
+
+    pipe_slot.markdown(render_pipe(st.session_state.stage_status),
+                       unsafe_allow_html=True)
+
+    st.markdown('<div class="sec-ti">Live · what the agent is doing <span class="bar"></span></div>',
+                unsafe_allow_html=True)
+
+    # Initialise sources with all known so they render in order
+    KNOWN_SOURCES = [
+        ("serper",    "Google · Serper"),
+        ("reddit",    "Reddit · pain signals"),
+        ("tracxn",    "Tracxn · funded startups"),
+        ("proxycurl", "LinkedIn jobs · ProxyCurl"),
+        ("naukri",    "Naukri job board"),
+    ]
+    for k, lbl in KNOWN_SOURCES:
+        if k not in st.session_state.sources:
+            st.session_state.sources[k] = {"label": lbl, "status": "pending",
+                                           "count": 0, "reason": "queued"}
+
+    sources_slot.markdown(render_sources(st.session_state.sources),
+                          unsafe_allow_html=True)
+
+    # ── Run pipeline ──
     try:
-        for event in run_pipeline_streaming(**cfg):
-            t = event.get("type", "")
+        gen = run_pipeline_streaming(
+            icp_config_path=st.session_state.icp_path,
+            exclusion_list_path=None,
+            max_leads=st.session_state.max_leads,
+            override_industries=st.session_state.industries or None,
+            override_locations=st.session_state.locations or None,
+            override_titles=st.session_state.titles or None,
+            custom_focus=st.session_state.prompt,
+            user_prompt=st.session_state.prompt,
+        )
 
-            if t == "source_start":
-                src = event.get("source", "")
-                if src in ps["sources"]:
-                    ps["sources"][src]["status"] = "running"
-                _sources()
+        for ev in gen:
+            st.session_state.events.append(ev)
+            t = ev.get("type", "")
+
+            if t == "stage_start":
+                stage = ev.get("stage")
+                # mark previous running as done
+                for k, v in st.session_state.stage_status.items():
+                    if v == "running":
+                        st.session_state.stage_status[k] = "done"
+                if stage in [s for s, _ in PIPE_STAGES]:
+                    st.session_state.stage_status[stage] = "running"
+                # treat the search source phase as the "search" stage too
+                pipe_slot.markdown(render_pipe(st.session_state.stage_status),
+                                   unsafe_allow_html=True)
+
+            elif t == "stage_done":
+                stage = ev.get("stage")
+                if stage in [s for s, _ in PIPE_STAGES]:
+                    st.session_state.stage_status[stage] = "done"
+                pipe_slot.markdown(render_pipe(st.session_state.stage_status),
+                                   unsafe_allow_html=True)
+
+            elif t == "source_start":
+                # search stage = aggregate of sources
+                if st.session_state.stage_status.get("search") != "done":
+                    st.session_state.stage_status["search"] = "running"
+                k = ev.get("source")
+                st.session_state.sources[k] = {
+                    **st.session_state.sources.get(k, {}),
+                    "label": ev.get("label", k),
+                    "status": "run",
+                }
+                sources_slot.markdown(render_sources(st.session_state.sources),
+                                      unsafe_allow_html=True)
+                pipe_slot.markdown(render_pipe(st.session_state.stage_status),
+                                   unsafe_allow_html=True)
 
             elif t == "source_done":
-                src = event.get("source", "")
-                if src in ps["sources"]:
-                    ps["sources"][src].update({
-                        "status": event.get("status", "done"),
-                        "count":  event.get("count", 0),
-                        "reason": event.get("reason", ""),
-                    })
-                _sources()
+                k = ev.get("source")
+                st.session_state.sources[k] = {
+                    **st.session_state.sources.get(k, {}),
+                    "status": ev.get("status", "done"),
+                    "count":  ev.get("count", 0),
+                    "reason": ev.get("reason", ""),
+                }
+                sources_slot.markdown(render_sources(st.session_state.sources),
+                                      unsafe_allow_html=True)
 
-            elif t == "stage_start":
-                stage = event.get("stage", "")
-                ps["stage"] = stage
-                total = event.get("total", 0)
-                if stage == "research": ps["research_total"] = total
-                if stage == "score":    ps["score_total"]    = total
-                if stage == "enrich":   ps["enrich_total"]   = total
-                if stage == "pitch":    ps["pitch_total"]    = total
-                _header()
-                _progress()
+            elif t == "search_done":
+                st.session_state.stage_status["search"] = "done"
+                pipe_slot.markdown(render_pipe(st.session_state.stage_status),
+                                   unsafe_allow_html=True)
 
-            elif t == "research_progress":
-                ps["research_idx"]    = event.get("idx", 0)
-                ps["current_company"] = event.get("company", "")
-                _progress()
+            elif t == "plan_ready":
+                st.session_state.plan = ev.get("plan", {})
+                plan = ev["plan"]
+                plan_slot.markdown(f"""
+                <div class="plan-grid">
+                  <div class="plan-cell">
+                    <div class="k">Industries</div>
+                    <div class="v">{", ".join(plan.get("industries", [])[:6])}</div>
+                  </div>
+                  <div class="plan-cell">
+                    <div class="k">Titles</div>
+                    <div class="v">{", ".join(plan.get("target_titles", [])[:6])}</div>
+                  </div>
+                  <div class="plan-cell">
+                    <div class="k">Pain hypothesis</div>
+                    <div class="v">{plan.get("pain_hypothesis", "") or "—"}</div>
+                  </div>
+                  <div class="plan-cell">
+                    <div class="k">Gap hypothesis</div>
+                    <div class="v">{plan.get("gap_hypothesis", "") or "—"}</div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
 
-            elif t == "score_progress":
-                ps["score_idx"]       = event.get("idx", 0)
-                ps["current_company"] = event.get("company", "")
-                _progress()
-
-            elif t == "score_result":
-                ps["feed_items"].append(event)
-                _feed()
-
-            elif t == "enrich_progress":
-                ps["enrich_idx"]      = event.get("idx", 0)
-                ps["current_company"] = event.get("company", "")
-                _progress()
-
-            elif t == "pitch_progress":
-                ps["pitch_idx"]       = event.get("idx", 0)
-                ps["current_company"] = event.get("company", "")
-                _progress()
+            elif t in {"research_progress", "score_progress",
+                       "enrich_progress", "pitch_progress",
+                       "score_result", "enrich_result"}:
+                progress_slot.markdown(render_progress(st.session_state.events),
+                                       unsafe_allow_html=True)
 
             elif t == "final":
-                st.session_state.final_leads   = event.get("leads", [])
-                st.session_state.output_path   = event.get("output_path")
-                st.session_state.stats         = event.get("stats", {})
-                err = event.get("error")
-                if err:
-                    st.session_state.pipeline_error = err
-                break
+                st.session_state.leads = ev.get("leads", [])
+                st.session_state.output_path = ev.get("output_path")
+                st.session_state.stats = ev.get("stats", {})
+                st.session_state.plan  = ev.get("plan", st.session_state.plan)
+                # mark all done
+                for k, _ in PIPE_STAGES:
+                    st.session_state.stage_status[k] = "done"
+                pipe_slot.markdown(render_pipe(st.session_state.stage_status),
+                                   unsafe_allow_html=True)
+                st.session_state.stage = "results"
+                time.sleep(0.4)
+                st.rerun()
 
-    except Exception as exc:
-        st.session_state.pipeline_error = str(exc)
-
-    st.session_state.app_state = "done"
-    header_ph.empty()
-    sources_ph.empty()
-    progress_ph.empty()
-    feed_ph.empty()
-    st.rerun()
+    except Exception as e:
+        st.error(f"Pipeline error: {e}")
+        if st.button("← Back to brief"):
+            st.session_state.stage = "setup"
+            st.rerun()
 
 
-# ── Results view ──────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+#                              STAGE 3 · RESULTS
+# ─────────────────────────────────────────────────────────────────────────────
+elif st.session_state.stage == "results":
 
-def render_results():
-    leads = st.session_state.final_leads
-    path  = st.session_state.output_path
-    stats = st.session_state.stats
-    error = st.session_state.pipeline_error
-
-    if error:
-        st.error(f"Pipeline error: {error}")
-        return
-
-    if not leads:
-        st.warning("No qualified leads found. Lower the Min Score threshold or add API keys.")
-        return
-
-    n     = stats.get("total_leads", len(leads))
-    avg   = stats.get("avg_score", 0)
-    top   = stats.get("top_score", 0)
-    qrate = stats.get("qualification_rate", "—")
+    stats = st.session_state.stats or {}
+    leads = st.session_state.leads or []
 
     st.markdown(f"""
-    <div class="res-header">
-        <div class="res-check"><div class="res-check-inner"></div></div>
-        <div>
-            <div class="res-title">Pipeline complete — {n} lead{'s' if n != 1 else ''} ready</div>
-            <div class="res-sub">Avg score {avg} &nbsp;·&nbsp; Top score {top} &nbsp;·&nbsp; Qualification rate {qrate}</div>
-        </div>
-    </div>""", unsafe_allow_html=True)
+    <div class="stats">
+      <div class="stat"><div class="num">{stats.get('total_leads', 0)}</div>
+        <div class="lbl">Ranked leads</div></div>
+      <div class="stat"><div class="num">{stats.get('qualified_count', 0)}</div>
+        <div class="lbl">Qualified</div></div>
+      <div class="stat"><div class="num">{stats.get('avg_score', 0)}</div>
+        <div class="lbl">Avg score</div></div>
+      <div class="stat"><div class="num">{stats.get('qualification_rate', '0%')}</div>
+        <div class="lbl">Hit rate</div></div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Leads found",      n)
-    c2.metric("Avg score",        avg)
-    c3.metric("Top score",        top)
-    c4.metric("Qualification rate", qrate)
+    if not leads:
+        st.warning("No leads produced. The most common cause is no Serper key, "
+                   "or all candidates scored below the threshold. Try lowering "
+                   "the floor or refining the brief.")
+        if st.button("← New brief"):
+            st.session_state.stage = "setup"
+            st.session_state.events = []
+            st.session_state.sources = {}
+            st.session_state.stage_status = {}
+            st.rerun()
+        st.stop()
 
-    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+    leads_sorted = sorted(leads, key=lambda x: x.get("total_score", 0), reverse=True)
 
-    tab_cards, tab_table, tab_dl = st.tabs(["Lead Cards", "Table View", "Download"])
+    # ── Download bar ──
+    col_a, col_b = st.columns([3, 1])
+    with col_a:
+        if st.session_state.plan:
+            p = st.session_state.plan
+            st.markdown(f"""
+            <div class="plan-grid">
+              <div class="plan-cell">
+                <div class="k">Pain hypothesis</div>
+                <div class="v">{p.get("pain_hypothesis", "") or "—"}</div>
+              </div>
+              <div class="plan-cell">
+                <div class="k">Gap hypothesis</div>
+                <div class="v">{p.get("gap_hypothesis", "") or "—"}</div>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+    with col_b:
+        if st.session_state.output_path and os.path.exists(st.session_state.output_path):
+            with open(st.session_state.output_path, "rb") as f:
+                st.download_button(
+                    label="Download Excel",
+                    data=f.read(),
+                    file_name=os.path.basename(st.session_state.output_path),
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+
+    # ── Tabs ──
+    tab_cards, tab_table = st.tabs(["Lead cards", "Table view"])
 
     with tab_cards:
-        for i, lead in enumerate(leads, 1):
-            st.markdown(_lead_card_html(i, lead), unsafe_allow_html=True)
+        for lead in leads_sorted:
+            score = lead.get("total_score", 0)
+            cls = "score-hi" if score >= 80 else "score-mid" if score >= 60 else "score-lo"
+            opening = lead.get("opening_line", "").strip()
+            signal  = lead.get("primary_signal", "").strip()
+            pain    = lead.get("pain_point", "").strip()
+
+            chips = []
+            cn = lead.get("contact_name", "")
+            ct = lead.get("contact_title", "")
+            em = lead.get("email", "")
+            li = lead.get("linkedin_url", "")
+            src = lead.get("source", "")
+            if cn and "Manual" not in cn:
+                chips.append(f'<span><span class="k">contact</span>{cn}{" · " + ct if ct else ""}</span>')
+            if em and "Manual" not in em:
+                chips.append(f'<span><span class="k">email</span>{em}</span>')
+            if li and "Manual" not in li:
+                chips.append(f'<span><span class="k">linkedin</span>{li}</span>')
+            if src:
+                chips.append(f'<span><span class="k">via</span>{src}</span>')
+
+            st.markdown(f"""
+            <div class="lead-card">
+              <div class="lead-hd">
+                <div>
+                  <div class="lead-name">{lead.get("company_name", "")}</div>
+                  <div class="lead-meta">{lead.get("website", "") or "—"}</div>
+                </div>
+                <span class="score-chip {cls}">{score}/100</span>
+              </div>
+              {f'<div class="lead-signal">{signal}</div>' if signal else ''}
+              {f'<div class="lead-meta" style="margin-top:6px">Pain: {pain}</div>' if pain else ''}
+              {f'<div class="lead-line">{opening}</div>' if opening else ''}
+              <div class="lead-chips">{"".join(chips)}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
     with tab_table:
-        if leads:
-            df = pd.read_excel(path) if path and os.path.exists(path) else pd.DataFrame(leads)
-            view_cols = [c for c in [
-                "Rank", "Company", "Total Score", "Contact Name",
-                "Contact Title", "Email", "Primary Signal", "Opening Line"
-            ] if c in df.columns]
-            st.dataframe(df[view_cols] if view_cols else df, use_container_width=True)
+        df = pd.DataFrame([
+            {
+                "Rank":      i + 1,
+                "Company":   l.get("company_name", ""),
+                "Score":     l.get("total_score", 0),
+                "Contact":   l.get("contact_name", ""),
+                "Title":     l.get("contact_title", ""),
+                "Email":     l.get("email", ""),
+                "Signal":    l.get("primary_signal", ""),
+                "Opening":   l.get("opening_line", ""),
+                "Website":   l.get("website", ""),
+            }
+            for i, l in enumerate(leads_sorted)
+        ])
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
-    with tab_dl:
-        if path and os.path.exists(path):
-            with open(path, "rb") as _f:
-                data = _f.read()
-            st.download_button(
-                label="Download Excel",
-                data=data,
-                file_name=os.path.basename(path),
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-            st.markdown(
-                f'<div style="font-size:11px;color:var(--t3);margin-top:8px;">'
-                f'{path} &nbsp;·&nbsp; {round(len(data)/1024, 1)} KB</div>',
-                unsafe_allow_html=True
-            )
-
-
-# ── Router ────────────────────────────────────────────────────────────────────
-
-def main():
-    render_sidebar()
-    state = st.session_state.app_state
-    if state == "idle":
-        render_idle()
-    elif state == "running":
-        render_pipeline_live()
-    elif state == "done":
-        render_results()
-
-
-main()
+    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2, _ = st.columns([1, 1, 4])
+    with col1:
+        if st.button("New brief", use_container_width=True):
+            st.session_state.stage = "setup"
+            st.session_state.events = []
+            st.session_state.sources = {}
+            st.session_state.stage_status = {}
+            st.session_state.leads = []
+            st.session_state.plan = {}
+            st.rerun()
+    with col2:
+        if st.button("Re-run same brief", use_container_width=True):
+            st.session_state.stage = "running"
+            st.session_state.events = []
+            st.session_state.sources = {}
+            st.session_state.stage_status = {}
+            st.session_state.leads = []
+            st.rerun()

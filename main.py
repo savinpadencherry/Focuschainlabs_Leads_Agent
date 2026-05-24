@@ -1,3 +1,22 @@
+"""
+Streaming lead-generation pipeline.
+
+Flow:
+  user prompt + base ICP
+    └─ planner       (Gemini turns prompt → search plan)
+    └─ search        (Serper / Reddit / Tracxn / ProxyCurl / Naukri)
+    └─ dedupe        (exclusion list + lowercase name set)
+    └─ research      (homepage + news + reddit + linkedin per company)
+    └─ score         (Gemini → 0-100 with sub-scores)
+    └─ enrich        (Apollo → contact + contact's recent posts)
+    └─ pitch         (Gemini → 1-line opening)
+    └─ excel         (ranked, colour-coded, frozen header)
+
+Two public functions:
+  - run_pipeline_streaming(...) yields typed event dicts for live UIs
+  - run_pipeline(...) is a sync wrapper that prints + returns the output path
+"""
+
 import os
 import json
 import time
@@ -7,12 +26,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from agent.searcher import (
-    search_serper, search_tracxn, search_proxycurl_jobs, search_naukri
+    search_serper, search_tracxn, search_proxycurl_jobs, search_naukri, search_reddit
 )
 from agent.researcher import research_company
 from agent.scorer import score_company
 from agent.enricher import enrich_contact
 from agent.pitcher import generate_pitch
+from agent.planner import plan_search
 from utils.deduplicator import load_exclusion_list, deduplicate
 from utils.excel_writer import write_leads_to_excel
 
@@ -26,44 +46,64 @@ def run_pipeline_streaming(
     exclusion_list_path: str = None,
     max_leads: int = None,
     override_industries: list = None,
+    override_locations: list = None,
+    override_titles: list = None,
     custom_focus: str = None,
+    user_prompt: str = None,
 ):
-    """
-    Generator pipeline — yields progress events so callers can render live UI.
-    Each event is a dict with at minimum a "type" key.
-    """
+    """Generator pipeline — yields typed events for live UIs."""
+
     max_leads = max_leads or int(os.getenv("MAX_LEADS_PER_RUN", 10))
     threshold = int(os.getenv("MIN_SCORE_THRESHOLD", 60))
-    pilot = os.getenv("PILOT_MODE", "true").lower() == "true"
+    pilot     = os.getenv("PILOT_MODE", "true").lower() == "true"
 
-    # ── Load ICP ──────────────────────────────────────────────────────────────
+    # ── Load base ICP ──────────────────────────────────────────────────────
     with open(icp_config_path) as f:
         icp = json.load(f)
 
     if override_industries:
-        icp = {**icp, "target_industries": override_industries}
+        icp["target_industries"] = override_industries
+    if override_locations:
+        icp["locations"] = override_locations
+    if override_titles:
+        icp["target_titles"] = override_titles
     if custom_focus and custom_focus.strip():
-        icp = {**icp, "custom_focus": custom_focus.strip()}
+        icp["custom_focus"] = custom_focus.strip()
 
     yield {"type": "config_loaded", "icp": icp, "pilot": pilot, "threshold": threshold}
 
-    # ── Stage 1: Search ────────────────────────────────────────────────────────
+    # ── Stage 0: Plan ──────────────────────────────────────────────────────
+    yield {"type": "stage_start", "stage": "plan", "total": 1}
+
+    plan = plan_search(user_prompt or custom_focus or "", icp)
+    icp.update({
+        "target_industries":  plan.get("industries")    or icp.get("target_industries"),
+        "locations":          plan.get("locations")     or icp.get("locations"),
+        "target_titles":      plan.get("target_titles") or icp.get("target_titles"),
+        "trigger_keywords":   plan.get("trigger_keywords") or icp.get("trigger_keywords"),
+        "pain_hypothesis":    plan.get("pain_hypothesis", ""),
+        "gap_hypothesis":     plan.get("gap_hypothesis", ""),
+        "custom_focus":       plan.get("custom_focus")  or icp.get("custom_focus", ""),
+    })
+    yield {"type": "plan_ready", "plan": plan}
+    yield {"type": "stage_done", "stage": "plan"}
+
+    # ── Stage 1: Search ────────────────────────────────────────────────────
     all_results = []
 
+    # Serper — main keyword sweep
     yield {"type": "source_start", "source": "serper", "label": "Google Search (Serper)"}
     serper_results = []
     if os.getenv("SERPER_API_KEY"):
-        keywords = icp["trigger_keywords"]
+        kws = icp["trigger_keywords"]
         if pilot:
-            keywords = keywords[:20]
-        for kw in keywords:
+            kws = kws[:20]
+        for kw in kws:
             serper_results.extend(search_serper(kw))
-            time.sleep(0.3)
-        for title in icp["target_titles"][:3]:
-            serper_results.extend(
-                search_serper(f'site:linkedin.com/jobs "{title}" "Bangalore" 2026')
-            )
-            time.sleep(0.3)
+            time.sleep(0.25)
+        for q in plan.get("linkedin_queries", [])[:3]:
+            serper_results.extend(search_serper(q))
+            time.sleep(0.25)
         all_results.extend(serper_results)
         yield {"type": "source_done", "source": "serper",
                "count": len(serper_results), "status": "done"}
@@ -71,41 +111,56 @@ def run_pipeline_streaming(
         yield {"type": "source_done", "source": "serper",
                "count": 0, "status": "skip", "reason": "API key not configured"}
 
+    # Reddit — pain-signal sweep
+    yield {"type": "source_start", "source": "reddit",
+           "label": "Reddit (pain signals via Google)"}
+    reddit_results = []
+    if os.getenv("SERPER_API_KEY"):
+        for q in plan.get("reddit_queries", [])[:3]:
+            reddit_results.extend(search_reddit(q))
+            time.sleep(0.25)
+        all_results.extend(reddit_results)
+        yield {"type": "source_done", "source": "reddit",
+               "count": len(reddit_results), "status": "done"}
+    else:
+        yield {"type": "source_done", "source": "reddit",
+               "count": 0, "status": "skip", "reason": "Needs Serper key"}
+
+    # Tracxn
     yield {"type": "source_start", "source": "tracxn", "label": "Tracxn — Funded Startups"}
     if os.getenv("TRACXN_API_KEY"):
-        t_results = search_tracxn(icp)
-        all_results.extend(t_results)
-        yield {"type": "source_done", "source": "tracxn",
-               "count": len(t_results), "status": "done"}
+        t = search_tracxn(icp)
+        all_results.extend(t)
+        yield {"type": "source_done", "source": "tracxn", "count": len(t), "status": "done"}
     else:
         yield {"type": "source_done", "source": "tracxn",
                "count": 0, "status": "skip", "reason": "Optional — add key to enable"}
 
+    # ProxyCurl
     yield {"type": "source_start", "source": "proxycurl", "label": "LinkedIn Jobs (ProxyCurl)"}
     if os.getenv("PROXYCURL_API_KEY"):
-        pc_results = search_proxycurl_jobs(icp)
-        all_results.extend(pc_results)
+        pc = search_proxycurl_jobs(icp)
+        all_results.extend(pc)
         yield {"type": "source_done", "source": "proxycurl",
-               "count": len(pc_results), "status": "done"}
+               "count": len(pc), "status": "done"}
     else:
         yield {"type": "source_done", "source": "proxycurl",
                "count": 0, "status": "skip", "reason": "Optional — add key to enable"}
 
+    # Naukri
     yield {"type": "source_start", "source": "naukri", "label": "Naukri Job Board (scraper)"}
-    naukri_results = search_naukri(icp)
-    all_results.extend(naukri_results)
-    if naukri_results:
-        yield {"type": "source_done", "source": "naukri",
-               "count": len(naukri_results), "status": "done"}
-    else:
-        yield {"type": "source_done", "source": "naukri",
-               "count": 0, "status": "warn", "reason": "Site may block automated access"}
+    nk = search_naukri(icp)
+    all_results.extend(nk)
+    yield {
+        "type": "source_done", "source": "naukri", "count": len(nk),
+        "status": "done" if nk else "warn",
+        "reason": None if nk else "Site may block automated access",
+    }
 
-    # Dedup
-    seen: set = set()
-    unique = []
+    # ── Dedupe ─────────────────────────────────────────────────────────────
+    seen, unique = set(), []
     for r in all_results:
-        key = r["company_name"].lower().strip()
+        key = (r.get("company_name") or "").lower().strip()
         if key and key not in seen:
             seen.add(key)
             unique.append(r)
@@ -115,119 +170,121 @@ def run_pipeline_streaming(
     companies = companies[: max_leads * 3]
 
     yield {"type": "search_done",
-           "raw": len(all_results), "unique": len(unique), "to_research": len(companies)}
+           "raw": len(all_results), "unique": len(unique),
+           "to_research": len(companies)}
 
     if not companies:
         yield {
             "type": "final", "leads": [], "output_path": None,
+            "plan": plan,
             "stats": {"total_leads": 0, "total_researched": 0,
                       "qualified_count": 0, "avg_score": 0,
                       "top_score": 0, "qualification_rate": "0%"},
-            "error": "No companies found. Configure at least SERPER_API_KEY to start."
+            "error": "No companies found. At minimum, set SERPER_API_KEY.",
         }
         return
 
-    # ── Stage 2: Research ──────────────────────────────────────────────────────
+    # ── Stage 2: Research ──────────────────────────────────────────────────
     yield {"type": "stage_start", "stage": "research", "total": len(companies)}
-
     researched = []
     for i, company in enumerate(companies):
         yield {"type": "research_progress",
-               "idx": i + 1, "total": len(companies), "company": company["company_name"]}
+               "idx": i + 1, "total": len(companies),
+               "company": company["company_name"]}
         bundle = research_company(
             company["company_name"],
             company.get("website", ""),
-            company.get("snippet", "")
+            company.get("snippet", ""),
         )
         researched.append({**company, **bundle})
-
     yield {"type": "stage_done", "stage": "research"}
 
-    # ── Stage 3: Score ─────────────────────────────────────────────────────────
+    # ── Stage 3: Score ─────────────────────────────────────────────────────
     yield {"type": "stage_start", "stage": "score", "total": len(researched)}
-
     scored = []
     for i, company in enumerate(researched):
         yield {"type": "score_progress",
-               "idx": i + 1, "total": len(researched), "company": company["company_name"]}
-        score_result = score_company(company, icp)
-        merged = {**company, **score_result}
+               "idx": i + 1, "total": len(researched),
+               "company": company["company_name"]}
+        result = score_company(company, icp)
+        merged = {**company, **result}
         scored.append(merged)
         yield {
             "type": "score_result",
             "company": company["company_name"],
-            "score": score_result.get("total_score", 0),
-            "qualify": score_result.get("qualify", False),
-            "signal": score_result.get("primary_signal", ""),
+            "score":   result.get("total_score", 0),
+            "qualify": result.get("qualify", False),
+            "signal":  result.get("primary_signal", ""),
         }
 
     qualified = [c for c in scored if c.get("qualify")]
     yield {"type": "stage_done", "stage": "score",
            "qualified": len(qualified), "total": len(scored)}
 
-    # ── Stage 4: Enrich ────────────────────────────────────────────────────────
+    # ── Stage 4: Enrich ────────────────────────────────────────────────────
     enrich_cap = 5 if pilot else max_leads
     to_enrich = qualified[: min(max_leads, enrich_cap)]
-
     yield {"type": "stage_start", "stage": "enrich", "total": len(to_enrich)}
 
     enriched = []
     for i, company in enumerate(to_enrich):
         yield {"type": "enrich_progress",
-               "idx": i + 1, "total": len(to_enrich), "company": company["company_name"]}
+               "idx": i + 1, "total": len(to_enrich),
+               "company": company["company_name"]}
         contact = enrich_contact(
-            company["company_name"], icp["target_titles"], icp["locations"][0]
+            company["company_name"],
+            icp["target_titles"],
+            icp["locations"][0],
         )
         enriched.append({**company, **contact, **icp})
         yield {"type": "enrich_result",
                "company": company["company_name"],
-               "status": contact.get("enrichment_status", "not_found")}
-
+               "status":  contact.get("enrichment_status", "not_found")}
     yield {"type": "stage_done", "stage": "enrich"}
 
-    # ── Stage 5: Pitch ─────────────────────────────────────────────────────────
+    # ── Stage 5: Pitch ─────────────────────────────────────────────────────
     yield {"type": "stage_start", "stage": "pitch", "total": len(enriched)}
-
     final_leads = []
     for i, lead in enumerate(enriched):
         yield {"type": "pitch_progress",
-               "idx": i + 1, "total": len(enriched), "company": lead["company_name"]}
+               "idx": i + 1, "total": len(enriched),
+               "company": lead["company_name"]}
         lead["opening_line"] = generate_pitch(lead)
         final_leads.append(lead)
-
     yield {"type": "stage_done", "stage": "pitch"}
 
-    # Fallback: write partial results if nothing cleared enrichment
+    # Fallback — emit something useful even if enrichment was empty
     if not final_leads and scored:
         for company in scored[:max_leads]:
             company.update({
-                "contact_name": "Manual lookup needed",
+                "contact_name":  "Manual lookup needed",
                 "contact_title": "Manual lookup needed",
-                "email": "Manual lookup needed",
-                "linkedin_url": "Manual lookup needed",
-                "opening_line": "",
+                "email":         "Manual lookup needed",
+                "linkedin_url":  "Manual lookup needed",
+                "opening_line":  "",
                 **icp,
             })
             final_leads.append(company)
 
-    # ── Write Excel ────────────────────────────────────────────────────────────
-    timestamp = datetime.today().strftime("%Y-%m-%d_%H%M")
+    # ── Write Excel ────────────────────────────────────────────────────────
+    timestamp   = datetime.today().strftime("%Y-%m-%d_%H%M")
     output_path = f"output/leads_{timestamp}.xlsx"
     write_leads_to_excel(final_leads, output_path)
 
-    scores = [lead.get("total_score", 0) for lead in final_leads]
+    scores    = [lead.get("total_score", 0) for lead in final_leads]
     avg_score = sum(scores) / max(len(scores), 1)
 
     yield {
         "type": "final",
         "leads": final_leads,
         "output_path": output_path,
+        "plan": plan,
         "stats": {
-            "total_leads": len(final_leads),
-            "total_researched": len(researched),
-            "qualified_count": len(qualified),
-            "avg_score": round(avg_score, 1),
-            "top_score": max(scores) if scores else 0,
+            "total_leads":        len(final_leads),
+            "total_researched":   len(researched),
+            "qualified_count":    len(qualified),
+            "avg_score":          round(avg_score, 1),
+            "top_score":          max(scores) if scores else 0,
             "qualification_rate": f"{int(len(qualified) / max(len(researched), 1) * 100)}%",
         },
     }
@@ -237,8 +294,9 @@ def run_pipeline(
     icp_config_path: str,
     exclusion_list_path: str = None,
     max_leads: int = None,
+    user_prompt: str = None,
 ) -> str:
-    """Synchronous wrapper — collects streaming events and returns the output path."""
+    """Synchronous wrapper for CLI usage. Returns the output path."""
     output_path = None
     pilot = os.getenv("PILOT_MODE", "true").lower() == "true"
 
@@ -247,28 +305,34 @@ def run_pipeline(
         print("  PILOT MODE — costs capped to free tiers")
         print("=" * 50)
 
-    for event in run_pipeline_streaming(icp_config_path, exclusion_list_path, max_leads):
-        t = event.get("type", "")
+    for ev in run_pipeline_streaming(
+        icp_config_path, exclusion_list_path, max_leads, user_prompt=user_prompt
+    ):
+        t = ev.get("type", "")
         if t == "config_loaded":
-            icp = event["icp"]
+            icp = ev["icp"]
             print(f"\n[ICP] {icp.get('vertical')} | {icp.get('client')}")
+        elif t == "plan_ready":
+            p = ev["plan"]
+            print(f"[PLAN] industries={p.get('industries')}  "
+                  f"keywords={len(p.get('trigger_keywords', []))}")
         elif t == "source_done":
-            print(f"  [{event['source']}] {event['status']} — {event.get('count', 0)} results")
+            print(f"  [{ev['source']}] {ev['status']} — {ev.get('count', 0)} results")
         elif t == "search_done":
-            print(f"\n[SEARCH] {event['to_research']} companies to research")
+            print(f"\n[SEARCH] {ev['to_research']} companies to research")
         elif t == "stage_start":
-            print(f"\n[STAGE] {event['stage'].upper()} — {event.get('total', 0)} items")
+            print(f"\n[STAGE] {ev['stage'].upper()} — {ev.get('total', 0)} items")
         elif t == "score_result":
-            q = "✓" if event["qualify"] else "✗"
-            print(f"  {q} {event['company']} — {event['score']}/100")
-        elif t == "stage_done" and event.get("stage") == "score":
-            print(f"\n  Qualified: {event.get('qualified', 0)}/{event.get('total', 0)}")
+            q = "QF" if ev["qualify"] else "NQ"
+            print(f"  {q} {ev['company']} — {ev['score']}/100")
+        elif t == "stage_done" and ev.get("stage") == "score":
+            print(f"\n  Qualified: {ev.get('qualified', 0)}/{ev.get('total', 0)}")
         elif t == "final":
-            output_path = event.get("output_path")
-            stats = event.get("stats", {})
+            output_path = ev.get("output_path")
+            stats = ev.get("stats", {})
             print(f"\n{'=' * 50}")
             print(f"  DONE  |  Leads: {stats.get('total_leads')}  |  "
-                  f"Avg score: {stats.get('avg_score')}  |  Output: {output_path}")
+                  f"Avg: {stats.get('avg_score')}  |  Out: {output_path}")
             print(f"{'=' * 50}\n")
 
     return output_path
@@ -278,4 +342,6 @@ if __name__ == "__main__":
     run_pipeline(
         icp_config_path="config/icp_digital_transformation.json",
         exclusion_list_path=None,
+        user_prompt="Find Bangalore mid-market manufacturers who have hired a "
+                    "CTO in the last 90 days and are migrating off legacy ERP.",
     )

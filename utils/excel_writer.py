@@ -1,15 +1,24 @@
+"""
+Ranked lead workbook writer.
+
+Output is a single 'Leads' sheet with a frozen header, score-based row
+fills, and a deliberately limited column set so it's outreach-ready
+when opened in Excel or Google Sheets.
+"""
+
 import os
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 
 COLUMNS = [
     "Rank", "Company", "Website", "Location", "Industry",
-    "Total Score", "Fit Score", "Trigger Score",
-    "Reachability Score", "Recency Score",
+    "Total Score", "Fit", "Trigger", "Reachability", "Recency",
     "Primary Signal", "Pain Point", "Score Reasoning",
     "Contact Name", "Contact Title", "Email", "LinkedIn URL",
-    "Opening Line", "Source", "Date Found", "Status"
+    "Contact Posts", "Reddit Signals",
+    "Opening Line",
+    "Source", "Date Found", "Status",
 ]
 
 
@@ -18,42 +27,48 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
     ws = wb.active
     ws.title = "Leads"
 
-    # Header row
-    header_fill = PatternFill("solid", fgColor="1a1a2e")
-    header_font = Font(bold=True, color="FFFFFF", size=11)
+    # Brand-aligned header (ink #0F2A33, cream text)
+    header_fill = PatternFill("solid", fgColor="0F2A33")
+    header_font = Font(bold=True, color="F4F0E7", size=11, name="Inter")
+    thin_border = Border(
+        left=Side(style="thin", color="E5E0D3"),
+        right=Side(style="thin", color="E5E0D3"),
+        top=Side(style="thin", color="E5E0D3"),
+        bottom=Side(style="thin", color="E5E0D3"),
+    )
 
     for col_idx, col_name in enumerate(COLUMNS, 1):
         cell = ws.cell(row=1, column=col_idx, value=col_name)
         cell.fill = header_fill
         cell.font = header_font
-        cell.alignment = Alignment(horizontal="center")
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = thin_border
 
     ws.freeze_panes = "A2"
-    ws.row_dimensions[1].height = 22
+    ws.row_dimensions[1].height = 26
 
-    # Sort leads by total_score descending
-    leads_sorted = sorted(
-        leads, key=lambda x: x.get("total_score", 0), reverse=True
-    )
+    leads_sorted = sorted(leads, key=lambda x: x.get("total_score", 0), reverse=True)
 
     for rank, lead in enumerate(leads_sorted, 1):
         row = rank + 1
         score = lead.get("total_score", 0)
 
-        # Row background colour by score
         if score >= 80:
-            fill = PatternFill("solid", fgColor="e8f5e9")  # green
+            fill = PatternFill("solid", fgColor="E6F4EA")   # mint
         elif score >= 60:
-            fill = PatternFill("solid", fgColor="fff9e6")  # yellow
+            fill = PatternFill("solid", fgColor="F4F0E7")   # cream
         else:
-            fill = None
+            fill = PatternFill("solid", fgColor="FBFAF7")   # off-white
+
+        contact_posts = " || ".join(lead.get("contact_posts", []) or [])[:600]
+        reddit_signals = " || ".join(lead.get("reddit_signals", []) or [])[:600]
 
         values = [
             rank,
             lead.get("company_name", ""),
             lead.get("website", ""),
-            lead.get("locations", ["Bangalore"])[0] if isinstance(
-                lead.get("locations"), list) else "Bangalore",
+            (lead.get("locations", ["Bangalore"])[0]
+                if isinstance(lead.get("locations"), list) else "Bangalore"),
             lead.get("vertical", ""),
             score,
             lead.get("fit_score", ""),
@@ -67,22 +82,24 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
             lead.get("contact_title", ""),
             lead.get("email", ""),
             lead.get("linkedin_url", ""),
+            contact_posts,
+            reddit_signals,
             lead.get("opening_line", ""),
             lead.get("source", ""),
             lead.get("date_found", ""),
-            "New"
+            "New",
         ]
 
         for col_idx, value in enumerate(values, 1):
             cell = ws.cell(row=row, column=col_idx, value=value)
-            if fill:
-                cell.fill = fill
+            cell.fill = fill
+            cell.font = Font(name="Inter", size=10, color="0F2A33")
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+            cell.border = thin_border
 
-    # Auto-fit column widths (capped at 60)
+    # Auto-fit (capped) widths
     for col in ws.columns:
-        max_len = max(
-            (len(str(cell.value)) for cell in col if cell.value), default=10
-        )
+        max_len = max((len(str(c.value or "")) for c in col), default=10)
         ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 60)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
