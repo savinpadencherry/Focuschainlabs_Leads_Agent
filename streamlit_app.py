@@ -343,7 +343,7 @@ h1, h2, h3, h4, p, div, span, label {
 
 /* ── Prompt form — Claude-style unified card ── */
 
-/* Outer card — position:relative so the send button can be absolutely anchored */
+/* Outer card */
 [data-testid="stForm"] {
     background: var(--cream-3) !important;
     border: 1.5px solid var(--line-soft) !important;
@@ -352,30 +352,23 @@ h1, h2, h3, h4, p, div, span, label {
     padding: 0 !important;
     box-shadow: none !important;
     transition: border-color .2s, box-shadow .2s !important;
-    position: relative !important;
 }
 [data-testid="stForm"]:focus-within {
     border-color: rgba(46,139,77,.55) !important;
     box-shadow: 0 0 0 4px rgba(46,139,77,.09) !important;
 }
 
-/* Collapse gap between textarea row and button row */
-[data-testid="stForm"] [data-testid="stVerticalBlock"] {
+/* Collapse outer vertical gap */
+[data-testid="stForm"] > div > [data-testid="stVerticalBlock"] {
     gap: 0 !important;
 }
 
-/* Reset position on intermediate containers so absolute children anchor to stForm */
-[data-testid="stForm"] [data-testid="stVerticalBlock"],
-[data-testid="stForm"] [data-testid="element-container"] {
-    position: static !important;
-}
-
-/* Textarea — borderless & transparent, extra bottom padding clears the send button */
+/* Textarea — borderless & transparent inside the card */
 [data-testid="stForm"] .stTextArea textarea {
     background: transparent !important;
     border: none !important;
     border-radius: 0 !important;
-    padding: 18px 20px 64px !important;
+    padding: 18px 20px 14px !important;
     box-shadow: none !important;
     caret-color: var(--green) !important;
     font-family: 'Bricolage Grotesque', sans-serif !important;
@@ -403,18 +396,39 @@ h1, h2, h3, h4, p, div, span, label {
     box-shadow: none !important;
 }
 
-/* Send button wrapper — absolutely anchored to bottom-right of stForm */
-[data-testid="stForm"] [data-testid="stFormSubmitButton"] {
-    position: absolute !important;
-    bottom: 14px !important;
-    right: 14px !important;
-    z-index: 10 !important;
-    width: auto !important;
+/* Toolbar row: the columns block at the bottom of the form */
+[data-testid="stForm"] [data-testid="stHorizontalBlock"] {
+    border-top: 1px solid var(--line-soft) !important;
+    padding: 8px 10px 8px 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    align-items: center !important;
     background: transparent !important;
-    border: none !important;
+    min-height: 56px !important;
+}
+
+/* Hide the empty spacer column */
+[data-testid="stForm"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:first-child {
+    padding: 0 !important;
+}
+
+/* Button column — flush right */
+[data-testid="stForm"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:last-child {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    padding: 0 !important;
+}
+
+/* Send button wrapper */
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    width: 100% !important;
+    background: transparent !important;
     padding: 0 !important;
     margin: 0 !important;
-    display: block !important;
 }
 
 /* Circular send button — green circle, white ↑ arrow */
@@ -951,7 +965,7 @@ if st.session_state.stage == "setup":
     with st.form("run_form", border=False, clear_on_submit=False):
         prompt = st.text_area(
             "brief",
-            height=160,
+            height=150,
             placeholder=(
                 "Describe in plain English — the LLM turns this into the actual searches.\n\n"
                 "e.g. Find Bangalore-based mid-market IT firms or SaaS companies that hired "
@@ -960,7 +974,10 @@ if st.session_state.stage == "setup":
             ),
             label_visibility="collapsed",
         )
-        run = st.form_submit_button("↑")
+        # Columns: spacer fills left, button sits at far right
+        _spacer, _btn = st.columns([1, 0.10])
+        with _btn:
+            run = st.form_submit_button("↑")
 
     if run:
         if not prompt.strip():
