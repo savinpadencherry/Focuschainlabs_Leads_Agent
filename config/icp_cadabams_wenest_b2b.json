@@ -2,11 +2,16 @@
   "vertical": "Senior Living B2B Referral Partners",
   "client": "Cadabams WeNest",
   "target_industries": [
-    "Corporate HR",
-    "Health Insurance",
-    "Wealth Management",
-    "Private Banking",
-    "Hospitals and Healthcare"
+    "Corporate HR & Employee Benefits",
+    "Health Insurance & TPA",
+    "Wealth Management & Private Banking",
+    "Hospital & Discharge Planning",
+    "NRI Employee Networks (parents in India)",
+    "Geriatric & Elder Care Referrals",
+    "Employee Assistance Programs (EAP)",
+    "Private Hospitals & Specialty Clinics",
+    "Senior Citizen Support Services",
+    "Corporate Wellness Programs"
   ],
   "company_size": {
     "min_employees": 100,
@@ -20,10 +25,13 @@
     "Chief People Officer",
     "VP Human Resources",
     "Head of Employee Wellness",
+    "Employee Benefits Manager",
     "Insurance Broker",
-    "Wealth Manager",
     "Relationship Manager",
-    "Hospital Discharge Planner"
+    "Wealth Manager",
+    "Hospital Discharge Planner",
+    "Medical Social Worker",
+    "Head of Corporate Wellness"
   ],
   "trigger_keywords": [
     "employee wellness program Bangalore corporate 2026",
@@ -32,7 +40,10 @@
     "aging workforce wellness policy Bangalore 2026",
     "corporate health insurance senior care Bangalore 2026",
     "hospital discharge planning partnership Bangalore 2026",
-    "geriatric care referral network Bangalore 2026"
+    "geriatric care referral network Bangalore 2026",
+    "employee assistance program EAP Bangalore 2026",
+    "corporate eldercare support Bangalore 2026",
+    "NRI parent care facility Bangalore 2026"
   ],
   "disqualifiers": [],
   "searches_per_run": 20,

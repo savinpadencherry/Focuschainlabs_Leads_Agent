@@ -2,12 +2,20 @@
   "vertical": "Digital Transformation Consulting",
   "client": "Focus Chain Labs",
   "target_industries": [
+    "IT Services & Consulting",
+    "Software Product Companies",
+    "SaaS & Cloud Platforms",
+    "Fintech & Financial Technology",
+    "D2C & Consumer Technology",
+    "GCC / Global Capability Centers",
     "Manufacturing",
-    "Retail and E-commerce",
-    "Logistics and Supply Chain",
-    "Healthcare",
-    "BFSI",
-    "Real Estate"
+    "Retail & E-commerce",
+    "Logistics & Supply Chain",
+    "Healthcare & Healthtech",
+    "BFSI & Banking Technology",
+    "Real Estate & Proptech",
+    "Media & Entertainment Tech",
+    "EdTech & Learning Platforms"
   ],
   "company_size": {
     "min_employees": 200,
@@ -20,17 +28,21 @@
     "CIO",
     "Chief Technology Officer",
     "Chief Information Officer",
+    "Chief Digital Officer",
     "VP Technology",
     "VP IT",
+    "VP Engineering",
     "Head of IT",
     "Director Technology",
     "VP Digital Transformation",
+    "Head of Engineering",
     "COO",
     "VP Operations"
   ],
   "trigger_keywords": [
     "new CTO appointed Bangalore 2026",
     "hired Chief Technology Officer Bangalore 2026",
+    "hired Chief Digital Officer Bangalore 2026",
     "Series B funding Bangalore startup 2026",
     "Series C funding Bangalore 2026",
     "GCC Bangalore digital transformation hiring 2026",
@@ -39,10 +51,11 @@
     "SAP ERP migration Bangalore 2026",
     "legacy system modernisation Bangalore 2026",
     "IPO filing Bangalore company 2026",
-    "expansion Bangalore manufacturing technology 2026",
-    "Bangalore logistics company technology upgrade 2026",
-    "Bangalore startup raised funding technology 2026",
-    "GCC Bangalore expansion hiring 2026"
+    "expansion Bangalore technology 2026",
+    "Bangalore IT company headcount growth 2026",
+    "GCC Bangalore expansion hiring 2026",
+    "SaaS company Bangalore Series A 2026",
+    "Bangalore fintech infrastructure upgrade 2026"
   ],
   "disqualifiers": [
     "seed stage only",
