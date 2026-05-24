@@ -339,28 +339,41 @@ h1, h2, h3, h4, p, div, span, label {
     color: var(--ink-mute) !important;
 }
 
-/* ── Prompt form — textarea with embedded submit button ── */
+/* ── Prompt form — Claude-style unified card ── */
+
+/* Outer card: cream bg, soft border, rounded, clips children cleanly */
 [data-testid="stForm"] {
     background: var(--cream-3) !important;
     border: 1.5px solid var(--line-soft) !important;
     border-radius: var(--r) !important;
-    position: relative !important;
+    overflow: hidden !important;
     padding: 0 !important;
     box-shadow: none !important;
-    transition: border-color .2s, box-shadow .2s, background .2s !important;
+    transition: border-color .2s, box-shadow .2s !important;
 }
 [data-testid="stForm"]:focus-within {
-    border-color: var(--green) !important;
+    border-color: rgba(46,139,77,.55) !important;
     box-shadow: 0 0 0 4px rgba(46,139,77,.09) !important;
-    background: #fff !important;
 }
+
+/* Collapse inner vertical gap so textarea + toolbar touch */
+[data-testid="stForm"] [data-testid="stVerticalBlock"] {
+    gap: 0 !important;
+}
+
+/* Textarea: fully borderless & transparent inside the card */
 [data-testid="stForm"] .stTextArea textarea {
     background: transparent !important;
     border: none !important;
     border-radius: 0 !important;
-    padding: 20px 22px 68px 22px !important;
+    padding: 18px 20px 10px !important;
     box-shadow: none !important;
     caret-color: var(--green) !important;
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    font-size: 15px !important;
+    line-height: 1.65 !important;
+    color: var(--ink) !important;
+    resize: none !important;
 }
 [data-testid="stForm"] .stTextArea textarea:focus {
     border: none !important;
@@ -368,35 +381,60 @@ h1, h2, h3, h4, p, div, span, label {
     background: transparent !important;
     outline: none !important;
 }
-[data-testid="stForm"] .stTextArea > div {
+[data-testid="stForm"] .stTextArea textarea::placeholder {
+    color: var(--ink-mute) !important;
+    font-style: italic !important;
+    font-weight: 300 !important;
+    opacity: .7 !important;
+}
+[data-testid="stForm"] .stTextArea > div,
+[data-testid="stForm"] .stTextArea [data-baseweb="base-input"] {
     border: none !important;
     background: transparent !important;
+    box-shadow: none !important;
 }
-/* Embed the submit button at bottom-right inside the form */
-[data-testid="stForm"] [data-testid="stFormSubmitButton"] {
-    position: absolute !important;
-    bottom: 14px !important;
-    right: 14px !important;
-    z-index: 10 !important;
+
+/* Toolbar row (contains the send button): sits flush at the bottom */
+[data-testid="stForm"] [data-testid="element-container"]:has([data-testid="stFormSubmitButton"]) {
+    border-top: 1px solid var(--line-soft) !important;
+    background: transparent !important;
+    padding: 10px 14px !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    margin: 0 !important;
+    min-height: 60px !important;
 }
+
+/* Circular send button — exactly like Claude's ↑ button */
 [data-testid="stForm"] [data-testid="stFormSubmitButton"] > button {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
     background: var(--green) !important;
     color: #fff !important;
     border: none !important;
-    border-radius: var(--rs) !important;
-    padding: 10px 22px !important;
-    font-family: 'Bricolage Grotesque', sans-serif !important;
-    font-size: 14px !important;
-    font-weight: 600 !important;
-    letter-spacing: .01em !important;
-    box-shadow: 0 2px 10px rgba(46,139,77,.22) !important;
-    transition: all .2s !important;
+    font-size: 18px !important;
+    font-weight: 400 !important;
+    line-height: 38px !important;
+    text-align: center !important;
+    box-shadow: 0 2px 8px rgba(46,139,77,.28) !important;
+    transition: all .2s ease !important;
     cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 [data-testid="stForm"] [data-testid="stFormSubmitButton"] > button:hover {
     background: var(--green-br) !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 5px 16px rgba(46,139,77,.30) !important;
+    transform: scale(1.1) !important;
+    box-shadow: 0 4px 16px rgba(46,139,77,.32) !important;
+}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] > button:active {
+    transform: scale(0.96) !important;
 }
 
 /* ── Text area — standalone (outside forms) ── */
@@ -911,7 +949,7 @@ if st.session_state.stage == "setup":
             ),
             label_visibility="collapsed",
         )
-        run = st.form_submit_button("Run Agent →")
+        run = st.form_submit_button("↑")
 
     if run:
         if not prompt.strip():
