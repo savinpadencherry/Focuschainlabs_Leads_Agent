@@ -239,9 +239,11 @@ h1, h2, h3, h4, p, div, span, label {
 
 /* ── Primary button — green ── */
 [data-testid="stBaseButton-primary"],
-.stButton > button[kind="primary"] {
+.stButton > button[kind="primary"],
+.stButton > button[data-testid="stBaseButton-primary"] {
     background: var(--green) !important;
     color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
     border: 1.5px solid var(--green) !important;
     border-radius: var(--rs) !important;
     font-family: 'Bricolage Grotesque', sans-serif !important;
@@ -341,7 +343,7 @@ h1, h2, h3, h4, p, div, span, label {
 
 /* ── Prompt form — Claude-style unified card ── */
 
-/* Outer card */
+/* Outer card — position:relative so the send button can be absolutely anchored */
 [data-testid="stForm"] {
     background: var(--cream-3) !important;
     border: 1.5px solid var(--line-soft) !important;
@@ -350,6 +352,7 @@ h1, h2, h3, h4, p, div, span, label {
     padding: 0 !important;
     box-shadow: none !important;
     transition: border-color .2s, box-shadow .2s !important;
+    position: relative !important;
 }
 [data-testid="stForm"]:focus-within {
     border-color: rgba(46,139,77,.55) !important;
@@ -361,12 +364,18 @@ h1, h2, h3, h4, p, div, span, label {
     gap: 0 !important;
 }
 
-/* Textarea — borderless & transparent inside the card */
+/* Reset position on intermediate containers so absolute children anchor to stForm */
+[data-testid="stForm"] [data-testid="stVerticalBlock"],
+[data-testid="stForm"] [data-testid="element-container"] {
+    position: static !important;
+}
+
+/* Textarea — borderless & transparent, extra bottom padding clears the send button */
 [data-testid="stForm"] .stTextArea textarea {
     background: transparent !important;
     border: none !important;
     border-radius: 0 !important;
-    padding: 18px 20px 10px !important;
+    padding: 18px 20px 64px !important;
     box-shadow: none !important;
     caret-color: var(--green) !important;
     font-family: 'Bricolage Grotesque', sans-serif !important;
@@ -394,17 +403,18 @@ h1, h2, h3, h4, p, div, span, label {
     box-shadow: none !important;
 }
 
-/* Toolbar: target stFormSubmitButton directly — no :has() needed */
+/* Send button wrapper — absolutely anchored to bottom-right of stForm */
 [data-testid="stForm"] [data-testid="stFormSubmitButton"] {
-    display: flex !important;
-    justify-content: flex-end !important;
-    align-items: center !important;
-    padding: 10px 14px !important;
-    border-top: 1px solid var(--line-soft) !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
+    position: absolute !important;
+    bottom: 14px !important;
+    right: 14px !important;
+    z-index: 10 !important;
+    width: auto !important;
     background: transparent !important;
-    min-height: 58px !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
 }
 
 /* Circular send button — green circle, white ↑ arrow */
@@ -420,7 +430,7 @@ h1, h2, h3, h4, p, div, span, label {
     -webkit-text-fill-color: white !important;
     border: none !important;
     font-size: 17px !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
     line-height: 1 !important;
     box-shadow: 0 2px 8px rgba(46,139,77,.30) !important;
     transition: transform .15s ease, box-shadow .15s ease, background .15s ease !important;
