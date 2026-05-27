@@ -99,10 +99,16 @@ def run_pipeline_streaming(
         if pilot:
             kws = kws[:20]
         for kw in kws:
-            serper_results.extend(search_serper(kw))
+            yield {"type": "keyword_searching", "keyword": kw[:80], "source": "serper"}
+            kw_results = search_serper(kw)
+            serper_results.extend(kw_results)
+            yield {"type": "keyword_done", "keyword": kw[:80], "count": len(kw_results), "source": "serper"}
             time.sleep(0.25)
         for q in plan.get("linkedin_queries", [])[:3]:
-            serper_results.extend(search_serper(q))
+            yield {"type": "keyword_searching", "keyword": q[:80], "source": "linkedin"}
+            q_results = search_serper(q)
+            serper_results.extend(q_results)
+            yield {"type": "keyword_done", "keyword": q[:80], "count": len(q_results), "source": "linkedin"}
             time.sleep(0.25)
         all_results.extend(serper_results)
         yield {"type": "source_done", "source": "serper",
@@ -117,7 +123,10 @@ def run_pipeline_streaming(
     reddit_results = []
     if os.getenv("SERPER_API_KEY"):
         for q in plan.get("reddit_queries", [])[:3]:
-            reddit_results.extend(search_reddit(q))
+            yield {"type": "keyword_searching", "keyword": q[:80], "source": "reddit"}
+            q_results = search_reddit(q)
+            reddit_results.extend(q_results)
+            yield {"type": "keyword_done", "keyword": q[:80], "count": len(q_results), "source": "reddit"}
             time.sleep(0.25)
         all_results.extend(reddit_results)
         yield {"type": "source_done", "source": "reddit",
@@ -139,8 +148,10 @@ def run_pipeline_streaming(
     # ProxyCurl
     yield {"type": "source_start", "source": "proxycurl", "label": "LinkedIn Jobs (ProxyCurl)"}
     if os.getenv("PROXYCURL_API_KEY"):
+        yield {"type": "keyword_searching", "keyword": "LinkedIn job listings via ProxyCurl", "source": "linkedin"}
         pc = search_proxycurl_jobs(icp)
         all_results.extend(pc)
+        yield {"type": "keyword_done", "keyword": "LinkedIn job listings", "count": len(pc), "source": "linkedin"}
         yield {"type": "source_done", "source": "proxycurl",
                "count": len(pc), "status": "done"}
     else:
@@ -149,6 +160,7 @@ def run_pipeline_streaming(
 
     # Naukri
     yield {"type": "source_start", "source": "naukri", "label": "Naukri Job Board (scraper)"}
+    yield {"type": "keyword_searching", "keyword": "Naukri job board scrape", "source": "naukri"}
     nk = search_naukri(icp)
     all_results.extend(nk)
     yield {
@@ -197,6 +209,11 @@ def run_pipeline_streaming(
             company.get("snippet", ""),
         )
         researched.append({**company, **bundle})
+        yield {"type": "company_researched",
+               "company": company["company_name"],
+               "website": company.get("website", ""),
+               "ad_detected": bundle.get("running_ads", False),
+               "evidence_count": len(bundle.get("evidence", []))}
     yield {"type": "stage_done", "stage": "research"}
 
     # ── Stage 3: Score ─────────────────────────────────────────────────────
