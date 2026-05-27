@@ -94,7 +94,7 @@ def plan_search(user_prompt: str, base_icp: dict) -> dict:
         try:
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
             resp = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3.5-flash",
                 contents=prompt,
             )
             plan = json.loads(_strip_fences(resp.text))

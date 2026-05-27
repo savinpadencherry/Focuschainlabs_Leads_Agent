@@ -111,7 +111,7 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
         try:
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
             response = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3.5-flash",
                 contents=prompt,
             )
             raw = re.sub(r"```json|```", "", response.text.strip()).strip()
