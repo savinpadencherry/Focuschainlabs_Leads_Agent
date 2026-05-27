@@ -15,7 +15,6 @@ import re
 from datetime import datetime
 
 from google import genai
-from google.genai import types
 
 from utils.rate_limiter import gemini_limiter
 
@@ -95,11 +94,8 @@ def plan_search(user_prompt: str, base_icp: dict) -> dict:
         try:
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
             resp = client.models.generate_content(
-                model="gemini-3.5-flash",
+                model="gemini-2.0-flash",
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(thinking_level="low")
-                ),
             )
             plan = json.loads(_strip_fences(resp.text))
             return _normalise(plan, base_icp, user_prompt)

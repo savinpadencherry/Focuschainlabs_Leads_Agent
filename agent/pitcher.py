@@ -6,7 +6,6 @@ Threads company signal + contact's own recent posts into a peer-to-peer line.
 import os
 
 from google import genai
-from google.genai import types
 
 from utils.rate_limiter import gemini_limiter
 
@@ -65,11 +64,8 @@ def generate_pitch(lead: dict) -> str:
     try:
         client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
         response = client.models.generate_content(
-            model="gemini-3.5-flash",
+            model="gemini-2.0-flash",
             contents=prompt,
-            config=types.GenerateContentConfig(
-                thinking_config=types.ThinkingConfig(thinking_level="medium")
-            ),
         )
         return response.text.strip().strip('"')
 
