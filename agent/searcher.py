@@ -32,6 +32,23 @@ def extract_company_name(title: str) -> str:
 
 
 # ─── Serper (Google) ─────────────────────────────────────────────────────────
+def search_serper_raw(keyword: str, num: int = 5) -> dict:
+    """Returns the full Serper response including ads, knowledgeGraph, etc."""
+    serper_limiter.wait()
+    api_key = os.getenv("SERPER_API_KEY")
+    if not api_key:
+        return {}
+    headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
+    body = {"q": keyword, "gl": "in", "hl": "en", "num": num}
+    try:
+        response = requests.post(SERPER_URL, headers=headers, json=body, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"  [WARN] Serper raw failed for '{keyword[:60]}': {e}")
+        return {}
+
+
 def search_serper(keyword: str, num: int = 10) -> list:
     serper_limiter.wait()
     api_key = os.getenv("SERPER_API_KEY")

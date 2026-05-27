@@ -697,6 +697,53 @@ h1, h2, h3, h4, p, div, span, label {
     color: var(--ink-mute); letter-spacing: .14em;
     text-transform: uppercase; margin-right: 3px;
 }
+/* Evidence block */
+.lc-evidence {
+    margin-top: 14px;
+    border-top: 1px solid var(--line-soft);
+    padding-top: 12px;
+    display: flex; flex-direction: column; gap: 6px;
+}
+.lc-ev-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-mute);
+    margin-bottom: 4px;
+}
+.lc-ev-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: 12.5px; color: var(--ink-soft); line-height: 1.5;
+}
+.lc-ev-cat {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px; letter-spacing: .1em;
+    text-transform: uppercase; padding: 2px 6px;
+    border-radius: 4px; white-space: nowrap; flex-shrink: 0;
+    margin-top: 1px;
+}
+.ev-paid_ads  { background: #FEF3C7; color: #92400E; }
+.ev-hiring    { background: #D1FAE5; color: #065F46; }
+.ev-news      { background: #DBEAFE; color: #1E40AF; }
+.ev-linkedin  { background: #E0E7FF; color: #3730A3; }
+.ev-community { background: #FCE7F3; color: #9D174D; }
+/* Outreach strategy note */
+.lc-note {
+    margin-top: 14px;
+    background: #0F2A330A;
+    border-left: 2.5px solid var(--ink-mute);
+    border-radius: 0 var(--rs) var(--rs) 0;
+    padding: 12px 16px;
+}
+.lc-note-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-mute);
+    margin-bottom: 6px;
+}
+.lc-note-body {
+    font-size: 13px; color: var(--ink);
+    line-height: 1.7; white-space: pre-wrap;
+}
 
 /* ── Stats row ── */
 .stats-row {
@@ -1308,13 +1355,18 @@ elif st.session_state.stage == "results":
             signal  = lead.get("primary_signal", "").strip()
             pain    = lead.get("pain_point", "").strip()
             opening = lead.get("opening_line", "").strip()
+            note    = lead.get("outreach_note", "").strip()
             cn      = lead.get("contact_name", "")
             ct      = lead.get("contact_title", "")
             em      = lead.get("email", "")
             li      = lead.get("linkedin_url", "")
             src     = lead.get("source", "")
+            running_ads = lead.get("running_ads", False)
+            evidence    = lead.get("evidence", []) or []
 
             chips = []
+            if running_ads:
+                chips.append('<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-size:10px;letter-spacing:.08em">RUNNING ADS</span>')
             if cn and "Manual" not in cn:
                 chips.append(f'<span><span class="k">contact</span>{cn}{" · " + ct if ct else ""}</span>')
             if em and "Manual" not in em and "@" in em:
@@ -1323,6 +1375,22 @@ elif st.session_state.stage == "results":
                 chips.append(f'<span><span class="k">li</span>{li[:50]}</span>')
             if src:
                 chips.append(f'<span><span class="k">via</span>{src}</span>')
+
+            # Evidence items HTML
+            ev_html = ""
+            if evidence:
+                ev_items = ""
+                for ev in evidence[:5]:
+                    cat = ev.get("category", "news")
+                    obs = ev.get("observation", "")[:120]
+                    url = ev.get("url", "")
+                    obs_html = f'<a href="{url}" target="_blank" style="color:inherit">{obs}</a>' if url else obs
+                    ev_items += f'<div class="lc-ev-item"><span class="lc-ev-cat ev-{cat}">{cat}</span>{obs_html}</div>'
+                ev_html = f'<div class="lc-evidence"><div class="lc-ev-label">Evidence</div>{ev_items}</div>'
+
+            note_html = ""
+            if note:
+                note_html = f'<div class="lc-note"><div class="lc-note-label">Call Strategy</div><div class="lc-note-body">{note}</div></div>'
 
             st.markdown(f"""
             <div class="lc">
@@ -1336,6 +1404,8 @@ elif st.session_state.stage == "results":
               {f'<div class="lc-sig">{signal}</div>' if signal else ""}
               {f'<div class="lc-meta" style="margin-top:6px;font-size:12.5px">Pain · {pain}</div>' if pain else ""}
               {f'<div class="lc-opener">{opening}</div>' if opening else ""}
+              {ev_html}
+              {note_html}
               {f'<div class="lc-chips">{"".join(chips)}</div>' if chips else ""}
             </div>
             """, unsafe_allow_html=True)

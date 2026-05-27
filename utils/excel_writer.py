@@ -15,9 +15,10 @@ COLUMNS = [
     "Rank", "Company", "Website", "Location", "Industry",
     "Total Score", "Fit", "Trigger", "Reachability", "Recency",
     "Primary Signal", "Pain Point", "Score Reasoning",
+    "Ad Activity", "Evidence",
     "Contact Name", "Contact Title", "Email", "LinkedIn URL",
     "Contact Posts", "Reddit Signals",
-    "Opening Line",
+    "Opening Line", "Outreach Strategy",
     "Source", "Date Found", "Status",
 ]
 
@@ -60,8 +61,20 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
         else:
             fill = PatternFill("solid", fgColor="FBFAF7")   # off-white
 
-        contact_posts = " || ".join(lead.get("contact_posts", []) or [])[:600]
+        contact_posts  = " || ".join(lead.get("contact_posts",  []) or [])[:600]
         reddit_signals = " || ".join(lead.get("reddit_signals", []) or [])[:600]
+
+        # Ad activity — join detected signals
+        ad_signals = lead.get("ad_signals", []) or []
+        ad_activity = " | ".join(ad_signals[:3]) if ad_signals else ""
+
+        # Evidence — structured items as readable lines
+        evidence_items = lead.get("evidence", []) or []
+        evidence_text = "\n".join(
+            f"[{e.get('category','').upper()}] {e.get('observation','')[:120]}"
+            + (f"\n  → {e['url']}" if e.get("url") else "")
+            for e in evidence_items[:8]
+        )
 
         values = [
             rank,
@@ -78,6 +91,8 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
             lead.get("primary_signal", ""),
             lead.get("pain_point", ""),
             lead.get("score_reasoning", ""),
+            ad_activity,
+            evidence_text,
             lead.get("contact_name", ""),
             lead.get("contact_title", ""),
             lead.get("email", ""),
@@ -85,6 +100,7 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
             contact_posts,
             reddit_signals,
             lead.get("opening_line", ""),
+            lead.get("outreach_note", ""),
             lead.get("source", ""),
             lead.get("date_found", ""),
             "New",

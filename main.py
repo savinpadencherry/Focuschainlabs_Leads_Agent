@@ -31,7 +31,7 @@ from agent.searcher import (
 from agent.researcher import research_company
 from agent.scorer import score_company
 from agent.enricher import enrich_contact
-from agent.pitcher import generate_pitch
+from agent.pitcher import generate_pitch, generate_outreach_note
 from agent.planner import plan_search
 from utils.deduplicator import load_exclusion_list, deduplicate
 from utils.excel_writer import write_leads_to_excel
@@ -249,7 +249,8 @@ def run_pipeline_streaming(
         yield {"type": "pitch_progress",
                "idx": i + 1, "total": len(enriched),
                "company": lead["company_name"]}
-        lead["opening_line"] = generate_pitch(lead)
+        lead["opening_line"]  = generate_pitch(lead)
+        lead["outreach_note"] = generate_outreach_note(lead)
         final_leads.append(lead)
     yield {"type": "stage_done", "stage": "pitch"}
 
@@ -262,6 +263,7 @@ def run_pipeline_streaming(
                 "email":         "Manual lookup needed",
                 "linkedin_url":  "Manual lookup needed",
                 "opening_line":  "",
+                "outreach_note": "",
                 **icp,
             })
             final_leads.append(company)
