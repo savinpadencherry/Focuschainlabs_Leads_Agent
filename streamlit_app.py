@@ -745,6 +745,77 @@ h1, h2, h3, h4, p, div, span, label {
     line-height: 1.7; white-space: pre-wrap;
 }
 
+/* ── Live ticker ── */
+.ticker {
+    background: var(--ink);
+    color: var(--cream);
+    border-radius: var(--rs);
+    padding: 14px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 14px;
+    min-height: 50px; line-height: 1.5;
+}
+.ticker-pulse {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--green); flex-shrink: 0;
+    animation: blink 1.4s ease-in-out infinite;
+}
+@keyframes blink {
+    0%,100% { opacity: 1; } 50% { opacity: .3; }
+}
+.ticker-stage {
+    color: var(--green); font-size: 9.5px;
+    letter-spacing: .14em; text-transform: uppercase;
+    margin-right: 4px; white-space: nowrap;
+}
+.ticker-msg { flex: 1; color: #CBD5C0; }
+
+/* ── Keyword search log ── */
+.kw-log { display: flex; flex-direction: column; gap: 0; }
+.kw-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 0; border-bottom: 1px solid var(--line-soft);
+    font-size: 12px;
+}
+.kw-row:last-child { border-bottom: none; }
+.kw-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 3px; flex-shrink: 0;
+}
+.kw-google   { background: #DBEAFE; color: #1E40AF; }
+.kw-linkedin { background: #E0E7FF; color: #3730A3; }
+.kw-reddit   { background: #FCE7F3; color: #9D174D; }
+.kw-naukri   { background: #FEF3C7; color: #92400E; }
+.kw-q { flex: 1; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-count { color: var(--ink-mute); font-family: 'JetBrains Mono', monospace; font-size: 11px; flex-shrink: 0; }
+
+/* ── Company activity log ── */
+.act-log { display: flex; flex-direction: column; gap: 0; }
+.act-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--line-soft);
+    font-size: 12.5px;
+}
+.act-row:last-child { border-bottom: none; }
+.act-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
+}
+.act-run   { background: var(--green); animation: blink 1.4s ease-in-out infinite; }
+.act-done  { background: var(--green); }
+.act-skip  { background: #E5E7EB; }
+.act-warn  { background: #F59E0B; }
+.act-body { flex: 1; }
+.act-company { font-weight: 600; color: var(--ink); }
+.act-detail  { color: var(--ink-mute); font-size: 11.5px; margin-top: 1px; }
+.act-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; padding: 2px 7px;
+    border-radius: 4px; flex-shrink: 0; align-self: center;
+}
+
 /* ── Stats row ── */
 .stats-row {
     display: grid; grid-template-columns: repeat(4, 1fr);
@@ -1082,10 +1153,64 @@ elif st.session_state.stage == "running":
             f'{nodes}</div></div>'
         )
 
+    def render_ticker(events: list, stage_status: dict) -> str:
+        stage_labels = {
+            "plan": "Planning", "search": "Searching",
+            "research": "Researching", "score": "Scoring",
+            "enrich": "Enriching", "pitch": "Writing pitches",
+        }
+        current_stage = next(
+            (k for k, v in stage_status.items() if v == "running"), "starting"
+        )
+        stage_lbl = stage_labels.get(current_stage, current_stage.capitalize())
+
+        # Find most recent meaningful event for the message
+        msg = "Initialising pipeline…"
+        for ev in reversed(events):
+            t = ev.get("type", "")
+            if t == "keyword_searching":
+                src = ev.get("source", "google")
+                src_label = {"serper": "Google", "reddit": "Reddit", "linkedin": "LinkedIn", "naukri": "Naukri"}.get(src, src.capitalize())
+                msg = f'Querying {src_label} → &ldquo;{ev["keyword"][:70]}&rdquo;'
+                break
+            elif t == "research_progress":
+                msg = f'Scraping &ldquo;{ev.get("company","")}&rdquo; — fetching homepage, news, LinkedIn &amp; Reddit signals'
+                break
+            elif t == "company_researched":
+                ads = " · ads detected" if ev.get("ad_detected") else ""
+                msg = f'&ldquo;{ev.get("company","")}&rdquo; researched — {ev.get("evidence_count", 0)} evidence items{ads}'
+                break
+            elif t == "score_progress":
+                msg = f'Scoring &ldquo;{ev.get("company","")}&rdquo; with Gemini ({ev.get("idx","?")}/{ev.get("total","?")})'
+                break
+            elif t == "score_result":
+                q = "QUALIFIED" if ev.get("qualify") else "filtered"
+                msg = f'&ldquo;{ev.get("company","")}&rdquo; → score {ev.get("score",0)}/100 · {q}'
+                break
+            elif t == "enrich_progress":
+                msg = f'Finding decision maker at &ldquo;{ev.get("company","")}&rdquo; via Apollo'
+                break
+            elif t == "pitch_progress":
+                msg = f'Writing outreach strategy for &ldquo;{ev.get("company","")}&rdquo;'
+                break
+            elif t == "plan_ready":
+                kws = ev.get("plan", {}).get("trigger_keywords", [])
+                msg = f'Search plan ready — {len(kws)} queries generated by Gemini'
+                break
+        return (
+            f'<div class="ticker">'
+            f'<div class="ticker-pulse"></div>'
+            f'<span class="ticker-stage">{stage_lbl}</span>'
+            f'<span class="ticker-msg">{msg}</span>'
+            f'</div>'
+        )
+
     def render_sources(sources: dict) -> str:
         if not sources: return ""
         rows = ""
         ORDER = ["serper", "reddit", "tracxn", "proxycurl", "naukri"]
+        icons = {"serper": "Google", "reddit": "Reddit", "tracxn": "Tracxn",
+                 "proxycurl": "LinkedIn", "naukri": "Naukri"}
         for k in ORDER:
             if k not in sources: continue
             info   = sources[k]
@@ -1098,7 +1223,7 @@ elif st.session_state.stage == "running":
             status_text = {"run": "scanning…", "done": "done",
                            "warn": "warning", "skip": "skipped",
                            "pending": "queued"}.get(status, status)
-            right = (f'<span class="feed-count">{count}</span>'
+            right = (f'<span class="feed-count">{count} hits</span>'
                      if status == "done" and count
                      else f'<span class="feed-status">{reason or status_text}</span>')
             rows += (f'<div class="feed-row">'
@@ -1106,54 +1231,109 @@ elif st.session_state.stage == "running":
                      f'<span class="feed-name">{label}</span>{right}</div>')
         return f'<div class="feed">{rows}</div>'
 
+    def render_search_log(events: list) -> str:
+        kw_events = [e for e in events if e.get("type") == "keyword_done"][-12:]
+        if not kw_events: return '<div style="color:var(--ink-mute);font-size:12px;padding:8px 0">Waiting for search to start…</div>'
+        src_badge = {"serper": "google", "linkedin": "linkedin", "reddit": "reddit", "naukri": "naukri"}
+        src_label = {"serper": "Google", "linkedin": "LinkedIn", "reddit": "Reddit", "naukri": "Naukri"}
+        rows = ""
+        for ev in kw_events:
+            src  = ev.get("source", "serper")
+            kw   = ev.get("keyword", "")[:65]
+            cnt  = ev.get("count", 0)
+            cls  = src_badge.get(src, "google")
+            lbl  = src_label.get(src, src.capitalize())
+            cnt_html = f'<span class="kw-count">{cnt} hits</span>' if cnt else '<span class="kw-count">—</span>'
+            rows += (f'<div class="kw-row">'
+                     f'<span class="kw-badge kw-{cls}">{lbl}</span>'
+                     f'<span class="kw-q">{kw}</span>'
+                     f'{cnt_html}</div>')
+        return f'<div class="kw-log">{rows}</div>'
+
     def render_activity(events: list) -> str:
-        track = {"research_progress", "score_progress", "enrich_progress",
-                 "pitch_progress", "score_result", "enrich_result"}
-        recent = [e for e in events if e.get("type") in track][-7:]
-        if not recent: return ""
+        track = {"company_researched", "score_result", "enrich_result",
+                 "research_progress", "score_progress", "enrich_progress", "pitch_progress"}
+        recent = [e for e in events if e.get("type") in track][-10:]
+        if not recent:
+            return '<div style="color:var(--ink-mute);font-size:12px;padding:8px 0">Activity will appear here…</div>'
         rows = ""
         for ev in recent:
             t = ev.get("type", "")
             if t == "score_result":
                 score = ev.get("score", 0)
-                cls = "sc-hi" if score >= 80 else ("sc-mid" if score >= 60 else "sc-lo")
-                tag = "QUALIFIED" if ev.get("qualify") else "skipped"
+                qualify = ev.get("qualify", False)
+                sc_cls = "sc-hi" if score >= 80 else ("sc-mid" if score >= 60 else "sc-lo")
+                signal = ev.get("signal", "")[:60]
+                dot = "act-done" if qualify else "act-skip"
+                status = "QUALIFIED" if qualify else "below threshold"
                 rows += (
-                    f'<div class="feed-row">'
-                    f'<span class="feed-dot {"run" if ev.get("qualify") else "skip"}"></span>'
-                    f'<span class="feed-name">{ev.get("company","")}</span>'
-                    f'<span class="sc {cls}">{score}</span>'
-                    f'<span class="feed-status">{tag}</span></div>'
+                    f'<div class="act-row">'
+                    f'<div class="act-dot {dot}"></div>'
+                    f'<div class="act-body">'
+                    f'<div class="act-company">{ev.get("company","")}</div>'
+                    + (f'<div class="act-detail">{signal}</div>' if signal else "")
+                    + '</div>'
+                    + f'<span class="act-score sc {sc_cls}">{score}</span>'
+                    + '</div>'
+                )
+            elif t == "company_researched":
+                ads_tag = " · <span style='color:#92400E'>ads detected</span>" if ev.get("ad_detected") else ""
+                ev_count = ev.get("evidence_count", 0)
+                rows += (
+                    f'<div class="act-row">'
+                    f'<div class="act-dot act-done"></div>'
+                    f'<div class="act-body">'
+                    f'<div class="act-company">{ev.get("company","")}</div>'
+                    f'<div class="act-detail">{ev_count} evidence items collected{ads_tag}</div>'
+                    f'</div></div>'
                 )
             elif t == "enrich_result":
-                st_txt = ev.get("status", "")
+                found = ev.get("status", "") == "found"
                 rows += (
-                    f'<div class="feed-row">'
-                    f'<span class="feed-dot {"done" if st_txt=="found" else "skip"}"></span>'
-                    f'<span class="feed-name">{ev.get("company","")}</span>'
-                    f'<span class="feed-status">contact {st_txt}</span></div>'
+                    f'<div class="act-row">'
+                    f'<div class="act-dot {"act-done" if found else "act-skip"}"></div>'
+                    f'<div class="act-body">'
+                    f'<div class="act-company">{ev.get("company","")}</div>'
+                    f'<div class="act-detail">contact {"found via Apollo" if found else "not found — manual lookup needed"}</div>'
+                    f'</div></div>'
                 )
-            else:
-                stage_lbl = t.replace("_progress", "")
+            elif t in {"research_progress", "score_progress", "enrich_progress", "pitch_progress"}:
+                stage_map = {
+                    "research_progress": "scraping homepage & signals",
+                    "score_progress":    "scoring with Gemini",
+                    "enrich_progress":   "finding decision maker",
+                    "pitch_progress":    "writing pitch & strategy",
+                }
                 rows += (
-                    f'<div class="feed-row">'
-                    f'<span class="feed-dot run"></span>'
-                    f'<span class="feed-name">{ev.get("company","")}</span>'
-                    f'<span class="feed-status">{stage_lbl} · {ev.get("idx","?")} / {ev.get("total","?")}</span>'
-                    f'</div>'
+                    f'<div class="act-row">'
+                    f'<div class="act-dot act-run"></div>'
+                    f'<div class="act-body">'
+                    f'<div class="act-company">{ev.get("company","")}</div>'
+                    f'<div class="act-detail">{stage_map.get(t,"")} · {ev.get("idx","?")} of {ev.get("total","?")}</div>'
+                    f'</div></div>'
                 )
-        return f'<div class="feed">{rows}</div>'
+        return f'<div class="act-log">{rows}</div>'
 
-    # Slots
-    pipe_slot     = st.empty()
-    st.markdown('<div class="sec">Sources <span class="line"></span></div>',
-                unsafe_allow_html=True)
-    sources_slot  = st.empty()
-    st.markdown('<div class="sec">Activity <span class="line"></span></div>',
-                unsafe_allow_html=True)
-    activity_slot = st.empty()
-    plan_slot     = st.empty()
+    # Slots — ticker at top, pipeline, then two-column live feed, then plan
+    ticker_slot = st.empty()
+    pipe_slot   = st.empty()
 
+    col_l, col_r = st.columns([1, 1], gap="large")
+    with col_l:
+        st.markdown('<div class="sec">Sources <span class="line"></span></div>',
+                    unsafe_allow_html=True)
+        sources_slot  = st.empty()
+        st.markdown('<div class="sec" style="margin-top:18px">Keywords searched <span class="line"></span></div>',
+                    unsafe_allow_html=True)
+        searchlog_slot = st.empty()
+    with col_r:
+        st.markdown('<div class="sec">Company activity <span class="line"></span></div>',
+                    unsafe_allow_html=True)
+        activity_slot = st.empty()
+
+    plan_slot = st.empty()
+
+    ticker_slot.markdown(render_ticker([], st.session_state.stage_status), unsafe_allow_html=True)
     pipe_slot.markdown(render_pipe(st.session_state.stage_status), unsafe_allow_html=True)
 
     KNOWN_SOURCES = [
@@ -1181,6 +1361,14 @@ elif st.session_state.stage == "running":
             user_prompt=st.session_state.prompt,
         )
 
+        def _refresh_all():
+            ticker_slot.markdown(
+                render_ticker(st.session_state.events, st.session_state.stage_status),
+                unsafe_allow_html=True)
+            pipe_slot.markdown(render_pipe(st.session_state.stage_status), unsafe_allow_html=True)
+            activity_slot.markdown(render_activity(st.session_state.events), unsafe_allow_html=True)
+            searchlog_slot.markdown(render_search_log(st.session_state.events), unsafe_allow_html=True)
+
         for ev in gen:
             st.session_state.events.append(ev)
             t = ev.get("type", "")
@@ -1192,15 +1380,13 @@ elif st.session_state.stage == "running":
                         st.session_state.stage_status[k] = "done"
                 if stage in [s for s, _ in PIPE_STAGES]:
                     st.session_state.stage_status[stage] = "running"
-                pipe_slot.markdown(render_pipe(st.session_state.stage_status),
-                                   unsafe_allow_html=True)
+                _refresh_all()
 
             elif t == "stage_done":
                 stage = ev.get("stage")
                 if stage in [s for s, _ in PIPE_STAGES]:
                     st.session_state.stage_status[stage] = "done"
-                pipe_slot.markdown(render_pipe(st.session_state.stage_status),
-                                   unsafe_allow_html=True)
+                _refresh_all()
 
             elif t == "source_start":
                 if st.session_state.stage_status.get("search") != "done":
@@ -1210,10 +1396,8 @@ elif st.session_state.stage == "running":
                     **st.session_state.sources.get(k, {}),
                     "label": ev.get("label", k), "status": "run",
                 }
-                sources_slot.markdown(render_sources(st.session_state.sources),
-                                      unsafe_allow_html=True)
-                pipe_slot.markdown(render_pipe(st.session_state.stage_status),
-                                   unsafe_allow_html=True)
+                sources_slot.markdown(render_sources(st.session_state.sources), unsafe_allow_html=True)
+                _refresh_all()
 
             elif t == "source_done":
                 k = ev.get("source")
@@ -1223,19 +1407,21 @@ elif st.session_state.stage == "running":
                     "count":  ev.get("count", 0),
                     "reason": ev.get("reason", ""),
                 }
-                sources_slot.markdown(render_sources(st.session_state.sources),
-                                      unsafe_allow_html=True)
+                sources_slot.markdown(render_sources(st.session_state.sources), unsafe_allow_html=True)
+                _refresh_all()
 
             elif t == "search_done":
                 st.session_state.stage_status["search"] = "done"
-                pipe_slot.markdown(render_pipe(st.session_state.stage_status),
-                                   unsafe_allow_html=True)
+                _refresh_all()
+
+            elif t in {"keyword_searching", "keyword_done"}:
+                _refresh_all()
 
             elif t == "plan_ready":
                 st.session_state.plan = ev.get("plan", {})
                 p = ev["plan"]
                 plan_slot.markdown(f"""
-                <div class="sec" style="margin-top:18px">Search plan generated <span class="line"></span></div>
+                <div class="sec" style="margin-top:24px">Search plan generated <span class="line"></span></div>
                 <div class="plan-grid">
                   <div class="plan-cell">
                     <div class="k">Industries</div>
@@ -1255,11 +1441,12 @@ elif st.session_state.stage == "running":
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
+                _refresh_all()
 
             elif t in {"research_progress", "score_progress", "enrich_progress",
-                       "pitch_progress", "score_result", "enrich_result"}:
-                activity_slot.markdown(render_activity(st.session_state.events),
-                                       unsafe_allow_html=True)
+                       "pitch_progress", "score_result", "enrich_result",
+                       "company_researched"}:
+                _refresh_all()
 
             elif t == "final":
                 st.session_state.leads       = ev.get("leads", [])
@@ -1268,8 +1455,7 @@ elif st.session_state.stage == "running":
                 st.session_state.plan        = ev.get("plan", st.session_state.plan)
                 for k, _ in PIPE_STAGES:
                     st.session_state.stage_status[k] = "done"
-                pipe_slot.markdown(render_pipe(st.session_state.stage_status),
-                                   unsafe_allow_html=True)
+                _refresh_all()
                 st.session_state.stage = "results"
                 time.sleep(0.35)
                 st.rerun()
