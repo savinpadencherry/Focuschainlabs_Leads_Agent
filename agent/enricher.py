@@ -140,18 +140,71 @@ def _apollo_search(company_name: str, target_titles: list, location: str) -> dic
 
 
 def _build_apollo_record(people: list) -> dict:
-    best = _pick_most_senior(people)
-    name = f"{best.get('first_name', '')} {best.get('last_name', '')}".strip()
-    email = best.get("email", "") or best.get("email_unverified", "") or ""
+    best  = _pick_most_senior(people)
+    name  = f"{best.get('first_name', '')} {best.get('last_name', '')}".strip()
+    email = _extract_email(best)
     return {
         "contact_name":     name,
         "contact_title":    best.get("title", ""),
         "email":            email,
         "phone":            _extract_phone(best),
         "linkedin_url":     best.get("linkedin_url", "") or "",
-        "email_confidence": "verified" if best.get("email") else ("likely" if email else "unknown"),
+        "email_confidence": _apollo_email_confidence(best, email),
         "contact_source":   "apollo",
     }
+
+
+# Apollo returns this placeholder when the email is gated behind credits
+_APOLLO_PLACEHOLDER_PATTERNS = ("email_not_unlocked", "domain.com")
+
+
+def _is_real_email(value) -> bool:
+    if not value or not isinstance(value, str):
+        return False
+    v = value.lower().strip()
+    if "@" not in v or "." not in v.split("@")[-1]:
+        return False
+    for p in _APOLLO_PLACEHOLDER_PATTERNS:
+        if p in v:
+            return False
+    return True
+
+
+def _extract_email(person: dict) -> str:
+    """Try every email field Apollo exposes, in order of trust."""
+    candidates = [
+        person.get("email"),
+        person.get("email_unverified"),
+        person.get("work_email"),
+        person.get("primary_email"),
+    ]
+    candidates += person.get("personal_emails") or []
+    contact = person.get("contact") or {}
+    candidates += [
+        contact.get("email"),
+        contact.get("email_unverified"),
+        contact.get("work_email"),
+    ]
+    for c in candidates:
+        if _is_real_email(c):
+            return c.strip()
+    return ""
+
+
+def _apollo_email_confidence(person: dict, email: str) -> str:
+    """
+    Map Apollo's email_status to our tier.
+    'verified' → verified, 'guessed' / 'unverified' → likely, else unknown.
+    """
+    if not email:
+        return "unknown"
+    status = (person.get("email_status") or "").lower()
+    if "verified" in status and "un" not in status:
+        return "verified"
+    if status in ("likely", "guessed", "extrapolated", "unverified"):
+        return "likely"
+    # No status field but we have an email — call it likely (Apollo's bar isn't high)
+    return "likely"
 
 
 def _pick_most_senior(people: list) -> dict:
@@ -163,10 +216,37 @@ def _pick_most_senior(people: list) -> dict:
 
 
 def _extract_phone(person: dict) -> str:
+    """Take any phone Apollo gives us — direct fields, arrays, nested contact."""
+    # Direct scalar fields
+    for key in (
+        "phone_number", "sanitized_phone", "mobile_phone", "direct_phone",
+        "primary_phone", "work_phone", "corporate_phone", "home_phone",
+    ):
+        value = person.get(key)
+        if value:
+            return str(value).strip()
+
+    # Phone arrays
+    for arr_key in ("phone_numbers", "personal_phones"):
+        for phone in person.get(arr_key, []) or []:
+            if isinstance(phone, dict):
+                value = (
+                    phone.get("sanitized_number")
+                    or phone.get("raw_number")
+                    or phone.get("number")
+                    or phone.get("phone")
+                )
+                if value:
+                    return str(value).strip()
+            elif phone:
+                return str(phone).strip()
+
+    # Nested contact object (Apollo sometimes nests phones here)
+    contact = person.get("contact") or {}
     for key in ("phone_number", "sanitized_phone", "mobile_phone", "direct_phone"):
-        if person.get(key):
-            return str(person[key])
-    for phone in person.get("phone_numbers", []) or []:
+        if contact.get(key):
+            return str(contact[key]).strip()
+    for phone in contact.get("phone_numbers", []) or []:
         if isinstance(phone, dict):
             value = (
                 phone.get("sanitized_number")
@@ -174,9 +254,8 @@ def _extract_phone(person: dict) -> str:
                 or phone.get("number")
             )
             if value:
-                return str(value)
-        elif phone:
-            return str(phone)
+                return str(value).strip()
+
     return ""
 
 
