@@ -282,12 +282,10 @@ def run_pipeline_streaming(
         if key in enriched_names:
             continue
         company.update({
-            "contact_name":      "Manual lookup needed",
-            "contact_title":     company.get("responsible_owner", "") or "Manual lookup needed",
-            "email":             "Manual lookup needed",
-            "phone":             "Manual lookup needed",
-            "linkedin_url":      "Manual lookup needed",
-            "contact_posts":     [],
+            "contact_name":      "",
+            "contact_title":     company.get("responsible_owner", ""),
+            "email":             "",
+            "phone":             "",
             "enrichment_status": "not_found",
             **icp,
         })

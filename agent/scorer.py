@@ -69,7 +69,7 @@ Return exactly this JSON and nothing else:
   "pain_point":          "<their most likely operational pain that the user's offering solves>",
   "responsible_owner":   "<senior role/person most likely accountable for solving this pain, based on hiring/news/management evidence>",
   "one_line_reasoning":  "<one crisp SDR-facing sentence explaining why this lead belongs in the sheet>",
-  "score_reasoning":     "<exactly 2 sentences explaining the total score>",
+  "score_reasoning":     "Fit X/25 · Trigger X/35 · Reachability X/20 · Recency X/20 → Total X. <One sentence naming the dominant signal that drove this score and why it matters now.>",
   "qualify":             <true if total_score >= threshold else false>,
   "disqualified_reason": "<only populate if qualify is false>"
 }}
