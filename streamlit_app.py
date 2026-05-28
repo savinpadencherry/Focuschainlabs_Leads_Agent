@@ -13,6 +13,7 @@ import pandas as pd
 from datetime import datetime
 
 import streamlit as st
+from utils.reach import best_reach_channel, how_to_reach
 
 # ── Environment ──────────────────────────────────────────────────────────────
 try:
@@ -90,6 +91,7 @@ html, body { margin: 0; padding: 0; }
     background:
       radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,.55), transparent 60%),
       radial-gradient(130% 110% at 50% 110%, rgba(15,42,51,.06), transparent 55%);
+    animation: ambientDrift 18s ease-in-out infinite alternate;
 }
 .stApp::after {
     content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
@@ -136,10 +138,21 @@ h1, h2, h3, h4, p, div, span, label {
     margin: 18px 0 6px;
     font-weight: 800;
     font-size: clamp(36px, 5.5vw, 60px);
-    letter-spacing: -.035em; line-height: .96;
+    letter-spacing: 0; line-height: .96;
     color: var(--ink);
 }
 .wordmark .accent { color: var(--green); }
+.wordmark .accent {
+    position: relative;
+    text-shadow: 0 10px 28px rgba(46,139,77,.10);
+}
+.wordmark .accent::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: -5px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    animation: signalSweep 2.8s ease-in-out 1.1s infinite;
+    opacity: .75;
+}
 .wordmark span { display: inline-block; overflow: hidden; vertical-align: bottom; }
 .wordmark span i {
     font-style: normal; display: inline-block;
@@ -178,7 +191,10 @@ h1, h2, h3, h4, p, div, span, label {
     transition: all .3s;
 }
 .steps .step.active { color: var(--ink); }
-.steps .step.active .num { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+.steps .step.active .num {
+    background: var(--ink); color: var(--cream); border-color: var(--ink);
+    animation: stepPulse 2.2s ease-in-out infinite;
+}
 .steps .step.done { color: var(--green); }
 .steps .step.done .num { background: var(--green); color: #fff; border-color: var(--green); }
 .steps .seg {
@@ -265,6 +281,17 @@ h1, h2, h3, h4, p, div, span, label {
     padding: 13px 26px !important;
     transition: all .2s ease !important;
     box-shadow: 0 2px 8px rgba(46,139,77,.18) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+[data-testid="stBaseButton-primary"]::after,
+.stButton > button[kind="primary"]::after,
+.stButton > button[data-testid="stBaseButton-primary"]::after {
+    content: "";
+    position: absolute; top: 0; bottom: 0; left: -45%; width: 34%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.28), transparent);
+    transform: skewX(-18deg);
+    animation: buttonShine 4.8s ease-in-out infinite;
 }
 [data-testid="stBaseButton-primary"]:hover,
 .stButton > button[kind="primary"]:hover {
@@ -364,10 +391,23 @@ h1, h2, h3, h4, p, div, span, label {
     padding: 0 !important;
     box-shadow: none !important;
     transition: border-color .2s, box-shadow .2s !important;
+    position: relative !important;
+}
+[data-testid="stForm"]::before {
+    content: "";
+    position: absolute; top: 0; bottom: 0; left: -34%; width: 24%;
+    background: linear-gradient(90deg, transparent, rgba(46,139,77,.08), transparent);
+    transform: skewX(-15deg);
+    pointer-events: none;
+    opacity: 0;
 }
 [data-testid="stForm"]:focus-within {
     border-color: rgba(46,139,77,.55) !important;
     box-shadow: 0 0 0 4px rgba(46,139,77,.09) !important;
+}
+[data-testid="stForm"]:focus-within::before {
+    opacity: 1;
+    animation: formSweep 1.5s ease;
 }
 
 /* Collapse outer vertical gap */
@@ -720,6 +760,26 @@ h1, h2, h3, h4, p, div, span, label {
     letter-spacing: .16em; text-transform: uppercase;
     margin-right: 8px;
 }
+.run-signal-strip {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-top: 14px;
+}
+.run-signal-strip span {
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(155,207,158,.16);
+    overflow: hidden;
+    position: relative;
+}
+.run-signal-strip span::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(155,207,158,.95), transparent);
+    animation: scanCell 1.8s ease-in-out infinite;
+    animation-delay: calc(var(--i) * .13s);
+}
 .run-metrics {
     display: grid; grid-template-columns: repeat(4, 1fr);
     gap: 8px; margin-top: 14px;
@@ -843,7 +903,18 @@ h1, h2, h3, h4, p, div, span, label {
     padding: 22px 24px;
     margin-bottom: 14px;
     transition: all .2s;
+    position: relative;
+    overflow: hidden;
+    animation: cardIn .42s cubic-bezier(.16,1,.3,1) both;
 }
+.lc::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(46,139,77,.55), transparent);
+    transform: translateX(-100%);
+    transition: transform .7s ease;
+}
+.lc:hover::before { transform: translateX(100%); }
 .lc:hover { border-color: var(--line); transform: translateY(-1px);
             box-shadow: 0 6px 20px rgba(15,42,51,.05); }
 .lc-hd { display: flex; align-items: flex-start; justify-content: space-between;
@@ -863,6 +934,34 @@ h1, h2, h3, h4, p, div, span, label {
     margin-top: 12px;
     font-size: 14px; font-style: italic;
     color: var(--ink); line-height: 1.6;
+}
+.lc-reach {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: start;
+    border: 1px solid rgba(46,139,77,.16);
+    background: rgba(46,139,77,.055);
+    border-radius: var(--rs);
+    padding: 11px 13px;
+}
+.lc-channel {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--green);
+    border-radius: 4px;
+    padding: 3px 7px;
+    white-space: nowrap;
+}
+.lc-reach-text {
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.5;
 }
 .lc-chips {
     display: flex; flex-wrap: wrap; gap: 8px;
@@ -903,6 +1002,7 @@ h1, h2, h3, h4, p, div, span, label {
 .ev-news      { background: #DBEAFE; color: #1E40AF; }
 .ev-linkedin  { background: #E0E7FF; color: #3730A3; }
 .ev-community { background: #FCE7F3; color: #9D174D; }
+.ev-management{ background: #ECFCCB; color: #3F6212; }
 /* Outreach strategy note */
 .lc-note {
     margin-top: 14px;
@@ -1003,7 +1103,7 @@ h1, h2, h3, h4, p, div, span, label {
     border-radius: var(--r); padding: 18px 16px; text-align: center;
 }
 .stat-box .num { font-size: 30px; font-weight: 800; color: var(--ink);
-                 letter-spacing: -.02em; line-height: 1; }
+                 letter-spacing: 0; line-height: 1; }
 .stat-box .lbl {
     font-family: 'JetBrains Mono', monospace;
     font-size: 9.5px; font-weight: 600; letter-spacing: .22em;
@@ -1079,6 +1179,10 @@ h1, h2, h3, h4, p, div, span, label {
 }
 
 /* ── Keyframes ── */
+@keyframes ambientDrift {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(0, -10px, 0) scale(1.02); }
+}
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes rise   { to { transform: translateY(0); } }
 @keyframes pulse  { 0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10); }
@@ -1086,6 +1190,29 @@ h1, h2, h3, h4, p, div, span, label {
 @keyframes blink      { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 @keyframes fadeIn     { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scanline   { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }
+@keyframes signalSweep {
+    0%, 20% { transform: translateX(-35%) scaleX(.25); opacity: 0; }
+    45%     { opacity: .8; }
+    75%,100%{ transform: translateX(35%) scaleX(1); opacity: 0; }
+}
+@keyframes stepPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(15,42,51,.14); }
+    50%      { box-shadow: 0 0 0 7px rgba(15,42,51,.04); }
+}
+@keyframes buttonShine {
+    0%, 35% { left: -45%; opacity: 0; }
+    50%     { opacity: 1; }
+    75%,100%{ left: 115%; opacity: 0; }
+}
+@keyframes formSweep {
+    from { left: -34%; }
+    to   { left: 118%; }
+}
+@keyframes scanCell {
+    0%, 35% { transform: translateX(-100%); opacity: 0; }
+    50%     { opacity: 1; }
+    100%    { transform: translateX(100%); opacity: 0; }
+}
 @keyframes orbit-spin { to { transform: rotate(360deg); } }
 @keyframes orbit-glow {
     0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10), 0 0 12px rgba(46,139,77,.12); }
@@ -1108,6 +1235,10 @@ h1, h2, h3, h4, p, div, span, label {
     to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 @keyframes flow-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
 
 /* Shimmer sweep on console background */
 .run-console::before {
@@ -1654,6 +1785,12 @@ elif st.session_state.stage == "running":
             f'<div class="run-sub">{html.escape(source_text)} · {html.escape(stage_lbl)}</div>'
             '</div></div>'
             f'<div class="run-focus"><span class="k">Agent focus</span>{msg}</div>'
+            '<div class="run-signal-strip">'
+            '<span style="--i:0"></span><span style="--i:1"></span>'
+            '<span style="--i:2"></span><span style="--i:3"></span>'
+            '<span style="--i:4"></span><span style="--i:5"></span>'
+            '<span style="--i:6"></span>'
+            '</div>'
             f'<div class="run-metrics">{metric_html}</div>'
             '</div>'
         )
@@ -1751,13 +1888,15 @@ elif st.session_state.stage == "running":
                     f'</div></div>'
                 )
             elif t == "enrich_result":
-                found = ev.get("status", "") == "found"
+                status = ev.get("status", "")
+                found = status in {"found", "partial"}
+                label = "contact found" if status == "found" else "usable contact path"
                 rows += (
                     f'<div class="act-row">'
                     f'<div class="act-dot {"act-done" if found else "act-skip"}"></div>'
                     f'<div class="act-body">'
                     f'<div class="act-company">{ev.get("company","")}</div>'
-                    f'<div class="act-detail">contact {"found via " + (ev.get("source") or "enrichment") if found else "not found — manual lookup needed"}</div>'
+                    f'<div class="act-detail">{label + " via " + (ev.get("source") or "enrichment") if found else "not found — manual lookup needed"}</div>'
                     f'</div></div>'
                 )
             elif t in {"research_progress", "score_progress", "enrich_progress", "pitch_progress"}:
@@ -2055,12 +2194,15 @@ elif st.session_state.stage == "results":
 
     with tab_cards:
         for lead in leads_sorted:
+            esc = html.escape
             score   = lead.get("total_score", 0)
             sc_cls  = "sc-hi" if score >= 80 else ("sc-mid" if score >= 60 else "sc-lo")
             signal  = lead.get("primary_signal", "").strip()
             pain    = lead.get("pain_point", "").strip()
             opening = lead.get("opening_line", "").strip()
             note    = lead.get("outreach_note", "").strip()
+            channel = lead.get("reach_channel", "") or best_reach_channel(lead)
+            reach   = lead.get("how_to_reach", "") or how_to_reach(lead)
             cn      = lead.get("contact_name", "")
             ct      = lead.get("contact_title", "")
             em      = lead.get("email", "")
@@ -2069,46 +2211,54 @@ elif st.session_state.stage == "results":
             owner   = lead.get("responsible_owner", "")
             running_ads = lead.get("running_ads", False)
             evidence    = lead.get("evidence", []) or []
+            selection_note = lead.get("selection_note", "")
 
             chips = []
+            if selection_note or score < 60:
+                chips.append('<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-size:10px;letter-spacing:.08em">VERIFY FIT</span>')
             if running_ads:
                 chips.append('<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-size:10px;letter-spacing:.08em">RUNNING ADS</span>')
+            if channel:
+                chips.append(f'<span><span class="k">channel</span>{esc(channel)}</span>')
             if cn and "Manual" not in cn:
-                chips.append(f'<span><span class="k">contact</span>{cn}{" · " + ct if ct else ""}</span>')
+                chips.append(f'<span><span class="k">contact</span>{esc(cn)}{" · " + esc(ct) if ct else ""}</span>')
             if em and "Manual" not in em and "@" in em:
-                chips.append(f'<span><span class="k">email</span>{em}</span>')
+                chips.append(f'<span><span class="k">email</span>{esc(em)}</span>')
             if ph and "Manual" not in ph:
-                chips.append(f'<span><span class="k">phone</span>{ph}</span>')
+                chips.append(f'<span><span class="k">phone</span>{esc(ph)}</span>')
             if src:
-                chips.append(f'<span><span class="k">via</span>{src}</span>')
+                chips.append(f'<span><span class="k">via</span>{esc(src)}</span>')
 
             # Evidence items HTML
             ev_html = ""
             if evidence:
                 ev_items = ""
                 for ev in evidence[:5]:
-                    cat = ev.get("category", "news")
-                    obs = ev.get("observation", "")[:120]
-                    ev_items += f'<div class="lc-ev-item"><span class="lc-ev-cat ev-{cat}">{cat}</span>{obs}</div>'
+                    cat = str(ev.get("category", "news") or "news")
+                    cat_cls = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in cat.lower())
+                    obs = str(ev.get("observation", "") or "")[:120]
+                    ev_items += f'<div class="lc-ev-item"><span class="lc-ev-cat ev-{cat_cls}">{esc(cat)}</span>{esc(obs)}</div>'
                 ev_html = f'<div class="lc-evidence"><div class="lc-ev-label">Evidence</div>{ev_items}</div>'
 
             note_html = ""
             if note:
-                note_html = f'<div class="lc-note"><div class="lc-note-label">Call Strategy</div><div class="lc-note-body">{note}</div></div>'
+                note_html = f'<div class="lc-note"><div class="lc-note-label">Call Strategy</div><div class="lc-note-body">{esc(note)}</div></div>'
 
             st.markdown(f"""
             <div class="lc">
               <div class="lc-hd">
                 <div>
-                  <div class="lc-name">{lead.get("company_name","")}</div>
-                  <div class="lc-meta">{lead.get("website","") or "—"}</div>
+                  <div class="lc-name">{esc(lead.get("company_name",""))}</div>
+                  <div class="lc-meta">{esc(lead.get("website","") or "—")}</div>
                 </div>
                 <span class="sc {sc_cls}">{score}/100</span>
               </div>
-              {f'<div class="lc-sig">{signal}</div>' if signal else ""}
-              {f'<div class="lc-meta" style="margin-top:6px;font-size:12.5px">Pain · {pain}</div>' if pain else ""}
-              {f'<div class="lc-meta" style="margin-top:4px;font-size:12.5px">Owner · {owner}</div>' if owner else ""}
-              {f'<div class="lc-opener">{opening}</div>' if opening else ""}
+              {f'<div class="lc-sig">{esc(signal)}</div>' if signal else ""}
+              {f'<div class="lc-meta" style="margin-top:6px;font-size:12.5px">Pain · {esc(pain)}</div>' if pain else ""}
+              {f'<div class="lc-meta" style="margin-top:4px;font-size:12.5px">Owner · {esc(owner)}</div>' if owner else ""}
+              {f'<div class="lc-meta" style="margin-top:4px;font-size:12.5px;color:#92400E">Verify · {esc(selection_note)}</div>' if selection_note else ""}
+              {f'<div class="lc-reach"><span class="lc-channel">{esc(channel)}</span><div class="lc-reach-text">{esc(reach)}</div></div>' if reach else ""}
+              {f'<div class="lc-opener">{esc(opening)}</div>' if opening else ""}
               {ev_html}
               {note_html}
               {f'<div class="lc-chips">{"".join(chips)}</div>' if chips else ""}
@@ -2125,6 +2275,9 @@ elif st.session_state.stage == "results":
                 "Title":   l.get("contact_title", ""),
                 "Email":   l.get("email", ""),
                 "Phone":   l.get("phone", ""),
+                "Channel": l.get("reach_channel", "") or best_reach_channel(l),
+                "How To Reach": l.get("how_to_reach", "") or how_to_reach(l),
+                "Status":  "Verify" if l.get("selection_note") or int(l.get("total_score", 0) or 0) < 60 else "Ready",
                 "Owner":   l.get("responsible_owner", ""),
                 "Signal":  l.get("primary_signal", ""),
                 "Opening": l.get("opening_line", ""),

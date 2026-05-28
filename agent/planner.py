@@ -14,10 +14,9 @@ import json
 import re
 from datetime import datetime
 
-from google import genai
-
 from utils.rate_limiter import gemini_limiter
 from utils.exceptions import RateLimitError
+from utils.gemini import generate_content_text
 
 
 PLAN_PROMPT = """
@@ -47,8 +46,10 @@ Return ONLY valid JSON. No markdown. No prose. This exact shape:
                         Include the year. Mix hiring, expansion, operational
                         pain, customer experience, ecommerce, CRM, automation,
                         booking, dispatch, inventory, marketing, and process
-                        signals. Avoid CTO/CIO-led searches unless the user
-                        explicitly asks for those titles.>],
+                        signals. Prefer individual company/job/news results;
+                        avoid listicles, trend reports, "best providers", and
+                        generic market guides. Avoid CTO/CIO-led searches
+                        unless the user explicitly asks for those titles.>],
   "linkedin_queries":  [<3 to 5 site:linkedin.com/jobs queries that surface
                         active hiring at target companies. These should help
                         infer what role gaps or operational pains they are
@@ -98,12 +99,7 @@ def plan_search(user_prompt: str, base_icp: dict) -> dict:
 
     for attempt in range(2):
         try:
-            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-            resp = client.models.generate_content(
-                model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-                contents=prompt,
-            )
-            plan = json.loads(_strip_fences(resp.text))
+            plan = json.loads(_strip_fences(generate_content_text(prompt)))
             return _normalise(plan, base_icp, user_prompt)
 
         except json.JSONDecodeError:
@@ -119,13 +115,16 @@ def plan_search(user_prompt: str, base_icp: dict) -> dict:
 
 def _normalise(plan: dict, base_icp: dict, user_prompt: str) -> dict:
     """Guarantee every field exists and is the right type."""
+    titles = _filter_titles(
+        _as_list(plan.get("target_titles")) or base_icp.get("target_titles", []),
+        user_prompt,
+    )
     return {
         "industries":        _as_list(plan.get("industries"))
                               or base_icp.get("target_industries", []),
         "locations":         _as_list(plan.get("locations"))
                               or base_icp.get("locations", ["Bangalore"]),
-        "target_titles":     _as_list(plan.get("target_titles"))
-                              or base_icp.get("target_titles", []),
+        "target_titles":     titles,
         "trigger_keywords":  _as_list(plan.get("trigger_keywords"))
                               or base_icp.get("trigger_keywords", []),
         "linkedin_queries":  _as_list(plan.get("linkedin_queries")),
@@ -151,21 +150,43 @@ def _as_list(value) -> list:
     return []
 
 
+def _filter_titles(titles: list, user_prompt: str = "") -> list:
+    prompt = (user_prompt or "").lower()
+    allow_tech = any(token in prompt for token in ("cto", "cio", "chief technology", "chief information"))
+    if allow_tech:
+        return titles
+    blocked = ("cto", "cio", "chief technology officer", "chief information officer")
+    return [t for t in titles if not any(b in str(t).lower() for b in blocked)]
+
+
 def _fallback_plan(base_icp: dict, user_prompt: str = "") -> dict:
     """Used when the LLM is unavailable or returns garbage."""
     year = datetime.today().year
-    titles = base_icp.get("target_titles", [])[:3]
+    titles = _filter_titles(base_icp.get("target_titles", []), user_prompt)
     city = (base_icp.get("locations") or ["Bangalore"])[0]
+    industries = base_icp.get("target_industries", [])
+    brief = re.sub(r"\s+", " ", (user_prompt or "").strip())[:140]
+    if brief:
+        trigger_keywords = [
+            f'{brief} company hiring operations manager {year}',
+            f'{brief} site:linkedin.com/jobs {year}',
+            f'{brief} "we are hiring" operations {year}',
+            f'{city} {industries[0] if industries else "SMB"} company operations automation hiring {year}',
+            f'{city} logistics dispatch warehouse management automation hiring {year}',
+            f'{city} SME customer support CRM automation hiring {year}',
+        ]
+    else:
+        trigger_keywords = base_icp.get("trigger_keywords", [])
     return {
         "industries":       base_icp.get("target_industries", []),
         "locations":        base_icp.get("locations", ["Bangalore"]),
-        "target_titles":    base_icp.get("target_titles", []),
-        "trigger_keywords": base_icp.get("trigger_keywords", []),
+        "target_titles":    titles,
+        "trigger_keywords": trigger_keywords,
         "linkedin_queries": [
             f'site:linkedin.com/jobs "{t}" "{city}" {year}' for t in titles
-        ],
+        ][:5],
         "reddit_queries": [
-            f'site:reddit.com {base_icp.get("vertical", "B2B")} {city} pain',
+            f'site:reddit.com {brief or base_icp.get("vertical", "B2B")} pain',
         ],
         "pain_hypothesis": "",
         "gap_hypothesis":  "",

@@ -12,10 +12,9 @@ import os
 import json
 import re
 
-from google import genai
-
 from utils.rate_limiter import gemini_limiter
 from utils.exceptions import RateLimitError
+from utils.gemini import generate_content_text
 
 
 PITCH_BUNDLE_PROMPT = """
@@ -106,12 +105,7 @@ def generate_pitch_bundle(lead: dict) -> dict:
     )
 
     try:
-        client   = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        response = client.models.generate_content(
-            model    = os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-            contents = prompt,
-        )
-        raw  = re.sub(r"```json|```", "", response.text.strip()).strip()
+        raw  = re.sub(r"```json|```", "", generate_content_text(prompt).strip()).strip()
         data = json.loads(raw)
         return {
             "opening_line":    str(data.get("opening_line",    "")).strip().strip('"'),
@@ -121,8 +115,7 @@ def generate_pitch_bundle(lead: dict) -> dict:
 
     except json.JSONDecodeError:
         # Gemini returned text but not valid JSON — extract what we can
-        text = response.text if "response" in dir() else ""
-        return _fallback_bundle(lead, hint=text)
+        return _fallback_bundle(lead)
 
     except Exception as e:
         _raise_if_rate_limit("gemini", e)

@@ -32,6 +32,12 @@ PHONE_RE = re.compile(
     r"(?:\+91[\s-]?)?(?:0[\s-]?)?[6-9]\d{2}[\s-]?\d{3}[\s-]?\d{4}"
 )
 
+_NON_COMPANY_CONTACT_DOMAINS = (
+    "linkedin.com", "naukri.com", "indeed.com", "glassdoor.", "bebee.com",
+    "foundit.in", "monsterindia.com", "timesjobs.com", "shine.com",
+    "ambitionbox.com", "reddit.com", "quora.com",
+)
+
 
 # ── LinkedIn search via Serper ────────────────────────────────────────────────
 
@@ -101,7 +107,7 @@ def find_public_contact_info(company_name: str, website: str = "") -> dict:
 
 def _candidate_contact_urls(company_name: str, website: str) -> list:
     urls = []
-    if website and website.startswith("http"):
+    if website and website.startswith("http") and not _is_non_company_domain(website):
         root = website.split("?")[0].rstrip("/")
         if "/" in root.replace("https://", "").replace("http://", ""):
             root = f"{root.split('://')[0]}://{root.split('://', 1)[1].split('/')[0]}"
@@ -131,6 +137,11 @@ def _candidate_contact_urls(company_name: str, website: str) -> list:
             seen.add(key)
             deduped.append(url)
     return deduped[:8]
+
+
+def _is_non_company_domain(url: str) -> bool:
+    domain = url.replace("https://", "").replace("http://", "").split("/")[0].lower()
+    return any(blocked in domain for blocked in _NON_COMPANY_CONTACT_DOMAINS)
 
 
 def _scrape_contact_url(url: str) -> dict:

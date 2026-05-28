@@ -36,6 +36,7 @@ from agent.planner import plan_search
 from utils.deduplicator import load_exclusion_list, deduplicate
 from utils.excel_writer import write_leads_to_excel
 from utils.exceptions import RateLimitError
+from utils.reach import best_reach_channel, how_to_reach
 
 
 def today() -> str:
@@ -249,12 +250,23 @@ def run_pipeline_streaming(
 
     selected_for_output = qualified[:max_leads]
     if len(selected_for_output) < max_leads:
+        # Sales reality: a weak but reachable relevant party can still be useful.
+        # Keep a low floor for backfill leads, then label them as verify-needed
+        # in the UI/Excel instead of pretending every row is high-confidence.
+        backfill_floor = int(os.getenv("MIN_BACKFILL_SCORE", 10))
         selected_names = {
             (c.get("company_name") or "").lower().strip()
             for c in selected_for_output
         }
         for company in scored_sorted:
             key = (company.get("company_name") or "").lower().strip()
+            if int(company.get("total_score", 0) or 0) < backfill_floor:
+                continue
+            if int(company.get("total_score", 0) or 0) < threshold:
+                company["selection_note"] = (
+                    "Speculative backfill: included because some signal exists, "
+                    "but verify fit/contact before outreach."
+                )
             if key not in selected_names:
                 selected_for_output.append(company)
                 selected_names.add(key)
@@ -281,7 +293,10 @@ def run_pipeline_streaming(
             icp["locations"][0],
             website=company.get("website", ""),
         )
-        enriched.append({**company, **contact, **icp})
+        merged = {**company, **contact, **icp}
+        merged["reach_channel"] = best_reach_channel(merged)
+        merged["how_to_reach"] = how_to_reach(merged)
+        enriched.append(merged)
         enriched_names.add((company.get("company_name") or "").lower().strip())
         yield {"type": "enrich_result",
                "company": company["company_name"],
@@ -301,6 +316,8 @@ def run_pipeline_streaming(
             "enrichment_status": "not_found",
             **icp,
         })
+        company["reach_channel"] = best_reach_channel(company)
+        company["how_to_reach"] = how_to_reach(company)
         enriched.append(company)
 
     # ── Stage 5: Pitch ─────────────────────────────────────────────────────
@@ -319,6 +336,8 @@ def run_pipeline_streaming(
         lead["opening_line"]    = bundle["opening_line"]
         lead["outreach_note"]   = bundle["outreach_note"]
         lead["reason_to_reach"] = bundle["reason_to_reach"]
+        lead["reach_channel"]   = best_reach_channel(lead)
+        lead["how_to_reach"]    = how_to_reach(lead)
         final_leads.append(lead)
     yield {"type": "stage_done", "stage": "pitch"}
 
