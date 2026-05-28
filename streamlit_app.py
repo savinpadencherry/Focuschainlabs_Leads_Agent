@@ -1344,7 +1344,8 @@ elif st.session_state.stage == "running":
     _SERVICE_META = {
         "gemini": {"label": "Gemini AI",      "icon": "◆"},
         "serper": {"label": "Serper Search",  "icon": "◉"},
-        "apollo": {"label": "Apollo Contacts","icon": "◈"},
+        "apollo": {"label": "Apollo",         "icon": "◈"},
+        "apify":  {"label": "Apify Scraper",  "icon": "◍"},
         "hunter": {"label": "Hunter Email",   "icon": "◎"},
     }
 
@@ -1364,7 +1365,7 @@ elif st.session_state.stage == "running":
             f'</span></div>'
         )
 
-        services = ["gemini", "serper", "apollo", "hunter"]
+        services = ["gemini", "serper", "apollo", "apify", "hunter"]
         dots = ""
         alerts = ""
         for svc in services:
@@ -1376,7 +1377,8 @@ elif st.session_state.stage == "running":
             if state == "idle":
                 key_env = {
                     "gemini": "GEMINI_API_KEY", "serper": "SERPER_API_KEY",
-                    "apollo": "APOLLO_API_KEY", "hunter": "HUNTER_API_KEY",
+                    "apollo": "APOLLO_API_KEY", "apify":  "APIFY_API_KEY",
+                    "hunter": "HUNTER_API_KEY",
                 }.get(svc)
                 if key_env and not os.getenv(key_env):
                     state = "no_key"
@@ -1835,8 +1837,12 @@ elif st.session_state.stage == "running":
 
             elif t == "enrich_result":
                 status = ev.get("status", "")
-                if status == "found":
-                    st.session_state.api_status["apollo"] = {"state": "ok", "message": ""}
+                source = ev.get("source", "")
+                if status in ("found", "partial"):
+                    if "apify" in source:
+                        st.session_state.api_status["apify"] = {"state": "ok", "message": ""}
+                    elif source == "apollo":
+                        st.session_state.api_status["apollo"] = {"state": "ok", "message": ""}
                 _refresh_all()
 
             elif t in {"research_progress", "enrich_progress",

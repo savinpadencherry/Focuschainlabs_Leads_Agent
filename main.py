@@ -282,7 +282,8 @@ def run_pipeline_streaming(
         enriched_names.add((company.get("company_name") or "").lower().strip())
         yield {"type": "enrich_result",
                "company": company["company_name"],
-               "status":  contact.get("enrichment_status", "not_found")}
+               "status":  contact.get("enrichment_status", "not_found"),
+               "source":  contact.get("contact_source", "")}
     yield {"type": "stage_done", "stage": "enrich"}
 
     for company in selected_for_output:
