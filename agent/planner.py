@@ -39,14 +39,17 @@ Return ONLY valid JSON. No markdown. No prose. This exact shape:
 {{
   "industries":        [<3 to 6 industry strings, narrowed to the brief>],
   "locations":         [<1 to 3 city strings>],
-  "target_titles":     [<4 to 8 decision-maker titles to chase>],
+  "target_titles":     [<6 to 10 senior decision-maker titles who would own
+                        the problem or budget, not junior implementers>],
   "trigger_keywords":  [<10 to 14 Google-ready queries — each one a real,
                         date-stamped search a SDR would run, not a topic.
                         Include the year. Mix funding, hiring, leadership
-                        moves, product launches, expansion, and tech-stack
-                        signals.>],
+                        moves, job posts, management appointments, product
+                        launches, expansion, and tech-stack/problem signals.>],
   "linkedin_queries":  [<3 to 5 site:linkedin.com/jobs queries that surface
-                        active hiring at target companies>],
+                        active hiring at target companies. These should help
+                        infer what role gaps or operational pains they are
+                        trying to solve.>],
   "reddit_queries":    [<2 to 4 site:reddit.com queries that surface
                         practitioners complaining about the pain the user
                         sells into — these reveal real demand signals>],

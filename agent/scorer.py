@@ -67,6 +67,8 @@ Return exactly this JSON and nothing else:
   "intent_recency_score":<integer 0-20>,
   "primary_signal":      "<the single most compelling reason to reach out NOW — specific, not generic>",
   "pain_point":          "<their most likely operational pain that the user's offering solves>",
+  "responsible_owner":   "<senior role/person most likely accountable for solving this pain, based on hiring/news/management evidence>",
+  "one_line_reasoning":  "<one crisp SDR-facing sentence explaining why this lead belongs in the sheet>",
   "score_reasoning":     "<exactly 2 sentences explaining the total score>",
   "qualify":             <true if total_score >= threshold else false>,
   "disqualified_reason": "<only populate if qualify is false>"
@@ -117,6 +119,8 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
             raw = re.sub(r"```json|```", "", response.text.strip()).strip()
             result = json.loads(raw)
             result["qualify"] = result.get("total_score", 0) >= threshold
+            result.setdefault("responsible_owner", "")
+            result.setdefault("one_line_reasoning", "")
             return result
 
         except json.JSONDecodeError:
@@ -126,11 +130,13 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
             print(f"  [SKIP] Scoring failed after retry: {research_bundle.get('company_name', '')}")
             return {
                 "total_score": 0, "qualify": False, "error": "scoring_failed",
-                "primary_signal": "", "pain_point": "", "score_reasoning": "Scoring failed.",
+                "primary_signal": "", "pain_point": "", "responsible_owner": "",
+                "one_line_reasoning": "", "score_reasoning": "Scoring failed.",
             }
         except Exception as e:
             print(f"  [ERROR] Gemini call failed: {e}")
             return {
                 "total_score": 0, "qualify": False, "error": str(e),
-                "primary_signal": "", "pain_point": "", "score_reasoning": "",
+                "primary_signal": "", "pain_point": "", "responsible_owner": "",
+                "one_line_reasoning": "", "score_reasoning": "",
             }

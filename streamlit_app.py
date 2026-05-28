@@ -8,6 +8,7 @@ import os
 import json
 import glob
 import time
+import html
 import pandas as pd
 from datetime import datetime
 
@@ -21,11 +22,22 @@ except Exception:
     pass
 
 try:
+    def _apply_secret_env(prefix: str, value):
+        if isinstance(value, str):
+            if prefix and prefix not in os.environ:
+                os.environ[prefix] = value
+            return
+        if hasattr(value, "items"):
+            for child_key, child_value in value.items():
+                _apply_secret_env(str(child_key), child_value)
+
     for _k, _v in st.secrets.items():
-        if isinstance(_v, str) and _k not in os.environ:
-            os.environ[_k] = _v
+        _apply_secret_env(str(_k), _v)
 except Exception:
     pass
+
+if not os.getenv("GEMINI_API_KEY") and os.getenv("GOOGLE_API_KEY"):
+    os.environ["GEMINI_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
 os.makedirs("output", exist_ok=True)
 
@@ -462,6 +474,43 @@ h1, h2, h3, h4, p, div, span, label {
     transform: scale(0.94) !important;
 }
 
+/* Minimal setup helpers */
+.template-note {
+    border: 1px solid var(--line-soft);
+    background: rgba(255,255,255,.42);
+    border-radius: var(--rs);
+    padding: 12px 14px;
+    margin: 12px 0 18px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+}
+.template-note strong { color: var(--ink); }
+.composer-hint {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    padding-left: 12px;
+}
+[data-testid="stForm"] .stFileUploader {
+    padding-left: 10px !important;
+}
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"] {
+    min-height: 36px !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+}
+[data-testid="stForm"] .stFileUploader section {
+    padding: 0 !important;
+}
+[data-testid="stForm"] .stFileUploader small,
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzoneInstructions"] {
+    display: none !important;
+}
+
 /* ── Text area — standalone (outside forms) ── */
 .stTextArea textarea {
     background: var(--cream-3) !important;
@@ -564,6 +613,83 @@ h1, h2, h3, h4, p, div, span, label {
 }
 
 /* ── Pipeline animation ── */
+.run-console {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0F2A33 0%, #173944 100%);
+    border: 1px solid rgba(244,240,231,.18);
+    border-radius: var(--rl);
+    padding: 24px 26px;
+    margin: 8px 0 18px;
+    box-shadow: 0 18px 42px rgba(15,42,51,.16);
+}
+.run-console::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0; height: 3px;
+    background: linear-gradient(90deg, var(--green), #9BCF9E, var(--green));
+    background-size: 220% 100%;
+    animation: scanline 2.4s linear infinite;
+}
+.run-console-top {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 14px;
+}
+.run-orbit {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1.5px solid rgba(155,207,158,.65);
+    display: flex; align-items: center; justify-content: center;
+    color: #DFF0D8; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 700;
+    box-shadow: 0 0 0 7px rgba(46,139,77,.13);
+    animation: pulse 1.7s ease-in-out infinite;
+    flex-shrink: 0;
+}
+.run-title {
+    color: var(--cream) !important;
+    font-size: 21px; font-weight: 800;
+    letter-spacing: 0; line-height: 1.1;
+}
+.run-sub {
+    color: #CBD5C0 !important;
+    font-size: 13px; line-height: 1.45; margin-top: 4px;
+}
+.run-focus {
+    background: rgba(244,240,231,.08);
+    border: 1px solid rgba(244,240,231,.12);
+    border-radius: var(--rs);
+    padding: 12px 14px;
+    color: #EAF4E4;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.run-focus .k {
+    font-family: 'JetBrains Mono', monospace;
+    color: #9BCF9E; font-size: 9.5px;
+    letter-spacing: .16em; text-transform: uppercase;
+    margin-right: 8px;
+}
+.run-metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px; margin-top: 14px;
+}
+.run-metric {
+    border: 1px solid rgba(244,240,231,.11);
+    border-radius: var(--rs);
+    padding: 10px 12px;
+    background: rgba(244,240,231,.06);
+}
+.run-metric .num {
+    color: var(--cream); font-size: 20px; font-weight: 800; line-height: 1;
+}
+.run-metric .lbl {
+    margin-top: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #9DAFA7; font-size: 8.5px;
+    letter-spacing: .13em; text-transform: uppercase;
+}
+@media (max-width: 720px) { .run-metrics { grid-template-columns: repeat(2, 1fr); } }
+
 .pipe-wrap {
     background: var(--cream-3);
     border: 1px solid var(--line-soft);
@@ -867,6 +993,7 @@ h1, h2, h3, h4, p, div, span, label {
                     50%       { box-shadow: 0 0 0 12px rgba(46,139,77,.04); } }
 @keyframes blink  { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scanline { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }
 
 /* ── Misc ── */
 .stApp [data-testid="stToolbar"] { display: none !important; }
@@ -887,7 +1014,9 @@ def _init():
         "locations":      ["Bangalore"],
         "titles":         [],
         "prompt":         "",
-        "max_leads":      10,
+        "max_leads":      30,
+        "exclusion_path": None,
+        "exclusion_name": "",
         "events":         [],
         "leads":          [],
         "output_path":    None,
@@ -920,6 +1049,53 @@ ICPS = discover_icps()
 # Initialise selected_client to first key on first load
 if st.session_state.selected_client is None and ICPS:
     st.session_state.selected_client = list(ICPS.keys())[0]
+
+DEFAULT_PROMPTS = {
+    "FocusChainLabs": (
+        "Find at least 30 real companies that are likely buyers for FocusChain Labs.\n\n"
+        "FocusChain Labs helps mid-market companies modernise operations with software, "
+        "automation, data, AI workflows, cloud, and product engineering. Search broadly "
+        "across Bangalore and India for companies showing buying signals: legacy ERP or "
+        "SAP migration pain, cloud/data/AI hiring, digital transformation roles, new CTO/CIO/"
+        "CDO/COO leadership, funding, expansion, product launches, operational bottlenecks, "
+        "or public complaints from employees/customers.\n\n"
+        "For each lead, find the company, what problem they appear to be facing, proof from "
+        "news/posts/job listings, the roles they are hiring for, and the senior person likely "
+        "responsible for solving it. Prioritise CTO, CIO, CDO, VP Technology, Head of IT, COO, "
+        "VP Operations, and transformation leaders. Include email and phone if available, plus "
+        "a one-line reason for why this is worth outreach."
+    ),
+    "Cadabams": (
+        "Find at least 30 real B2B referral or partnership leads for Cadabams WeNest.\n\n"
+        "Cadabams WeNest serves senior living, assisted care, elder care, dementia care, and "
+        "NRI parent-care needs around Bangalore. Search for corporates, hospitals, insurance/"
+        "TPA firms, EAP providers, wealth/private banking teams, NRI employee communities, "
+        "and wellness/benefits companies showing signals around employee parent-care, discharge "
+        "planning, caregiver burnout, elder-care benefits, geriatric referrals, or senior-care "
+        "partnerships.\n\n"
+        "For each lead, find the company, their likely pain point, proof from news/posts/job "
+        "openings, roles they are hiring for, and the senior manager responsible. Prioritise "
+        "Chief People Officers, HR Directors, Heads of Employee Wellness, Benefits Managers, "
+        "Hospital Administrators, Discharge Planning heads, Insurance Partnership heads, and "
+        "Wealth/NRI relationship leaders. Include email and phone if available, plus a one-line "
+        "reason for outreach."
+    ),
+}
+
+
+def resolve_client_label(template_key: str) -> str:
+    """Map the two visible templates to whatever labels exist in /config."""
+    if not ICPS:
+        return ""
+    needles = {
+        "FocusChainLabs": ("focus", "digital"),
+        "Cadabams": ("cadabams", "wenest", "senior"),
+    }.get(template_key, ())
+    for label, payload in ICPS.items():
+        haystack = f"{label} {payload['data'].get('client', '')} {payload['data'].get('vertical', '')}".lower()
+        if any(n in haystack for n in needles):
+            return label
+    return list(ICPS.keys())[0]
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
@@ -967,106 +1143,55 @@ if st.session_state.stage == "setup":
         st.error("No ICP config files found in /config. Add a JSON file there.")
         st.stop()
 
-    # ── CLIENT SELECTION ──────────────────────────────────────────────────────
-    st.markdown('<div class="sec">Client <span class="line"></span></div>',
+    focus_label = resolve_client_label("FocusChainLabs")
+    if not st.session_state.prompt:
+        st.session_state.selected_client = focus_label
+        st.session_state.prompt = DEFAULT_PROMPTS["FocusChainLabs"]
+
+    # ── TEMPLATE SELECTION ───────────────────────────────────────────────────
+    st.markdown('<div class="sec">Template <span class="line"></span></div>',
                 unsafe_allow_html=True)
 
-    client_keys = list(ICPS.keys())
-    n_clients = len(client_keys)
-    client_cols = st.columns(n_clients, gap="medium")
+    t_col1, t_col2 = st.columns(2, gap="medium")
+    template_options = [
+        ("FocusChainLabs", "FocusChainLabs", t_col1),
+        ("Cadabams", "Cadabams", t_col2),
+    ]
+    for template_key, label, col in template_options:
+        target_label = resolve_client_label(template_key)
+        is_sel = st.session_state.selected_client == target_label
+        with col:
+            if st.button(
+                label,
+                key=f"template_{template_key}",
+                use_container_width=True,
+                type="primary" if is_sel else "secondary",
+            ):
+                st.session_state.selected_client = target_label
+                st.session_state.prompt = DEFAULT_PROMPTS[template_key]
+                st.session_state.industries = []
+                st.session_state.titles = []
+                st.rerun()
 
-    for i, name in enumerate(client_keys):
-        data = ICPS[name]["data"]
-        is_sel = (st.session_state.selected_client == name)
-        ind_tags = "".join(
-            f'<span class="tag">{ind}</span>'
-            for ind in data.get("target_industries", [])[:5]
-        )
-        sel_cls = "client-card selected" if is_sel else "client-card"
-
-        with client_cols[i]:
-            st.markdown(f"""
-            <div class="{sel_cls}">
-              <div class="sel-badge"></div>
-              <div class="name">{name}</div>
-              <div class="vert">{data.get("vertical", "")}</div>
-              <div class="tags">{ind_tags}
-                {"<span class='tag'>+more</span>" if len(data.get("target_industries", [])) > 5 else ""}
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-            btn_label = "Selected" if is_sel else "Select"
-            if st.button(btn_label, key=f"client_{i}",
-                         use_container_width=True,
-                         type="primary" if is_sel else "secondary"):
-                if not is_sel:
-                    st.session_state.selected_client = name
-                    # reset dependent state
-                    st.session_state.industries = []
-                    st.session_state.titles = []
-                    st.rerun()
-
-    client_choice = st.session_state.selected_client
+    client_choice = st.session_state.selected_client or focus_label
     base_icp = ICPS[client_choice]["data"]
     st.session_state.icp_path = ICPS[client_choice]["path"]
     all_industries = base_icp.get("target_industries", [])
-
-    # ── INDUSTRIES ────────────────────────────────────────────────────────────
-    st.markdown('<div class="sec">Industries · toggle to refine <span class="line"></span></div>',
-                unsafe_allow_html=True)
-
-    # Use st.pills for multi-select chip toggle
-    default_industries = (
-        st.session_state.industries
-        if st.session_state.industries
-        else all_industries
-    )
-    industries = st.pills(
-        "industries",
-        options=all_industries,
-        selection_mode="multi",
-        default=default_industries,
-        label_visibility="collapsed",
-    )
-
-    # ── DEMOGRAPHICS ROW ──────────────────────────────────────────────────────
-    st.markdown('<div class="sec">Search parameters <span class="line"></span></div>',
-                unsafe_allow_html=True)
-
-    d_col1, d_col2, d_col3 = st.columns([1.2, 1, 1])
-    with d_col1:
-        st.caption("LOCATION")
-        loc_default = (base_icp.get("locations") or ["Bangalore"])[0]
-        location = st.text_input("location", value=loc_default,
-                                 label_visibility="collapsed")
-    with d_col2:
-        st.caption("MAX LEADS")
-        max_leads = st.slider("max_leads", min_value=3, max_value=25,
-                              value=10, step=1, label_visibility="collapsed")
-    with d_col3:
-        st.caption("SCORE FLOOR (0–100)")
-        threshold = st.slider("threshold", min_value=40, max_value=85,
-                              value=int(os.getenv("MIN_SCORE_THRESHOLD", 60)),
-                              step=5, label_visibility="collapsed")
-
-    # ── TITLES ────────────────────────────────────────────────────────────────
-    st.markdown('<div class="sec">Decision-maker titles <span class="line"></span></div>',
-                unsafe_allow_html=True)
     all_titles = base_icp.get("target_titles", [])
-    default_titles = (
-        st.session_state.titles if st.session_state.titles else all_titles[:6]
-    )
-    titles = st.pills(
-        "titles",
-        options=all_titles,
-        selection_mode="multi",
-        default=default_titles,
-        label_visibility="collapsed",
+    locations = base_icp.get("locations", ["Bangalore"])
+    threshold = int(base_icp.get("min_score_threshold", os.getenv("MIN_SCORE_THRESHOLD", 60)))
+    max_leads = 30
+
+    st.markdown(
+        f'<div class="template-note"><strong>{base_icp.get("client", client_choice)}</strong> '
+        f'will run a 30-lead search across {", ".join(locations[:2])}. '
+        f'The prompt below is editable; the agent will refine searches, inspect job posts/news/posts, '
+        f'find the responsible senior owner, and export a scored Excel sheet.</div>',
+        unsafe_allow_html=True,
     )
 
-    # ── PROMPT + RUN (embedded button inside textarea) ────────────────────────
-    st.markdown('<div class="sec">Your brief <span class="line"></span></div>',
+    # ── PROMPT + RUN (upload left, send right) ───────────────────────────────
+    st.markdown('<div class="sec">Brief <span class="line"></span></div>',
                 unsafe_allow_html=True)
 
     missing_keys = []
@@ -1083,17 +1208,31 @@ if st.session_state.stage == "setup":
     with st.form("run_form", border=False, clear_on_submit=False):
         prompt = st.text_area(
             "brief",
-            height=150,
+            height=260,
             placeholder=(
-                "Describe in plain English — the LLM turns this into the actual searches.\n\n"
-                "e.g. Find Bangalore-based mid-market IT firms or SaaS companies that hired "
-                "a new CTO or CDO in the last 90 days and are publicly discussing legacy "
-                "infrastructure pain. Skip anyone already with Infosys or TCS."
+                "Describe what you sell and who you want to reach. The agent will turn it "
+                "into web searches, company research, job-post proof, management mapping, "
+                "and an Excel sheet."
             ),
+            key="prompt",
             label_visibility="collapsed",
         )
-        # Columns: spacer fills left, button sits at far right
-        _spacer, _btn = st.columns([1, 0.10])
+        upload_col, hint_col, _btn = st.columns([0.50, 0.38, 0.12])
+        with upload_col:
+            uploaded_file = st.file_uploader(
+                "Upload previous list",
+                type=["xlsx", "csv"],
+                key="previous_list_upload",
+                label_visibility="collapsed",
+            )
+        with hint_col:
+            upload_name = (
+                uploaded_file.name if uploaded_file
+                else st.session_state.exclusion_name
+                or "Optional: upload previous list"
+            )
+            st.markdown(f'<div class="composer-hint">{upload_name}</div>',
+                        unsafe_allow_html=True)
         with _btn:
             run = st.form_submit_button("↑")
 
@@ -1101,12 +1240,27 @@ if st.session_state.stage == "setup":
         if not prompt.strip():
             st.warning("Add a brief — even one sentence — so the planner can build a search plan.")
             st.stop()
+        exclusion_path = None
+        if uploaded_file:
+            safe_name = "".join(
+                ch if ch.isalnum() or ch in "._-" else "_"
+                for ch in uploaded_file.name
+            )
+            timestamp = datetime.today().strftime("%Y%m%d_%H%M%S")
+            exclusion_path = os.path.join("output", f"exclusion_{timestamp}_{safe_name}")
+            with open(exclusion_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            st.session_state.exclusion_path = exclusion_path
+            st.session_state.exclusion_name = uploaded_file.name
+        else:
+            st.session_state.exclusion_path = None
+            st.session_state.exclusion_name = ""
+
         os.environ["MAX_LEADS_PER_RUN"] = str(max_leads)
         os.environ["MIN_SCORE_THRESHOLD"] = str(threshold)
-        st.session_state.industries   = list(industries) if industries else all_industries
-        st.session_state.locations    = [location]
-        st.session_state.titles       = list(titles) if titles else all_titles
-        st.session_state.prompt       = prompt.strip()
+        st.session_state.industries   = all_industries
+        st.session_state.locations    = locations
+        st.session_state.titles       = all_titles
         st.session_state.max_leads    = max_leads
         st.session_state.events       = []
         st.session_state.sources      = {}
@@ -1153,7 +1307,10 @@ elif st.session_state.stage == "running":
             f'{nodes}</div></div>'
         )
 
-    def render_ticker(events: list, stage_status: dict) -> str:
+    def _latest(events: list, event_type: str) -> dict:
+        return next((e for e in reversed(events) if e.get("type") == event_type), {})
+
+    def agent_state(events: list, stage_status: dict) -> tuple[str, str]:
         stage_labels = {
             "plan": "Planning", "search": "Searching",
             "research": "Researching", "score": "Scoring",
@@ -1197,6 +1354,56 @@ elif st.session_state.stage == "running":
                 kws = ev.get("plan", {}).get("trigger_keywords", [])
                 msg = f'Search plan ready — {len(kws)} queries generated by Gemini'
                 break
+            elif t == "search_done":
+                msg = (
+                    f'Search sweep complete — {ev.get("unique", 0)} unique companies, '
+                    f'{ev.get("to_research", 0)} queued for proof gathering'
+                )
+                break
+        return stage_lbl, msg
+
+    def render_agent_console(events: list, stage_status: dict, sources: dict) -> str:
+        stage_lbl, msg = agent_state(events, stage_status)
+        search_done = _latest(events, "search_done")
+        score_done = next(
+            (e for e in reversed(events)
+             if e.get("type") == "stage_done" and e.get("stage") == "score"),
+            {},
+        )
+        researched = len([e for e in events if e.get("type") == "company_researched"])
+        live_sources = len([
+            s for s in sources.values()
+            if s.get("status") in {"run", "done", "warn"}
+        ])
+        metrics = [
+            (len([e for e in events if e.get("type") == "keyword_done"]), "queries"),
+            (search_done.get("unique", 0), "companies"),
+            (researched, "researched"),
+            (score_done.get("qualified", 0), "qualified"),
+        ]
+        metric_html = "".join(
+            f'<div class="run-metric"><div class="num">{num}</div><div class="lbl">{lbl}</div></div>'
+            for num, lbl in metrics
+        )
+        source_text = (
+            f"{live_sources} sources active or completed"
+            if live_sources else "Sources are queued"
+        )
+        return (
+            '<div class="run-console">'
+            '<div class="run-console-top">'
+            '<div class="run-orbit">AI</div>'
+            '<div>'
+            f'<div class="run-title">Researching your lead market</div>'
+            f'<div class="run-sub">{html.escape(source_text)} · {html.escape(stage_lbl)}</div>'
+            '</div></div>'
+            f'<div class="run-focus"><span class="k">Agent focus</span>{msg}</div>'
+            f'<div class="run-metrics">{metric_html}</div>'
+            '</div>'
+        )
+
+    def render_ticker(events: list, stage_status: dict) -> str:
+        stage_lbl, msg = agent_state(events, stage_status)
         return (
             f'<div class="ticker">'
             f'<div class="ticker-pulse"></div>'
@@ -1314,7 +1521,8 @@ elif st.session_state.stage == "running":
                 )
         return f'<div class="act-log">{rows}</div>'
 
-    # Slots — ticker at top, pipeline, then two-column live feed, then plan
+    # Slots — research console, ticker, pipeline, live feed, then plan
+    console_slot = st.empty()
     ticker_slot = st.empty()
     pipe_slot   = st.empty()
 
@@ -1333,15 +1541,19 @@ elif st.session_state.stage == "running":
 
     plan_slot = st.empty()
 
+    console_slot.markdown(
+        render_agent_console([], st.session_state.stage_status, st.session_state.sources),
+        unsafe_allow_html=True,
+    )
     ticker_slot.markdown(render_ticker([], st.session_state.stage_status), unsafe_allow_html=True)
     pipe_slot.markdown(render_pipe(st.session_state.stage_status), unsafe_allow_html=True)
 
     KNOWN_SOURCES = [
-        ("serper",    "Google · Serper"),
-        ("reddit",    "Reddit · pain signals"),
+        ("serper",    "Google · web/news"),
+        ("reddit",    "Reddit · pain posts"),
         ("tracxn",    "Tracxn · funded startups"),
-        ("proxycurl", "LinkedIn jobs · ProxyCurl"),
-        ("naukri",    "Naukri job board"),
+        ("proxycurl", "ProxyCurl · LinkedIn jobs"),
+        ("naukri",    "Naukri · job board"),
     ]
     for k, lbl in KNOWN_SOURCES:
         if k not in st.session_state.sources:
@@ -1352,16 +1564,24 @@ elif st.session_state.stage == "running":
     try:
         gen = run_pipeline_streaming(
             icp_config_path=st.session_state.icp_path,
-            exclusion_list_path=None,
+            exclusion_list_path=st.session_state.exclusion_path,
             max_leads=st.session_state.max_leads,
             override_industries=st.session_state.industries or None,
             override_locations=st.session_state.locations or None,
             override_titles=st.session_state.titles or None,
-            custom_focus=st.session_state.prompt,
-            user_prompt=st.session_state.prompt,
+            custom_focus=(st.session_state.prompt or "").strip(),
+            user_prompt=(st.session_state.prompt or "").strip(),
         )
 
         def _refresh_all():
+            console_slot.markdown(
+                render_agent_console(
+                    st.session_state.events,
+                    st.session_state.stage_status,
+                    st.session_state.sources,
+                ),
+                unsafe_allow_html=True,
+            )
             ticker_slot.markdown(
                 render_ticker(st.session_state.events, st.session_state.stage_status),
                 unsafe_allow_html=True)
@@ -1545,8 +1765,10 @@ elif st.session_state.stage == "results":
             cn      = lead.get("contact_name", "")
             ct      = lead.get("contact_title", "")
             em      = lead.get("email", "")
+            ph      = lead.get("phone", "")
             li      = lead.get("linkedin_url", "")
             src     = lead.get("source", "")
+            owner   = lead.get("responsible_owner", "")
             running_ads = lead.get("running_ads", False)
             evidence    = lead.get("evidence", []) or []
 
@@ -1557,6 +1779,8 @@ elif st.session_state.stage == "results":
                 chips.append(f'<span><span class="k">contact</span>{cn}{" · " + ct if ct else ""}</span>')
             if em and "Manual" not in em and "@" in em:
                 chips.append(f'<span><span class="k">email</span>{em}</span>')
+            if ph and "Manual" not in ph:
+                chips.append(f'<span><span class="k">phone</span>{ph}</span>')
             if li and "Manual" not in li:
                 chips.append(f'<span><span class="k">li</span>{li[:50]}</span>')
             if src:
@@ -1589,6 +1813,7 @@ elif st.session_state.stage == "results":
               </div>
               {f'<div class="lc-sig">{signal}</div>' if signal else ""}
               {f'<div class="lc-meta" style="margin-top:6px;font-size:12.5px">Pain · {pain}</div>' if pain else ""}
+              {f'<div class="lc-meta" style="margin-top:4px;font-size:12.5px">Owner · {owner}</div>' if owner else ""}
               {f'<div class="lc-opener">{opening}</div>' if opening else ""}
               {ev_html}
               {note_html}
@@ -1605,6 +1830,8 @@ elif st.session_state.stage == "results":
                 "Contact": l.get("contact_name", ""),
                 "Title":   l.get("contact_title", ""),
                 "Email":   l.get("email", ""),
+                "Phone":   l.get("phone", ""),
+                "Owner":   l.get("responsible_owner", ""),
                 "Signal":  l.get("primary_signal", ""),
                 "Opening": l.get("opening_line", ""),
             }

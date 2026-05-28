@@ -66,6 +66,7 @@ def search_serper(keyword: str, num: int = 10) -> list:
             {
                 "company_name":   extract_company_name(r.get("title", "")),
                 "website":        r.get("link", ""),
+                "result_title":   r.get("title", ""),
                 "snippet":        r.get("snippet", ""),
                 "signal_keyword": keyword,
                 "source":         "serper",

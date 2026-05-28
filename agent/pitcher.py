@@ -30,6 +30,7 @@ Contact:        {contact_name}, {contact_title} at {company_name}
 Primary signal: {primary_signal}
 Pain point:     {pain_point}
 Recent news:    {recent_news}
+Roles hiring:   {job_postings}
 Their LinkedIn posts (most recent first):
 {contact_posts}
 Their company's LinkedIn chatter:
@@ -55,6 +56,10 @@ def generate_pitch(lead: dict) -> str:
         primary_signal=lead.get("primary_signal", ""),
         pain_point=lead.get("pain_point", ""),
         recent_news=_join([n.get("title", "") for n in lead.get("recent_news", [])]),
+        job_postings=_join([
+            f"{j.get('role', '')}: {j.get('observation', '')}"
+            for j in lead.get("job_postings", [])
+        ]),
         contact_posts=_join(lead.get("contact_posts", [])),
         linkedin_posts=_join(lead.get("linkedin_posts", [])),
         reddit_signals=_join(lead.get("reddit_signals", [])),

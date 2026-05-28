@@ -14,13 +14,58 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 COLUMNS = [
     "Rank", "Company", "Website", "Location", "Industry",
     "Total Score", "Fit", "Trigger", "Reachability", "Recency",
-    "Primary Signal", "Pain Point", "Score Reasoning",
-    "Ad Activity", "Evidence",
-    "Contact Name", "Contact Title", "Email", "LinkedIn URL",
+    "Primary Signal", "Pain Point", "One-Line Reasoning", "Score Reasoning",
+    "Job Roles Hiring", "Responsible Senior Owner", "Management Proof",
+    "Ad Activity", "Evidence", "Proof URLs",
+    "Contact Name", "Contact Title", "Email", "Phone", "LinkedIn URL",
     "Contact Posts", "Reddit Signals",
     "Opening Line", "Outreach Strategy",
     "Source", "Date Found", "Status",
 ]
+
+
+def _first_location(lead: dict) -> str:
+    locations = lead.get("locations", ["Bangalore"])
+    return locations[0] if isinstance(locations, list) and locations else "Bangalore"
+
+
+def _job_roles_text(lead: dict) -> str:
+    lines = []
+    for job in lead.get("job_postings", []) or []:
+        role = job.get("role", "Hiring signal")
+        obs = job.get("observation", "")
+        url = job.get("url", "")
+        line = f"{role}: {obs[:180]}".strip()
+        if url:
+            line += f"\n  -> {url}"
+        lines.append(line)
+    return "\n".join(lines[:6])
+
+
+def _management_text(lead: dict) -> str:
+    lines = []
+    for item in lead.get("management_signals", []) or []:
+        label = item.get("person_or_role") or "Management clue"
+        obs = item.get("observation", "")
+        url = item.get("url", "")
+        line = f"{label}: {obs[:180]}".strip()
+        if url:
+            line += f"\n  -> {url}"
+        lines.append(line)
+    return "\n".join(lines[:4])
+
+
+def _proof_urls(lead: dict) -> str:
+    urls = []
+    for collection in ("evidence", "job_postings", "management_signals", "recent_news"):
+        for item in lead.get(collection, []) or []:
+            url = item.get("url", "") if isinstance(item, dict) else ""
+            if url and url not in urls:
+                urls.append(url)
+    linkedin = lead.get("linkedin_url", "")
+    if linkedin and "Manual" not in linkedin and linkedin not in urls:
+        urls.append(linkedin)
+    return "\n".join(urls[:12])
 
 
 def write_leads_to_excel(leads: list, output_path: str) -> str:
@@ -72,7 +117,7 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
         evidence_items = lead.get("evidence", []) or []
         evidence_text = "\n".join(
             f"[{e.get('category','').upper()}] {e.get('observation','')[:120]}"
-            + (f"\n  → {e['url']}" if e.get("url") else "")
+            + (f"\n  -> {e['url']}" if e.get("url") else "")
             for e in evidence_items[:8]
         )
 
@@ -80,8 +125,7 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
             rank,
             lead.get("company_name", ""),
             lead.get("website", ""),
-            (lead.get("locations", ["Bangalore"])[0]
-                if isinstance(lead.get("locations"), list) else "Bangalore"),
+            _first_location(lead),
             lead.get("vertical", ""),
             score,
             lead.get("fit_score", ""),
@@ -90,12 +134,18 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
             lead.get("intent_recency_score", ""),
             lead.get("primary_signal", ""),
             lead.get("pain_point", ""),
+            lead.get("one_line_reasoning", ""),
             lead.get("score_reasoning", ""),
+            _job_roles_text(lead),
+            lead.get("responsible_owner", "") or lead.get("contact_title", ""),
+            _management_text(lead),
             ad_activity,
             evidence_text,
+            _proof_urls(lead),
             lead.get("contact_name", ""),
             lead.get("contact_title", ""),
             lead.get("email", ""),
+            lead.get("phone", ""),
             lead.get("linkedin_url", ""),
             contact_posts,
             reddit_signals,

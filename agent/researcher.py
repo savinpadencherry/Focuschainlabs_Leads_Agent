@@ -75,6 +75,19 @@ def _detect_ad_activity(company_name: str, website: str) -> dict:
     return {"running_ads": bool(signals), "ad_signals": signals[:5]}
 
 
+def _best_role_from_result(title: str, snippet: str) -> str:
+    """Pull a readable role/title from a search result when possible."""
+    text = (title or snippet or "").strip()
+    if not text:
+        return "Hiring signal"
+    for sep in [" - ", " | ", " – ", " · ", " — ", " at "]:
+        if sep in text:
+            text = text.split(sep)[0]
+            break
+    text = text.replace("Jobs", "").replace("Job", "").strip(" :,-")
+    return text[:90] or "Hiring signal"
+
+
 def _collect_evidence(bundle: dict, website: str) -> list:
     """
     Aggregate all research signals into a structured list:
@@ -95,13 +108,14 @@ def _collect_evidence(bundle: dict, website: str) -> list:
             "strength":    "high",
         })
 
-    # Hiring signals
-    for snippet in bundle.get("tech_hiring", []):
-        if snippet:
+    # Hiring signals and job posts
+    for job in bundle.get("job_postings", []):
+        observation = job.get("observation") or job.get("role") or ""
+        if observation:
             items.append({
                 "category":    "hiring",
-                "observation": snippet[:200],
-                "url":         "",
+                "observation": f"{job.get('role', 'Hiring')}: {observation}"[:220],
+                "url":         job.get("url", ""),
                 "strength":    "high",
             })
 
@@ -126,6 +140,17 @@ def _collect_evidence(bundle: dict, website: str) -> list:
                 "strength":    "medium",
             })
 
+    # Senior management / owner clues
+    for manager in bundle.get("management_signals", []):
+        obs = manager.get("observation") or manager.get("person_or_role") or ""
+        if obs:
+            items.append({
+                "category":    "management",
+                "observation": obs[:220],
+                "url":         manager.get("url", ""),
+                "strength":    "medium",
+            })
+
     # Reddit / community
     for signal in bundle.get("reddit_signals", []):
         if signal:
@@ -141,7 +166,12 @@ def _collect_evidence(bundle: dict, website: str) -> list:
     return items[:8]
 
 
-def research_company(company_name: str, website: str, snippet: str) -> dict:
+def research_company(
+    company_name: str,
+    website: str,
+    snippet: str,
+    target_titles: list = None,
+) -> dict:
     bundle = {
         "company_name":     company_name,
         "website":          website,
@@ -149,6 +179,8 @@ def research_company(company_name: str, website: str, snippet: str) -> dict:
         "homepage_text":    "",
         "recent_news":      [],
         "tech_hiring":      [],
+        "job_postings":     [],
+        "management_signals": [],
         "reddit_signals":   [],
         "linkedin_posts":   [],
         "raw_snippet":      snippet,
@@ -198,8 +230,48 @@ def research_company(company_name: str, website: str, snippet: str) -> dict:
 
     # ── Tech / hiring signals ──────────────────────────────────────────────
     try:
-        jobs = search_serper(f"{company_name} hiring technology cloud data IT {year}")
-        bundle["tech_hiring"] = [j.get("snippet", "")[:120] for j in jobs[:3]]
+        job_queries = [
+            f'{company_name} hiring technology cloud data IT {year}',
+            f'site:linkedin.com/jobs "{company_name}" hiring {year}',
+            f'site:naukri.com "{company_name}" hiring technology data cloud',
+        ]
+        seen_jobs = set()
+        for query in job_queries:
+            for j in search_serper(query)[:3]:
+                url = j.get("website", "")
+                obs = j.get("snippet", "")[:220]
+                role = _best_role_from_result(j.get("result_title", ""), obs)
+                key = (role.lower(), url)
+                if key in seen_jobs:
+                    continue
+                seen_jobs.add(key)
+                bundle["job_postings"].append({
+                    "role": role,
+                    "observation": obs,
+                    "url": url,
+                    "source": j.get("source", "serper"),
+                })
+                if obs:
+                    bundle["tech_hiring"].append(obs[:140])
+        bundle["job_postings"] = bundle["job_postings"][:6]
+        bundle["tech_hiring"] = bundle["tech_hiring"][:5]
+    except Exception:
+        pass
+
+    # ── Senior management / problem owner clues ────────────────────────────
+    try:
+        titles = target_titles or [
+            "CTO", "CIO", "Chief Digital Officer", "COO", "Head of IT",
+            "VP Operations", "Head of HR", "Chief People Officer",
+        ]
+        title_query = " OR ".join(f'"{t}"' for t in titles[:6])
+        q = f'site:linkedin.com/in "{company_name}" ({title_query})'
+        for r in search_serper(q)[:4]:
+            bundle["management_signals"].append({
+                "person_or_role": r.get("result_title", "")[:140],
+                "observation": r.get("snippet", "")[:220],
+                "url": r.get("website", ""),
+            })
     except Exception:
         pass
 
