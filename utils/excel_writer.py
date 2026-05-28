@@ -17,8 +17,8 @@ COLUMNS = [
     "Primary Signal", "Pain Point", "One-Line Reasoning", "Score Reasoning",
     "Job Roles Hiring", "Responsible Senior Owner", "Management Proof",
     "Ad Activity", "Evidence",
-    "Contact Name", "Contact Title", "Email", "Phone",
-    "Opening Line", "Outreach Strategy",
+    "Contact Name", "Contact Title", "Email", "Email Confidence", "Phone",
+    "Why Reach Out", "Opening Line", "Outreach Strategy",
     "Source", "Date Found", "Status",
 ]
 
@@ -124,7 +124,9 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
             lead.get("contact_name", ""),
             lead.get("contact_title", ""),
             lead.get("email", ""),
+            lead.get("email_confidence", ""),
             lead.get("phone", ""),
+            lead.get("reason_to_reach", ""),
             lead.get("opening_line", ""),
             lead.get("outreach_note", ""),
             lead.get("source", ""),
