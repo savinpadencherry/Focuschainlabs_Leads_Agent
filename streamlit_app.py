@@ -494,21 +494,36 @@ h1, h2, h3, h4, p, div, span, label {
     color: var(--ink-mute);
     padding-left: 12px;
 }
-[data-testid="stForm"] .stFileUploader {
-    padding-left: 10px !important;
+/* ── Standalone file uploader (upload zone below brief form) ── */
+.stFileUploader [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
+.stFileUploader small { display: none !important; }
+.stFileUploader section { padding: 2px 0 !important; }
+.stFileUploader > label {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10px !important; font-weight: 600 !important;
+    letter-spacing: .26em !important; text-transform: uppercase !important;
+    color: var(--ink-mute) !important; display: block !important;
+    margin-bottom: 6px !important;
 }
-[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"] {
-    min-height: 36px !important;
-    padding: 0 !important;
-    border: none !important;
+.stFileUploader [data-testid="stFileUploaderDropzone"] {
     background: transparent !important;
+    border: 1.5px dashed rgba(15,42,51,.14) !important;
+    border-radius: var(--rs) !important;
+    padding: 5px 14px !important;
+    min-height: 36px !important;
+    display: flex !important; align-items: center !important;
+    transition: border-color .2s, background .2s !important;
+    cursor: pointer !important;
 }
-[data-testid="stForm"] .stFileUploader section {
-    padding: 0 !important;
+.stFileUploader [data-testid="stFileUploaderDropzone"]:hover {
+    border-color: rgba(46,139,77,.40) !important;
+    background: var(--green-bg) !important;
 }
-[data-testid="stForm"] .stFileUploader small,
-[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzoneInstructions"] {
-    display: none !important;
+.stFileUploader [data-testid="stFileUploaderFile"] {
+    background: var(--green-bg) !important;
+    border: 1px solid rgba(46,139,77,.22) !important;
+    border-radius: 6px !important;
+    padding: 3px 10px !important;
 }
 
 /* ── Text area — standalone (outside forms) ── */
@@ -642,8 +657,19 @@ h1, h2, h3, h4, p, div, span, label {
     color: #DFF0D8; font-family: 'JetBrains Mono', monospace;
     font-size: 12px; font-weight: 700;
     box-shadow: 0 0 0 7px rgba(46,139,77,.13);
-    animation: pulse 1.7s ease-in-out infinite;
+    animation: orbit-glow 2s ease-in-out infinite;
     flex-shrink: 0;
+    position: relative;
+}
+.run-orbit::after {
+    content: "";
+    position: absolute; inset: -5px;
+    border-radius: 50%;
+    border: 1.5px solid transparent;
+    border-top-color: rgba(155,207,158,.80);
+    border-right-color: rgba(155,207,158,.22);
+    animation: orbit-spin 2.2s linear infinite;
+    pointer-events: none;
 }
 .run-title {
     color: var(--cream) !important;
@@ -728,7 +754,7 @@ h1, h2, h3, h4, p, div, span, label {
     background: var(--cream); border-color: var(--green); color: var(--green);
     transform: scale(1.15);
     box-shadow: 0 0 0 7px rgba(46,139,77,.10);
-    animation: pulse 1.5s ease-in-out infinite;
+    animation: node-glow 1.5s ease-in-out infinite;
 }
 .pipe-node.done .pipe-dot {
     background: var(--green); border-color: var(--green); color: #fff;
@@ -1032,9 +1058,67 @@ h1, h2, h3, h4, p, div, span, label {
 @keyframes rise   { to { transform: translateY(0); } }
 @keyframes pulse  { 0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10); }
                     50%       { box-shadow: 0 0 0 12px rgba(46,139,77,.04); } }
-@keyframes blink  { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes scanline { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }
+@keyframes blink      { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@keyframes fadeIn     { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scanline   { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }
+@keyframes orbit-spin { to { transform: rotate(360deg); } }
+@keyframes orbit-glow {
+    0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10), 0 0 12px rgba(46,139,77,.12); }
+    50%       { box-shadow: 0 0 0 14px rgba(46,139,77,.04), 0 0 28px rgba(46,139,77,.28); }
+}
+@keyframes shimmer-sweep {
+    0%   { left: -80%; }
+    100% { left: 160%; }
+}
+@keyframes slideInRow {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes node-glow {
+    0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10); }
+    50%       { box-shadow: 0 0 0 15px rgba(46,139,77,.04), 0 0 9px rgba(46,139,77,.50); }
+}
+@keyframes metricPop {
+    from { opacity: 0; transform: scale(.88) translateY(5px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes flow-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+
+/* Shimmer sweep on console background */
+.run-console::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -80%; width: 40%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.025), transparent);
+    animation: shimmer-sweep 5s ease-in-out infinite;
+    pointer-events: none; z-index: 0;
+}
+
+/* Typewriter cursor on agent focus line */
+.run-focus {
+    position: relative;
+}
+.run-focus::after {
+    content: "▋";
+    color: rgba(155,207,158,.65);
+    animation: blink .85s step-end infinite;
+    font-size: 12px;
+    margin-left: 3px;
+    position: relative; bottom: -1px;
+}
+
+/* Slide-in for activity rows and keyword rows */
+.act-row { animation: slideInRow .28s ease both; }
+.kw-row  { animation: slideInRow .22s ease both; }
+
+/* Metric pop-in staggered */
+.run-metric { animation: metricPop .45s cubic-bezier(.34,1.56,.64,1) both; }
+.run-metric:nth-child(2) { animation-delay: .07s; }
+.run-metric:nth-child(3) { animation-delay: .14s; }
+.run-metric:nth-child(4) { animation-delay: .21s; }
+
+/* Pipeline progress bar breathing */
+.pipe-flow { animation: flow-pulse 2s ease-in-out infinite; }
 
 /* ── Misc ── */
 .stApp [data-testid="stToolbar"] { display: none !important; }
@@ -1267,24 +1351,28 @@ if st.session_state.stage == "setup":
             key="prompt",
             label_visibility="collapsed",
         )
-        upload_col, hint_col, _btn = st.columns([0.50, 0.38, 0.12])
-        with upload_col:
-            uploaded_file = st.file_uploader(
-                "Upload previous list",
-                type=["xlsx", "csv"],
-                key="previous_list_upload",
-                label_visibility="collapsed",
+        _hint_col, _btn_col = st.columns([11, 1])
+        with _hint_col:
+            _attached = st.session_state.get("previous_list_upload")
+            _fname = (
+                _attached.name if _attached
+                else st.session_state.exclusion_name or ""
             )
-        with hint_col:
-            upload_name = (
-                uploaded_file.name if uploaded_file
-                else st.session_state.exclusion_name
-                or "Optional: upload previous list"
-            )
-            st.markdown(f'<div class="composer-hint">{upload_name}</div>',
-                        unsafe_allow_html=True)
-        with _btn:
+            if _fname:
+                st.markdown(
+                    f'<div class="composer-hint" style="color:var(--green)">📎 {_fname}</div>',
+                    unsafe_allow_html=True,
+                )
+        with _btn_col:
             run = st.form_submit_button("↑")
+
+    # ── Upload zone (below the form, outside it) ─────────────────────────────
+    uploaded_file = st.file_uploader(
+        "Attach previous leads list · skip duplicates (optional)",
+        type=["xlsx", "csv"],
+        key="previous_list_upload",
+        help="Upload a previous leads Excel or CSV — companies already in that list will be skipped",
+    )
 
     if run:
         if not prompt.strip():
