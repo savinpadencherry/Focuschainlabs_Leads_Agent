@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 *.pyo
 .env
+.streamlit/secrets.toml
 output/*.xlsx
+output/*.png
 output/exclusion_upload.xlsx
 .DS_Store

@@ -55,8 +55,28 @@ python main.py
 
 1. Push this repo to GitHub.
 2. Go to share.streamlit.io → New app → point at `streamlit_app.py`.
-3. In **Secrets**, paste your `.env` contents (TOML-friendly: `KEY = "value"`).
+3. In **Secrets**, paste TOML values using `.streamlit/secrets.example.toml` as the template.
 4. Deploy.
+
+Recommended Streamlit Cloud secrets shape:
+
+```toml
+GEMINI_API_KEY = "..."
+SERPER_API_KEY = "..."
+APOLLO_API_KEY = "..."
+PROXYCURL_API_KEY = "..."
+PILOT_MODE = "true"
+MAX_LEADS_PER_RUN = "30"
+MIN_SCORE_THRESHOLD = "60"
+APOLLO_ENRICH_CAP = "30"
+```
+
+Notes:
+
+- `GOOGLE_API_KEY` is also accepted as an alias for `GEMINI_API_KEY`.
+- Keep real keys only in local `.env` or Streamlit Cloud Secrets. Never commit `.env` or `.streamlit/secrets.toml`.
+- Community Cloud has resource limits, so keep `PILOT_MODE=true` while testing with teammates.
+- If Apollo credits are limited, lower `APOLLO_ENRICH_CAP` to enrich fewer contacts while still exporting 30 researched companies.
 
 ## Add a new client / ICP
 

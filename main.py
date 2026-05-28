@@ -53,7 +53,7 @@ def run_pipeline_streaming(
 ):
     """Generator pipeline — yields typed events for live UIs."""
 
-    max_leads = max_leads or int(os.getenv("MAX_LEADS_PER_RUN", 10))
+    max_leads = max_leads or int(os.getenv("MAX_LEADS_PER_RUN", 30))
     threshold = int(os.getenv("MIN_SCORE_THRESHOLD", 60))
     pilot     = os.getenv("PILOT_MODE", "true").lower() == "true"
 
@@ -179,7 +179,7 @@ def run_pipeline_streaming(
 
     exclusion = load_exclusion_list(exclusion_list_path)
     companies = deduplicate(unique, exclusion)
-    companies = companies[: max_leads * 3]
+    companies = companies[: max_leads * 4]
 
     yield {"type": "search_done",
            "raw": len(all_results), "unique": len(unique),
@@ -207,6 +207,7 @@ def run_pipeline_streaming(
             company["company_name"],
             company.get("website", ""),
             company.get("snippet", ""),
+            icp.get("target_titles", []),
         )
         researched.append({**company, **bundle})
         yield {"type": "company_researched",
@@ -234,16 +235,32 @@ def run_pipeline_streaming(
             "signal":  result.get("primary_signal", ""),
         }
 
-    qualified = [c for c in scored if c.get("qualify")]
+    scored_sorted = sorted(scored, key=lambda x: x.get("total_score", 0), reverse=True)
+    qualified = [c for c in scored_sorted if c.get("qualify")]
     yield {"type": "stage_done", "stage": "score",
            "qualified": len(qualified), "total": len(scored)}
 
+    selected_for_output = qualified[:max_leads]
+    if len(selected_for_output) < max_leads:
+        selected_names = {
+            (c.get("company_name") or "").lower().strip()
+            for c in selected_for_output
+        }
+        for company in scored_sorted:
+            key = (company.get("company_name") or "").lower().strip()
+            if key not in selected_names:
+                selected_for_output.append(company)
+                selected_names.add(key)
+            if len(selected_for_output) >= max_leads:
+                break
+
     # ── Stage 4: Enrich ────────────────────────────────────────────────────
-    enrich_cap = 5 if pilot else max_leads
-    to_enrich = qualified[: min(max_leads, enrich_cap)]
+    enrich_cap = min(max_leads, int(os.getenv("APOLLO_ENRICH_CAP", max_leads)))
+    to_enrich = selected_for_output[: min(max_leads, enrich_cap)]
     yield {"type": "stage_start", "stage": "enrich", "total": len(to_enrich)}
 
     enriched = []
+    enriched_names = set()
     for i, company in enumerate(to_enrich):
         yield {"type": "enrich_progress",
                "idx": i + 1, "total": len(to_enrich),
@@ -254,10 +271,27 @@ def run_pipeline_streaming(
             icp["locations"][0],
         )
         enriched.append({**company, **contact, **icp})
+        enriched_names.add((company.get("company_name") or "").lower().strip())
         yield {"type": "enrich_result",
                "company": company["company_name"],
                "status":  contact.get("enrichment_status", "not_found")}
     yield {"type": "stage_done", "stage": "enrich"}
+
+    for company in selected_for_output:
+        key = (company.get("company_name") or "").lower().strip()
+        if key in enriched_names:
+            continue
+        company.update({
+            "contact_name":      "Manual lookup needed",
+            "contact_title":     company.get("responsible_owner", "") or "Manual lookup needed",
+            "email":             "Manual lookup needed",
+            "phone":             "Manual lookup needed",
+            "linkedin_url":      "Manual lookup needed",
+            "contact_posts":     [],
+            "enrichment_status": "not_found",
+            **icp,
+        })
+        enriched.append(company)
 
     # ── Stage 5: Pitch ─────────────────────────────────────────────────────
     yield {"type": "stage_start", "stage": "pitch", "total": len(enriched)}
@@ -270,20 +304,6 @@ def run_pipeline_streaming(
         lead["outreach_note"] = generate_outreach_note(lead)
         final_leads.append(lead)
     yield {"type": "stage_done", "stage": "pitch"}
-
-    # Fallback — emit something useful even if enrichment was empty
-    if not final_leads and scored:
-        for company in scored[:max_leads]:
-            company.update({
-                "contact_name":  "Manual lookup needed",
-                "contact_title": "Manual lookup needed",
-                "email":         "Manual lookup needed",
-                "linkedin_url":  "Manual lookup needed",
-                "opening_line":  "",
-                "outreach_note": "",
-                **icp,
-            })
-            final_leads.append(company)
 
     # ── Write Excel ────────────────────────────────────────────────────────
     timestamp   = datetime.today().strftime("%Y-%m-%d_%H%M")

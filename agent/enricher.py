@@ -26,10 +26,10 @@ TITLE_PRIORITY = [
 
 
 def enrich_contact(company_name: str, target_titles: list, location: str) -> dict:
-    apollo_limiter.wait()
-
     if not os.getenv("APOLLO_API_KEY"):
         return _manual_lookup_result()
+
+    apollo_limiter.wait()
 
     payload = {
         "api_key":                  os.getenv("APOLLO_API_KEY"),
@@ -56,6 +56,7 @@ def enrich_contact(company_name: str, target_titles: list, location: str) -> dic
         best = _pick_most_senior(people)
         contact_name = f"{best.get('first_name', '')} {best.get('last_name', '')}".strip()
         contact_title = best.get("title", "")
+        phone = _extract_phone(best)
 
         recent_posts = _fetch_recent_posts(contact_name, company_name)
 
@@ -63,6 +64,7 @@ def enrich_contact(company_name: str, target_titles: list, location: str) -> dic
             "contact_name":      contact_name,
             "contact_title":     contact_title,
             "email":             best.get("email", ""),
+            "phone":             phone,
             "linkedin_url":      best.get("linkedin_url", ""),
             "contact_posts":     recent_posts,
             "enrichment_status": "found",
@@ -93,11 +95,30 @@ def _pick_most_senior(people: list) -> dict:
     return people[0]
 
 
+def _extract_phone(person: dict) -> str:
+    for key in ("phone_number", "sanitized_phone", "mobile_phone", "direct_phone"):
+        if person.get(key):
+            return str(person[key])
+    for phone in person.get("phone_numbers", []) or []:
+        if isinstance(phone, dict):
+            value = (
+                phone.get("sanitized_number")
+                or phone.get("raw_number")
+                or phone.get("number")
+            )
+            if value:
+                return str(value)
+        elif phone:
+            return str(phone)
+    return ""
+
+
 def _manual_lookup_result() -> dict:
     return {
         "contact_name":      "Manual lookup needed",
         "contact_title":     "Manual lookup needed",
         "email":             "Manual lookup needed",
+        "phone":             "Manual lookup needed",
         "linkedin_url":      "Manual lookup needed",
         "contact_posts":     [],
         "enrichment_status": "not_found",

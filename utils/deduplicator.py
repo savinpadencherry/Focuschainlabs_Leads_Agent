@@ -3,10 +3,14 @@ import pandas as pd
 
 
 def load_exclusion_list(filepath: str) -> set:
-    """Load previously contacted companies from Excel."""
+    """Load previously contacted companies from Excel or CSV."""
     if not filepath or not os.path.exists(filepath):
         return set()
-    df = pd.read_excel(filepath)
+    ext = os.path.splitext(filepath)[1].lower()
+    if ext == ".csv":
+        df = pd.read_csv(filepath)
+    else:
+        df = pd.read_excel(filepath)
     # Accept column named 'company_name', 'Company', or 'company'
     col = next(
         (c for c in df.columns if "company" in c.lower()),
