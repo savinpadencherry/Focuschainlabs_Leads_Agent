@@ -152,7 +152,7 @@ def search_proxycurl_jobs(icp: dict) -> list:  # noqa: ARG001
 def search_naukri(icp: dict) -> list:
     results = []
     city = (icp.get("locations") or ["Bangalore"])[0].lower()
-    titles = icp.get("target_titles", [])[:3] or ["CTO", "VP IT"]
+    titles = icp.get("target_titles", [])[:3] or ["Founder", "Head of Operations"]
     queries = ["+".join(t.split()) for t in titles]
 
     headers = {

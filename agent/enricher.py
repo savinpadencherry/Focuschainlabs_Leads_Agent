@@ -7,8 +7,9 @@ Cascade per company:
        a. dominic-quaiser/decision-maker-name-email-extractor  (website NER)
        b. harvestapi/linkedin-company-employees                (no cookies)
        c. vdrmota/contact-info-scraper                        (public emails)
-  3. LinkedIn-via-Serper fallback (Google-indexed profiles)
-  4. Email recovery for any contact missing an email:
+  3. Direct public website/contact-page scrape
+  4. LinkedIn-via-Serper fallback (Google-indexed profiles)
+  5. Email recovery for any contact missing an email:
        a. Hunter.io Email Finder
        b. Pattern guess + Hunter verifier ranking
 
@@ -27,6 +28,7 @@ from utils.rate_limiter import apollo_limiter
 from utils.exceptions import RateLimitError
 from agent.contact_finder import (
     find_decision_maker_via_linkedin,
+    find_public_contact_info,
     hunter_find_email,
     best_guess_email,
     extract_domain,
@@ -38,13 +40,12 @@ from agent.apify_enricher import find_contact_via_apify
 APOLLO_PEOPLE_SEARCH = "https://api.apollo.io/v1/mixed_people_search"
 
 TITLE_PRIORITY = [
-    "CTO", "Chief Technology Officer",
-    "CIO", "Chief Information Officer",
-    "CDO", "Chief Digital Officer",
-    "VP Technology", "VP IT", "VP Engineering",
-    "Head of IT", "Head of Engineering", "Director Technology",
-    "VP Digital Transformation",
-    "COO", "VP Operations",
+    "Founder", "Co-Founder", "Owner", "Managing Director", "CEO",
+    "COO", "General Manager", "Business Head",
+    "Head of Operations", "Operations Manager", "VP Operations",
+    "Growth Head", "Marketing Head", "Digital Marketing Head",
+    "Ecommerce Head", "Head of IT", "IT Manager", "Automation Head",
+    "Plant Head", "Factory Manager", "Procurement Head",
     "CPO", "Chief People Officer", "HR Director", "Head of HR",
 ]
 
@@ -76,14 +77,24 @@ def enrich_contact(
                 contact["phone"]       = contact.get("phone") or apify_hit.get("phone", "")
                 contact["linkedin_url"]= contact.get("linkedin_url") or apify_hit.get("linkedin_url", "")
 
-    # ── Step 3: LinkedIn-via-Serper fallback ──────────────────────────────────
+    # ── Step 3: Direct public website/contact-page scrape ─────────────────────
+    if not (contact.get("email") or contact.get("phone")):
+        public_hit = find_public_contact_info(company_name, website)
+        if public_hit:
+            contact["email"] = contact.get("email") or public_hit.get("email", "")
+            contact["phone"] = contact.get("phone") or public_hit.get("phone", "")
+            if not contact.get("contact_name"):
+                contact["contact_title"] = public_hit.get("contact_title", "")
+            contact["contact_source"] = contact.get("contact_source") or "public_website"
+
+    # ── Step 4: LinkedIn-via-Serper fallback ──────────────────────────────────
     if not contact.get("contact_name"):
         linkedin_hit = find_decision_maker_via_linkedin(company_name, target_titles)
         if linkedin_hit:
             contact.update(linkedin_hit)
             contact["contact_source"] = "linkedin"
 
-    # ── Step 4: Email recovery ────────────────────────────────────────────────
+    # ── Step 5: Email recovery ────────────────────────────────────────────────
     if contact.get("contact_name") and not contact.get("email"):
         domain = extract_domain(website)
         first, last = split_name(contact["contact_name"])
@@ -101,8 +112,14 @@ def enrich_contact(
                 contact["email"]            = guess["email"]
                 contact["email_confidence"] = guess["confidence_tier"]
 
-    contact.setdefault("email_confidence",
-                       "verified" if contact.get("email") else "unknown")
+    if not contact.get("email_confidence"):
+        source = contact.get("contact_source", "")
+        if contact.get("email") and source in {"apollo"}:
+            contact["email_confidence"] = "likely"
+        elif contact.get("email") and source.startswith(("apify", "public")):
+            contact["email_confidence"] = "likely"
+        else:
+            contact["email_confidence"] = "unknown"
     contact.setdefault("contact_source",  "apollo" if contact.get("email") else "")
     contact["enrichment_status"] = _status(contact)
 

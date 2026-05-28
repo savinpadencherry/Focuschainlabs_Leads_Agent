@@ -216,7 +216,7 @@ def research_company(
     # ── Recent news (store URL alongside snippet) ──────────────────────────
     for query in [
         f"{company_name} news {year}",
-        f"{company_name} funding OR CTO OR expansion OR launch {year}",
+        f"{company_name} expansion launch hiring operations CRM ecommerce automation {year}",
     ]:
         try:
             for r in search_serper(query)[:2]:
@@ -261,8 +261,9 @@ def research_company(
     # ── Senior management / problem owner clues ────────────────────────────
     try:
         titles = target_titles or [
-            "CTO", "CIO", "Chief Digital Officer", "COO", "Head of IT",
-            "VP Operations", "Head of HR", "Chief People Officer",
+            "Founder", "Owner", "Managing Director", "CEO", "COO",
+            "Head of Operations", "Business Head", "Growth Head",
+            "Marketing Head", "Ecommerce Head", "IT Manager",
         ]
         title_query = " OR ".join(f'"{t}"' for t in titles[:6])
         q = f'site:linkedin.com/in "{company_name}" ({title_query})'

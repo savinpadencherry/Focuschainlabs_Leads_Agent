@@ -1094,17 +1094,24 @@ if st.session_state.selected_client is None and ICPS:
 DEFAULT_PROMPTS = {
     "FocusChainLabs": (
         "Find at least 30 real companies that are likely buyers for FocusChain Labs.\n\n"
-        "FocusChain Labs helps mid-market companies modernise operations with software, "
-        "automation, data, AI workflows, cloud, and product engineering. Search broadly "
-        "across Bangalore and India for companies showing buying signals: legacy ERP or "
-        "SAP migration pain, cloud/data/AI hiring, digital transformation roles, new CTO/CIO/"
-        "CDO/COO leadership, funding, expansion, product launches, operational bottlenecks, "
-        "or public complaints from employees/customers.\n\n"
+        "FocusChain Labs helps SMB and SME companies improve operations, lead flow, customer "
+        "management, reporting, workflow automation, ecommerce, booking systems, CRM, websites, "
+        "and practical AI/data workflows. Search broadly across Bangalore and India for textile "
+        "manufacturers, small manufacturers, interior designers, law firms, medical equipment "
+        "providers, logistics companies, online travel and ticket booking agencies, renewable "
+        "energy product/service firms, local IT and broadband providers, diagnostic agencies, "
+        "D2C hair care, skin care, makeup/beauty brands, and D2C branding agencies.\n\n"
+        "Look for buying signals such as hiring for operations, growth, ecommerce, CRM, "
+        "automation, customer support, booking, warehouse, dispatch, sales ops, project "
+        "management, or digital marketing roles; recent expansion; poor customer experience; "
+        "manual process pain; fragmented software; delayed fulfillment; or public posts/news "
+        "showing operational bottlenecks.\n\n"
         "For each lead, find the company, what problem they appear to be facing, proof from "
         "news/posts/job listings, the roles they are hiring for, and the senior person likely "
-        "responsible for solving it. Prioritise CTO, CIO, CDO, VP Technology, Head of IT, COO, "
-        "VP Operations, and transformation leaders. Include email and phone if available, plus "
-        "a one-line reason for why this is worth outreach."
+        "responsible for solving it. Prioritise founders, owners, managing directors, CEOs, "
+        "COOs, operations heads, business heads, growth heads, ecommerce heads, marketing heads, "
+        "IT managers, plant heads, factory managers, and procurement heads. Include name, title, "
+        "email and phone if available, plus a one-line reason for why this is worth outreach."
     ),
     "Cadabams": (
         "Find at least 30 real B2B referral or partnership leads for Cadabams WeNest.\n\n"
@@ -1238,6 +1245,8 @@ if st.session_state.stage == "setup":
     missing_keys = []
     if not os.getenv("GEMINI_API_KEY"): missing_keys.append("GEMINI_API_KEY")
     if not os.getenv("SERPER_API_KEY"): missing_keys.append("SERPER_API_KEY")
+    if not (os.getenv("APIFY_API_KEY") or os.getenv("APOLLO_API_KEY")):
+        missing_keys.append("APIFY_API_KEY or APOLLO_API_KEY")
 
     if missing_keys:
         st.markdown(
@@ -1338,8 +1347,8 @@ elif st.session_state.stage == "running":
 
     # Serper paid: $50/month ÷ 50K searches = $0.001/search × 196 searches/run × ₹83.5
     COST_PER_SERPER_RUN = 196 * 0.001 * 83.5 / 100   # ₹ ~16.4 but shown separately
-    # Apollo Basic: $49/month ÷ 1000 exports = $0.049/export × 10 leads × ₹83.5
-    COST_PER_APOLLO_RUN = 10 * 0.049 * 83.5 / 100    # ₹ ~40.9
+    # Apify free credits vary by actor; show this as a low-confidence estimate.
+    COST_PER_CONTACT_RUN = 0
 
     _SERVICE_META = {
         "gemini": {"label": "Gemini AI",      "icon": "◆"},
@@ -1356,12 +1365,12 @@ elif st.session_state.stage == "running":
             + gemini_calls * COST_PER_SCORE_CALL
             + num_leads    * COST_PER_PITCH_CALL
         )
-        total_est = gemini_cost + COST_PER_SERPER_RUN + COST_PER_APOLLO_RUN
+        total_est = gemini_cost + COST_PER_SERPER_RUN + COST_PER_CONTACT_RUN
         cost_html = (
             f'<div class="api-cost">'
             f'Est. cost this run: <strong>₹{total_est:.0f}</strong> '
             f'<span class="api-cost-note">'
-            f'Gemini ₹{gemini_cost:.2f} · Serper ₹{COST_PER_SERPER_RUN:.0f} · Apollo ₹{COST_PER_APOLLO_RUN:.0f}'
+            f'Gemini ₹{gemini_cost:.2f} · Serper ₹{COST_PER_SERPER_RUN:.0f} · contacts via Apify/public web'
             f'</span></div>'
         )
 
@@ -1483,7 +1492,7 @@ elif st.session_state.stage == "running":
                 msg = f'&ldquo;{ev.get("company","")}&rdquo; → score {ev.get("score",0)}/100 · {q}'
                 break
             elif t == "enrich_progress":
-                msg = f'Finding decision maker at &ldquo;{ev.get("company","")}&rdquo; via Apollo'
+                msg = f'Finding name, email, title and phone for &ldquo;{ev.get("company","")}&rdquo;'
                 break
             elif t == "pitch_progress":
                 msg = f'Writing outreach strategy for &ldquo;{ev.get("company","")}&rdquo;'
@@ -1639,7 +1648,7 @@ elif st.session_state.stage == "running":
                     f'<div class="act-dot {"act-done" if found else "act-skip"}"></div>'
                     f'<div class="act-body">'
                     f'<div class="act-company">{ev.get("company","")}</div>'
-                    f'<div class="act-detail">contact {"found via Apollo" if found else "not found — manual lookup needed"}</div>'
+                    f'<div class="act-detail">contact {"found via " + (ev.get("source") or "enrichment") if found else "not found — manual lookup needed"}</div>'
                     f'</div></div>'
                 )
             elif t in {"research_progress", "score_progress", "enrich_progress", "pitch_progress"}:
@@ -1947,7 +1956,6 @@ elif st.session_state.stage == "results":
             ct      = lead.get("contact_title", "")
             em      = lead.get("email", "")
             ph      = lead.get("phone", "")
-            li      = lead.get("linkedin_url", "")
             src     = lead.get("source", "")
             owner   = lead.get("responsible_owner", "")
             running_ads = lead.get("running_ads", False)
@@ -1962,8 +1970,6 @@ elif st.session_state.stage == "results":
                 chips.append(f'<span><span class="k">email</span>{em}</span>')
             if ph and "Manual" not in ph:
                 chips.append(f'<span><span class="k">phone</span>{ph}</span>')
-            if li and "Manual" not in li:
-                chips.append(f'<span><span class="k">li</span>{li[:50]}</span>')
             if src:
                 chips.append(f'<span><span class="k">via</span>{src}</span>')
 
@@ -1974,9 +1980,7 @@ elif st.session_state.stage == "results":
                 for ev in evidence[:5]:
                     cat = ev.get("category", "news")
                     obs = ev.get("observation", "")[:120]
-                    url = ev.get("url", "")
-                    obs_html = f'<a href="{url}" target="_blank" style="color:inherit">{obs}</a>' if url else obs
-                    ev_items += f'<div class="lc-ev-item"><span class="lc-ev-cat ev-{cat}">{cat}</span>{obs_html}</div>'
+                    ev_items += f'<div class="lc-ev-item"><span class="lc-ev-cat ev-{cat}">{cat}</span>{obs}</div>'
                 ev_html = f'<div class="lc-evidence"><div class="lc-ev-label">Evidence</div>{ev_items}</div>'
 
             note_html = ""

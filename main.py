@@ -8,7 +8,7 @@ Flow:
     └─ dedupe        (exclusion list + lowercase name set)
     └─ research      (homepage + news + reddit + linkedin per company)
     └─ score         (Gemini → 0-100 with sub-scores)
-    └─ enrich        (Apollo → contact + contact's recent posts)
+    └─ enrich        (Apollo/Apify/public web → contact details)
     └─ pitch         (Gemini → 1-line opening)
     └─ excel         (ranked, colour-coded, frozen header)
 
@@ -262,7 +262,10 @@ def run_pipeline_streaming(
                 break
 
     # ── Stage 4: Enrich ────────────────────────────────────────────────────
-    enrich_cap = min(max_leads, int(os.getenv("APOLLO_ENRICH_CAP", max_leads)))
+    enrich_cap = min(
+        max_leads,
+        int(os.getenv("CONTACT_ENRICH_CAP", os.getenv("APOLLO_ENRICH_CAP", max_leads))),
+    )
     to_enrich = selected_for_output[: min(max_leads, enrich_cap)]
     yield {"type": "stage_start", "stage": "enrich", "total": len(to_enrich)}
 
@@ -395,6 +398,6 @@ if __name__ == "__main__":
     run_pipeline(
         icp_config_path="config/icp_digital_transformation.json",
         exclusion_list_path=None,
-        user_prompt="Find Bangalore mid-market manufacturers who have hired a "
-                    "CTO in the last 90 days and are migrating off legacy ERP.",
+        user_prompt="Find Bangalore SMB manufacturers hiring operations or "
+                    "automation roles and showing manual workflow pain.",
     )

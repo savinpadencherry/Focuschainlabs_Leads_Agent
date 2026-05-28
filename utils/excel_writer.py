@@ -13,11 +13,11 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 COLUMNS = [
     "Rank", "Company", "Website", "Location", "Industry",
+    "Contact Name", "Email", "Contact Title", "Phone", "Email Confidence",
     "Total Score", "Fit", "Trigger", "Reachability", "Recency",
     "Primary Signal", "Pain Point", "One-Line Reasoning", "Score Reasoning",
-    "Job Roles Hiring", "Responsible Senior Owner", "Management Proof",
-    "Ad Activity", "Evidence",
-    "Contact Name", "Contact Title", "Email", "Email Confidence", "Phone",
+    "Job Roles Hiring", "Responsible Senior Owner", "Management Signal",
+    "Ad Activity", "Proof / Signal",
     "Why Reach Out", "Opening Line", "Outreach Strategy",
     "Source", "Date Found", "Status",
 ]
@@ -33,10 +33,7 @@ def _job_roles_text(lead: dict) -> str:
     for job in lead.get("job_postings", []) or []:
         role = job.get("role", "Hiring signal")
         obs  = job.get("observation", "")
-        url  = job.get("url", "")
         line = f"{role}: {obs[:180]}".strip()
-        if url:
-            line += f"\n  -> {url}"
         lines.append(line)
     return "\n".join(lines[:6])
 
@@ -46,10 +43,7 @@ def _management_text(lead: dict) -> str:
     for item in lead.get("management_signals", []) or []:
         label = item.get("person_or_role") or "Management clue"
         obs   = item.get("observation", "")
-        url   = item.get("url", "")
         line  = f"{label}: {obs[:180]}".strip()
-        if url:
-            line += f"\n  -> {url}"
         lines.append(line)
     return "\n".join(lines[:4])
 
@@ -97,7 +91,6 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
         evidence_items = lead.get("evidence", []) or []
         evidence_text  = "\n".join(
             f"[{e.get('category','').upper()}] {e.get('observation','')[:120]}"
-            + (f"\n  -> {e['url']}" if e.get("url") else "")
             for e in evidence_items[:8]
         )
 
@@ -107,6 +100,11 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
             lead.get("website", ""),
             _first_location(lead),
             lead.get("vertical", ""),
+            lead.get("contact_name", ""),
+            lead.get("email", ""),
+            lead.get("contact_title", ""),
+            lead.get("phone", ""),
+            lead.get("email_confidence", ""),
             score,
             lead.get("fit_score", ""),
             lead.get("trigger_score", ""),
@@ -121,11 +119,6 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
             _management_text(lead),
             ad_activity,
             evidence_text,
-            lead.get("contact_name", ""),
-            lead.get("contact_title", ""),
-            lead.get("email", ""),
-            lead.get("email_confidence", ""),
-            lead.get("phone", ""),
             lead.get("reason_to_reach", ""),
             lead.get("opening_line", ""),
             lead.get("outreach_note", ""),
