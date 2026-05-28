@@ -38,15 +38,14 @@ ACTOR_CONTACT_INFO   = "vdrmota/contact-info-scraper"
 
 # Title priority list (shared with enricher)
 TITLE_PRIORITY = [
-    "CTO", "Chief Technology Officer",
-    "CIO", "Chief Information Officer",
-    "CDO", "Chief Digital Officer",
-    "VP Technology", "VP IT", "VP Engineering",
-    "Head of IT", "Head of Engineering", "Director Technology",
-    "VP Digital Transformation",
+    "Founder", "Co-Founder", "Owner", "Managing Director", "CEO",
+    "COO", "General Manager", "Business Head",
+    "Head of Operations", "Operations Manager", "VP Operations",
+    "Growth Head", "Marketing Head", "Digital Marketing Head",
+    "Ecommerce Head", "Head of IT", "IT Manager", "Automation Head",
+    "Plant Head", "Factory Manager", "Procurement Head",
     "CHRO", "CPO", "Chief People Officer",
     "HR Director", "Head of HR", "VP Human Resources",
-    "COO", "VP Operations",
 ]
 
 

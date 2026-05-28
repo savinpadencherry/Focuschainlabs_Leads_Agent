@@ -4,7 +4,7 @@ The planner takes a free-form user prompt + base ICP, asks Gemini to
 synthesise the actual search keywords, target titles, pain-point lens
 and gap hypothesis the downstream pipeline will hunt for.
 
-This is what turns "Find me Bangalore D2C brands that just hired a CTO"
+This is what turns "Find me Bangalore D2C brands hiring ecommerce ops"
 into 12 specific Google queries + 5 LinkedIn job titles + a sharpened
 ICP that scorer.py and researcher.py can act on.
 """
@@ -44,9 +44,11 @@ Return ONLY valid JSON. No markdown. No prose. This exact shape:
                         the problem or budget, not junior implementers>],
   "trigger_keywords":  [<10 to 14 Google-ready queries — each one a real,
                         date-stamped search a SDR would run, not a topic.
-                        Include the year. Mix funding, hiring, leadership
-                        moves, job posts, management appointments, product
-                        launches, expansion, and tech-stack/problem signals.>],
+                        Include the year. Mix hiring, expansion, operational
+                        pain, customer experience, ecommerce, CRM, automation,
+                        booking, dispatch, inventory, marketing, and process
+                        signals. Avoid CTO/CIO-led searches unless the user
+                        explicitly asks for those titles.>],
   "linkedin_queries":  [<3 to 5 site:linkedin.com/jobs queries that surface
                         active hiring at target companies. These should help
                         infer what role gaps or operational pains they are
@@ -98,7 +100,7 @@ def plan_search(user_prompt: str, base_icp: dict) -> dict:
         try:
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
             resp = client.models.generate_content(
-                model="gemini-3.5-flash",
+                model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
                 contents=prompt,
             )
             plan = json.loads(_strip_fences(resp.text))

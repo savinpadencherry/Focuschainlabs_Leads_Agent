@@ -32,11 +32,11 @@ SCORING DIMENSIONS:
    0-9 = wrong vertical or location
 
 2. trigger_score (max 35)
-   30-35 = new CTO/CIO/CDO hired in last 90 days
-   25-30 = funding round in last 6 months
-   20-25 = actively hiring 3+ relevant roles right now
-   15-20 = migration / launch / expansion mentioned
-   5-14 = generic technology mention only
+   30-35 = multiple current buying signals: relevant hiring + expansion/news + clear operational pain
+   25-30 = actively hiring 2+ relevant roles tied to operations, CRM, ecommerce, automation, support, booking, logistics, marketing, or process improvement
+   20-25 = recent expansion, new branch/product/service launch, growth push, or public process/customer pain
+   15-20 = job post or news item implies manual workflow, software, fulfilment, lead-flow, reporting, or customer support gap
+   5-14 = generic digital/software mention only
    0-4 = no signal found
 
 3. reachability_score (max 20)
@@ -70,7 +70,7 @@ Return exactly this JSON and nothing else:
   "pain_point":          "<their most likely operational pain that the user's offering solves>",
   "responsible_owner":   "<senior role/person most likely accountable for solving this pain, based on hiring/news/management evidence>",
   "one_line_reasoning":  "<one crisp SDR-facing sentence explaining why this lead belongs in the sheet>",
-  "score_reasoning":     "Fit X/25 · Trigger X/35 · Reachability X/20 · Recency X/20 → Total X. <One sentence naming the dominant signal that drove this score and why it matters now.>",
+  "score_reasoning":     "Fit X/25 because <basis>. Trigger X/35 because <basis>. Reachability X/20 because <basis>. Recency X/20 because <basis>. Total X/100 because <short conclusion>.",
   "qualify":             <true if total_score >= threshold else false>,
   "disqualified_reason": "<only populate if qualify is false>"
 }}
@@ -114,15 +114,12 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
         try:
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
             response = client.models.generate_content(
-                model="gemini-3.5-flash",
+                model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
                 contents=prompt,
             )
             raw = re.sub(r"```json|```", "", response.text.strip()).strip()
             result = json.loads(raw)
-            result["qualify"] = result.get("total_score", 0) >= threshold
-            result.setdefault("responsible_owner", "")
-            result.setdefault("one_line_reasoning", "")
-            return result
+            return _normalise_result(result, threshold)
 
         except json.JSONDecodeError:
             if attempt == 0:
@@ -142,6 +139,37 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
                 "primary_signal": "", "pain_point": "", "responsible_owner": "",
                 "one_line_reasoning": "", "score_reasoning": "",
             }
+
+
+def _normalise_result(result: dict, threshold: int) -> dict:
+    for key in ("fit_score", "trigger_score", "reachability_score", "intent_recency_score"):
+        try:
+            result[key] = int(result.get(key, 0) or 0)
+        except Exception:
+            result[key] = 0
+
+    if not result.get("total_score"):
+        result["total_score"] = (
+            result["fit_score"]
+            + result["trigger_score"]
+            + result["reachability_score"]
+            + result["intent_recency_score"]
+        )
+    result["qualify"] = int(result.get("total_score", 0) or 0) >= threshold
+    result.setdefault("responsible_owner", "")
+    result.setdefault("one_line_reasoning", "")
+
+    reasoning = str(result.get("score_reasoning", "") or "").strip()
+    if "Fit" not in reasoning or "Trigger" not in reasoning:
+        reasoning = (
+            f"Fit {result['fit_score']}/25 based on industry, size and location match. "
+            f"Trigger {result['trigger_score']}/35 based on the strongest hiring/news/pain signal found. "
+            f"Reachability {result['reachability_score']}/20 based on available company/contact evidence. "
+            f"Recency {result['intent_recency_score']}/20 based on how recent the signal appears. "
+            f"Total {result.get('total_score', 0)}/100."
+        )
+    result["score_reasoning"] = reasoning
+    return result
 
 
 def _raise_if_rate_limit(service: str, exc: Exception) -> None:
