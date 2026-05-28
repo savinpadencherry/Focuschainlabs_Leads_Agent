@@ -139,36 +139,13 @@ def search_tracxn(icp: dict) -> list:
         return []
 
 
-# ─── ProxyCurl (LinkedIn jobs) ───────────────────────────────────────────────
-def search_proxycurl_jobs(icp: dict) -> list:
-    if not os.getenv("PROXYCURL_API_KEY"):
-        return []
-    URL = "https://nubela.co/proxycurl/api/v2/linkedin/company/job"
-    headers = {"Authorization": f"Bearer {os.getenv('PROXYCURL_API_KEY')}"}
-    city = (icp.get("locations") or ["Bangalore"])[0]
-    results = []
-    for title in icp.get("target_titles", [])[:3]:
-        try:
-            params = {
-                "keyword":  f"{title}",
-                "location": f"{city}, India",
-                "job_type": "full-time",
-            }
-            response = requests.get(URL, headers=headers, params=params, timeout=15)
-            response.raise_for_status()
-            for job in response.json().get("job", []):
-                results.append({
-                    "company_name":   job.get("company", {}).get("name", ""),
-                    "website":        job.get("company", {}).get("url", ""),
-                    "snippet":        f"Actively hiring: {job.get('title', '')}",
-                    "signal_keyword": f"linkedin_job:{title}",
-                    "source":         "proxycurl",
-                    "date_found":     today(),
-                })
-        except Exception as e:
-            print(f"  [WARN] ProxyCurl failed for '{title}': {e}")
-            continue
-    return results
+# ─── ProxyCurl — SUNSET (May 2026) ───────────────────────────────────────────
+# ProxyCurl has been discontinued. The team moved to NinjaPear (competitive
+# intelligence), which does not offer a LinkedIn jobs endpoint. LinkedIn job
+# signals are now sourced via Serper (site:linkedin.com/jobs queries) and
+# Naukri. This stub exists so imports don't break; it always returns [].
+def search_proxycurl_jobs(icp: dict) -> list:  # noqa: ARG001
+    return []
 
 
 # ─── Naukri (HTML scrape) ────────────────────────────────────────────────────

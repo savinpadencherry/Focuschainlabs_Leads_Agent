@@ -157,18 +157,9 @@ def run_pipeline_streaming(
         yield {"type": "source_done", "source": "tracxn",
                "count": 0, "status": "skip", "reason": "Optional — add key to enable"}
 
-    # ProxyCurl
-    yield {"type": "source_start", "source": "proxycurl", "label": "LinkedIn Jobs (ProxyCurl)"}
-    if os.getenv("PROXYCURL_API_KEY"):
-        yield {"type": "keyword_searching", "keyword": "LinkedIn job listings via ProxyCurl", "source": "linkedin"}
-        pc = search_proxycurl_jobs(icp)
-        all_results.extend(pc)
-        yield {"type": "keyword_done", "keyword": "LinkedIn job listings", "count": len(pc), "source": "linkedin"}
-        yield {"type": "source_done", "source": "proxycurl",
-               "count": len(pc), "status": "done"}
-    else:
-        yield {"type": "source_done", "source": "proxycurl",
-               "count": 0, "status": "skip", "reason": "Optional — add key to enable"}
+    # ProxyCurl — sunset May 2026, always skip
+    yield {"type": "source_done", "source": "proxycurl",
+           "count": 0, "status": "skip", "reason": "Sunset — replaced by Naukri + Serper"}
 
     # Naukri
     yield {"type": "source_start", "source": "naukri", "label": "Naukri Job Board (scraper)"}
