@@ -682,8 +682,19 @@ h1, h2, h3, h4, p, div, span, label {
     color: #DFF0D8; font-family: 'JetBrains Mono', monospace;
     font-size: 12px; font-weight: 700;
     box-shadow: 0 0 0 7px rgba(46,139,77,.13);
-    animation: pulse 1.7s ease-in-out infinite;
+    animation: orbit-glow 2s ease-in-out infinite;
     flex-shrink: 0;
+    position: relative;
+}
+.run-orbit::after {
+    content: "";
+    position: absolute; inset: -5px;
+    border-radius: 50%;
+    border: 1.5px solid transparent;
+    border-top-color: rgba(155,207,158,.80);
+    border-right-color: rgba(155,207,158,.22);
+    animation: orbit-spin 2.2s linear infinite;
+    pointer-events: none;
 }
 .run-title {
     color: var(--cream) !important;
@@ -768,7 +779,7 @@ h1, h2, h3, h4, p, div, span, label {
     background: var(--cream); border-color: var(--green); color: var(--green);
     transform: scale(1.15);
     box-shadow: 0 0 0 7px rgba(46,139,77,.10);
-    animation: pulse 1.5s ease-in-out infinite;
+    animation: node-glow 1.5s ease-in-out infinite;
 }
 .pipe-node.done .pipe-dot {
     background: var(--green); border-color: var(--green); color: #fff;
@@ -1072,9 +1083,67 @@ h1, h2, h3, h4, p, div, span, label {
 @keyframes rise   { to { transform: translateY(0); } }
 @keyframes pulse  { 0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10); }
                     50%       { box-shadow: 0 0 0 12px rgba(46,139,77,.04); } }
-@keyframes blink  { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes scanline { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }
+@keyframes blink      { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@keyframes fadeIn     { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scanline   { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }
+@keyframes orbit-spin { to { transform: rotate(360deg); } }
+@keyframes orbit-glow {
+    0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10), 0 0 12px rgba(46,139,77,.12); }
+    50%       { box-shadow: 0 0 0 14px rgba(46,139,77,.04), 0 0 28px rgba(46,139,77,.28); }
+}
+@keyframes shimmer-sweep {
+    0%   { left: -80%; }
+    100% { left: 160%; }
+}
+@keyframes slideInRow {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes node-glow {
+    0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10); }
+    50%       { box-shadow: 0 0 0 15px rgba(46,139,77,.04), 0 0 9px rgba(46,139,77,.50); }
+}
+@keyframes metricPop {
+    from { opacity: 0; transform: scale(.88) translateY(5px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes flow-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+
+/* Shimmer sweep on console background */
+.run-console::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -80%; width: 40%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.025), transparent);
+    animation: shimmer-sweep 5s ease-in-out infinite;
+    pointer-events: none; z-index: 0;
+}
+
+/* Typewriter cursor on agent focus line */
+.run-focus {
+    position: relative;
+}
+.run-focus::after {
+    content: "▋";
+    color: rgba(155,207,158,.65);
+    animation: blink .85s step-end infinite;
+    font-size: 12px;
+    margin-left: 3px;
+    position: relative; bottom: -1px;
+}
+
+/* Slide-in for activity rows and keyword rows */
+.act-row { animation: slideInRow .28s ease both; }
+.kw-row  { animation: slideInRow .22s ease both; }
+
+/* Metric pop-in staggered */
+.run-metric { animation: metricPop .45s cubic-bezier(.34,1.56,.64,1) both; }
+.run-metric:nth-child(2) { animation-delay: .07s; }
+.run-metric:nth-child(3) { animation-delay: .14s; }
+.run-metric:nth-child(4) { animation-delay: .21s; }
+
+/* Pipeline progress bar breathing */
+.pipe-flow { animation: flow-pulse 2s ease-in-out infinite; }
 
 /* ── Misc ── */
 .stApp [data-testid="stToolbar"] { display: none !important; }
