@@ -494,21 +494,61 @@ h1, h2, h3, h4, p, div, span, label {
     color: var(--ink-mute);
     padding-left: 12px;
 }
-[data-testid="stForm"] .stFileUploader {
-    padding-left: 10px !important;
+/* In-form file uploader — render as a single 📎 icon button, hide ALL text */
+[data-testid="stForm"] .stFileUploader { padding-left: 10px !important; }
+[data-testid="stForm"] .stFileUploader > label { display: none !important; }
+[data-testid="stForm"] .stFileUploader section { padding: 0 !important; }
+[data-testid="stForm"] .stFileUploader small,
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzoneInstructions"],
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzoneInstructions"] * {
+    font-size: 0 !important;
+    color: transparent !important;
+    line-height: 0 !important;
 }
 [data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"] {
     min-height: 36px !important;
+    height: 36px !important;
+    width: 36px !important;
     padding: 0 !important;
+    border: 1.5px solid var(--line-soft) !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: relative !important;
+    overflow: hidden !important;
+    cursor: pointer !important;
+    transition: border-color .2s, background .2s, transform .15s !important;
+}
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"]:hover {
+    border-color: var(--green) !important;
+    background: var(--green-bg) !important;
+    transform: scale(1.05) !important;
+}
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"]::after {
+    content: "📎";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px !important;
+    color: var(--ink-soft) !important;
+    line-height: 1 !important;
+    pointer-events: none;
+}
+/* Hide the "Browse files" button entirely — the whole dropzone is clickable */
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"] button {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    opacity: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
     border: none !important;
     background: transparent !important;
-}
-[data-testid="stForm"] .stFileUploader section {
-    padding: 0 !important;
-}
-[data-testid="stForm"] .stFileUploader small,
-[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzoneInstructions"] {
-    display: none !important;
 }
 
 /* ── Text area — standalone (outside forms) ── */
@@ -1267,16 +1307,24 @@ if st.session_state.stage == "setup":
             key="prompt",
             label_visibility="collapsed",
         )
-        _, _btn_col = st.columns([11, 1])
-        with _btn_col:
+        upload_col, hint_col, _btn = st.columns([0.10, 0.78, 0.12])
+        with upload_col:
+            uploaded_file = st.file_uploader(
+                " ",
+                type=["xlsx", "csv"],
+                key="previous_list_upload",
+                label_visibility="collapsed",
+            )
+        with hint_col:
+            upload_name = (
+                uploaded_file.name if uploaded_file
+                else st.session_state.exclusion_name
+                or "Optional: upload previous list"
+            )
+            st.markdown(f'<div class="composer-hint">{upload_name}</div>',
+                        unsafe_allow_html=True)
+        with _btn:
             run = st.form_submit_button("↑")
-
-    uploaded_file = st.file_uploader(
-        "Attach previous leads list to skip duplicates (optional)",
-        type=["xlsx", "csv"],
-        key="previous_list_upload",
-        label_visibility="collapsed",
-    )
 
     if run:
         if not prompt.strip():
