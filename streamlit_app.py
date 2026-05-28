@@ -1336,29 +1336,35 @@ elif st.session_state.stage == "running":
     COST_PER_SCORE_CALL = 0.018   # ₹
     COST_PER_PITCH_CALL = 0.019   # ₹ (merged bundle)
 
+    # Serper paid: $50/month ÷ 50K searches = $0.001/search × 196 searches/run × ₹83.5
+    COST_PER_SERPER_RUN = 196 * 0.001 * 83.5 / 100   # ₹ ~16.4 but shown separately
+    # Apollo Basic: $49/month ÷ 1000 exports = $0.049/export × 10 leads × ₹83.5
+    COST_PER_APOLLO_RUN = 10 * 0.049 * 83.5 / 100    # ₹ ~40.9
+
     _SERVICE_META = {
-        "gemini":    {"label": "Gemini AI",      "icon": "◆"},
-        "serper":    {"label": "Serper Search",   "icon": "◉"},
-        "apollo":    {"label": "Apollo Contacts", "icon": "◈"},
-        "hunter":    {"label": "Hunter Email",    "icon": "◎"},
-        "proxycurl": {"label": "ProxyCurl",       "icon": "◌"},
+        "gemini": {"label": "Gemini AI",      "icon": "◆"},
+        "serper": {"label": "Serper Search",  "icon": "◉"},
+        "apollo": {"label": "Apollo Contacts","icon": "◈"},
+        "hunter": {"label": "Hunter Email",   "icon": "◎"},
     }
 
     def render_api_status(api_status: dict, gemini_calls: int) -> str:
-        # Cost estimate (₹)
         num_leads = len(st.session_state.get("leads") or [])
-        est_cost  = (
+        gemini_cost = (
             COST_PER_PLAN_CALL
             + gemini_calls * COST_PER_SCORE_CALL
             + num_leads    * COST_PER_PITCH_CALL
         )
+        total_est = gemini_cost + COST_PER_SERPER_RUN + COST_PER_APOLLO_RUN
         cost_html = (
-            f'<div class="api-cost">Est. cost this run: '
-            f'<strong>₹{est_cost:.2f}</strong> '
-            f'<span class="api-cost-note">Gemini {gemini_calls} calls</span></div>'
+            f'<div class="api-cost">'
+            f'Est. cost this run: <strong>₹{total_est:.0f}</strong> '
+            f'<span class="api-cost-note">'
+            f'Gemini ₹{gemini_cost:.2f} · Serper ₹{COST_PER_SERPER_RUN:.0f} · Apollo ₹{COST_PER_APOLLO_RUN:.0f}'
+            f'</span></div>'
         )
 
-        services = ["gemini", "serper", "apollo", "hunter", "proxycurl"]
+        services = ["gemini", "serper", "apollo", "hunter"]
         dots = ""
         alerts = ""
         for svc in services:
@@ -1371,7 +1377,6 @@ elif st.session_state.stage == "running":
                 key_env = {
                     "gemini": "GEMINI_API_KEY", "serper": "SERPER_API_KEY",
                     "apollo": "APOLLO_API_KEY", "hunter": "HUNTER_API_KEY",
-                    "proxycurl": "PROXYCURL_API_KEY",
                 }.get(svc)
                 if key_env and not os.getenv(key_env):
                     state = "no_key"
@@ -1681,11 +1686,10 @@ elif st.session_state.stage == "running":
     pipe_slot.markdown(render_pipe(st.session_state.stage_status), unsafe_allow_html=True)
 
     KNOWN_SOURCES = [
-        ("serper",    "Google · web/news"),
-        ("reddit",    "Reddit · pain posts"),
-        ("tracxn",    "Tracxn · funded startups"),
-        ("proxycurl", "ProxyCurl · LinkedIn jobs"),
-        ("naukri",    "Naukri · job board"),
+        ("serper",  "Google · web/news"),
+        ("reddit",  "Reddit · pain posts"),
+        ("tracxn",  "Tracxn · funded startups"),
+        ("naukri",  "Naukri · job board"),
     ]
     for k, lbl in KNOWN_SOURCES:
         if k not in st.session_state.sources:
