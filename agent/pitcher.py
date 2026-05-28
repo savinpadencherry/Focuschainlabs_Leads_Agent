@@ -1,7 +1,8 @@
 """
-Two Gemini-powered outputs per lead:
-  1. opening_line    — 1-2 sentence peer-to-peer opener referencing real, recent activity.
-  2. outreach_note   — Private 4-point call strategy note for the human rep.
+Three Gemini-powered outputs per lead:
+  1. opening_line     — 1-2 sentence peer-to-peer opener referencing real, recent activity.
+  2. outreach_note    — Private 4-point call strategy note for the human rep.
+  3. reason_to_reach  — Single sentence tying the named contact to the trigger.
 """
 
 import os
@@ -159,3 +160,73 @@ def generate_outreach_note(lead: dict) -> str:
             f"3. ANGLE: {pain or 'Explore their operational bottlenecks.'}\n"
             f"4. CONTACT NOTE: Ask for the decision maker by title if contact unknown."
         )
+
+
+# ── Reason to reach (per-contact action prompt) ───────────────────────────────
+
+REASON_TO_REACH_PROMPT = """
+You are writing a single-sentence action prompt for a sales rep about WHY
+to message this specific person THIS WEEK. Output exactly one sentence, max 30 words.
+
+Anchor the sentence to:
+  - The person (use their name and title)
+  - The recent trigger event at their company
+  - The pain that makes our offering urgent to them right now
+
+Bad:  "Reach out to discuss digital transformation."
+Good: "Reach Priya Sharma (CHRO) this week — Cadabams just announced a 200-bed expansion, and her HR ops will need elder-care benefits before onboarding kicks off."
+
+Contact:        {contact_name}, {contact_title}
+Company:        {company_name}
+Primary signal: {primary_signal}
+Pain point:     {pain_point}
+Trigger date:   {trigger_recency}
+Our offering:   {offering}
+
+Return ONLY the one sentence. No quotes. No labels.
+"""
+
+
+def generate_reason_to_reach(lead: dict) -> str:
+    """Generate the per-contact 'why message this person now' line."""
+    if not lead.get("contact_name"):
+        # No named contact — fall back to a role-based prompt
+        title = lead.get("responsible_owner") or lead.get("contact_title") or "the decision maker"
+        signal = lead.get("primary_signal", "recent activity")
+        return f"Ask for {title} and lead with: {signal}."
+
+    gemini_limiter.wait()
+
+    recency_score = lead.get("intent_recency_score", 0) or 0
+    recency_label = (
+        "within last 30 days" if recency_score >= 18
+        else "within last 90 days" if recency_score >= 12
+        else "within last 6 months" if recency_score >= 6
+        else "older signal"
+    )
+
+    prompt = REASON_TO_REACH_PROMPT.format(
+        contact_name=lead.get("contact_name", ""),
+        contact_title=lead.get("contact_title", ""),
+        company_name=lead.get("company_name", ""),
+        primary_signal=lead.get("primary_signal", ""),
+        pain_point=lead.get("pain_point", ""),
+        trigger_recency=recency_label,
+        offering=lead.get("gap_hypothesis") or lead.get("custom_focus")
+                  or lead.get("vertical", "B2B consulting"),
+    )
+
+    try:
+        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        response = client.models.generate_content(
+            model="gemini-3.5-flash",
+            contents=prompt,
+        )
+        return response.text.strip().strip('"')
+
+    except Exception as e:
+        print(f"  [ERROR] Reason-to-reach generation failed: {e}")
+        name   = lead.get("contact_name", "the contact")
+        title  = lead.get("contact_title", "")
+        signal = lead.get("primary_signal", "their recent activity")
+        return f"Reach {name} ({title}) — {signal}."
