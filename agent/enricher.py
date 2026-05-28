@@ -1,6 +1,10 @@
 """
-Apollo-backed contact enrichment + best-effort LinkedIn post fetch
-for the matched decision maker.
+Apollo-backed contact enrichment.
+
+Three-stage fallback so free-tier accounts still return results:
+  1. company + titles + location
+  2. company + titles (drop location)
+  3. company only (drop titles too)
 """
 
 import os
@@ -8,7 +12,6 @@ import time
 import requests
 
 from utils.rate_limiter import apollo_limiter
-from agent.searcher import search_serper
 
 
 APOLLO_PEOPLE_SEARCH = "https://api.apollo.io/v1/mixed_people_search"
@@ -27,70 +30,68 @@ TITLE_PRIORITY = [
 
 def enrich_contact(company_name: str, target_titles: list, location: str) -> dict:
     if not os.getenv("APOLLO_API_KEY"):
-        return _manual_lookup_result()
+        return _empty_result()
 
     apollo_limiter.wait()
 
-    payload = {
-        "api_key":                  os.getenv("APOLLO_API_KEY"),
-        "q_organization_name":      company_name,
-        "person_titles":            target_titles,
-        "organization_locations":   [location],
-        "contact_email_status":     ["verified", "likely to engage"],
-        "per_page":                 5,
-    }
+    # Three progressively looser searches until we get a hit
+    searches = [
+        {"q_organization_name": company_name, "person_titles": target_titles,
+         "organization_locations": [location], "per_page": 5},
+        {"q_organization_name": company_name, "person_titles": target_titles,
+         "per_page": 5},
+        {"q_organization_name": company_name, "per_page": 5},
+    ]
 
-    try:
-        response = requests.post(APOLLO_PEOPLE_SEARCH, json=payload, timeout=15)
-
-        if response.status_code == 429:
-            print("  [WARN] Apollo rate limited — waiting 60s")
-            time.sleep(60)
+    for payload in searches:
+        payload["api_key"] = os.getenv("APOLLO_API_KEY")
+        try:
             response = requests.post(APOLLO_PEOPLE_SEARCH, json=payload, timeout=15)
 
-        response.raise_for_status()
-        people = response.json().get("people", [])
-        if not people:
-            return _manual_lookup_result()
+            if response.status_code == 429:
+                print("  [WARN] Apollo rate limited — waiting 60s")
+                time.sleep(60)
+                response = requests.post(APOLLO_PEOPLE_SEARCH, json=payload, timeout=15)
 
-        best = _pick_most_senior(people)
-        contact_name = f"{best.get('first_name', '')} {best.get('last_name', '')}".strip()
-        contact_title = best.get("title", "")
-        phone = _extract_phone(best)
+            if response.status_code != 200:
+                print(f"  [WARN] Apollo returned {response.status_code}: {response.text[:120]}")
+                continue
 
-        recent_posts = _fetch_recent_posts(contact_name, company_name)
+            people = response.json().get("people", [])
+            if people:
+                return _build_result(people)
 
-        return {
-            "contact_name":      contact_name,
-            "contact_title":     contact_title,
-            "email":             best.get("email", ""),
-            "phone":             phone,
-            "linkedin_url":      best.get("linkedin_url", ""),
-            "contact_posts":     recent_posts,
-            "enrichment_status": "found",
-        }
+        except Exception as e:
+            print(f"  [ERROR] Apollo enrichment failed for {company_name}: {e}")
+            break
 
-    except Exception as e:
-        print(f"  [ERROR] Apollo enrichment failed for {company_name}: {e}")
-        return _manual_lookup_result()
+    return _empty_result()
 
 
-def _fetch_recent_posts(contact_name: str, company_name: str) -> list:
-    """Pull up to 2 recent LinkedIn posts the contact has written or commented on."""
-    if not contact_name or not os.getenv("SERPER_API_KEY"):
-        return []
-    try:
-        q = f'site:linkedin.com/posts "{contact_name}" "{company_name}"'
-        return [r.get("snippet", "")[:220] for r in search_serper(q)[:2]]
-    except Exception:
-        return []
+def _build_result(people: list) -> dict:
+    best = _pick_most_senior(people)
+    contact_name  = f"{best.get('first_name', '')} {best.get('last_name', '')}".strip()
+    contact_title = best.get("title", "")
+    email         = best.get("email", "") or ""
+    phone         = _extract_phone(best)
+
+    # Apollo free tier masks email as "email_unverified" — expose it anyway
+    if not email:
+        email = best.get("email_unverified", "") or ""
+
+    return {
+        "contact_name":      contact_name,
+        "contact_title":     contact_title,
+        "email":             email,
+        "phone":             phone,
+        "enrichment_status": "found",
+    }
 
 
 def _pick_most_senior(people: list) -> dict:
     for priority_title in TITLE_PRIORITY:
         for person in people:
-            title = person.get("title", "").lower()
-            if priority_title.lower() in title:
+            if priority_title.lower() in (person.get("title") or "").lower():
                 return person
     return people[0]
 
@@ -113,13 +114,11 @@ def _extract_phone(person: dict) -> str:
     return ""
 
 
-def _manual_lookup_result() -> dict:
+def _empty_result() -> dict:
     return {
-        "contact_name":      "Manual lookup needed",
-        "contact_title":     "Manual lookup needed",
-        "email":             "Manual lookup needed",
-        "phone":             "Manual lookup needed",
-        "linkedin_url":      "Manual lookup needed",
-        "contact_posts":     [],
+        "contact_name":      "",
+        "contact_title":     "",
+        "email":             "",
+        "phone":             "",
         "enrichment_status": "not_found",
     }
