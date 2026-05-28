@@ -1267,24 +1267,16 @@ if st.session_state.stage == "setup":
             key="prompt",
             label_visibility="collapsed",
         )
-        upload_col, hint_col, _btn = st.columns([0.50, 0.38, 0.12])
-        with upload_col:
-            uploaded_file = st.file_uploader(
-                "Upload previous list",
-                type=["xlsx", "csv"],
-                key="previous_list_upload",
-                label_visibility="collapsed",
-            )
-        with hint_col:
-            upload_name = (
-                uploaded_file.name if uploaded_file
-                else st.session_state.exclusion_name
-                or "Optional: upload previous list"
-            )
-            st.markdown(f'<div class="composer-hint">{upload_name}</div>',
-                        unsafe_allow_html=True)
-        with _btn:
+        _, _btn_col = st.columns([11, 1])
+        with _btn_col:
             run = st.form_submit_button("↑")
+
+    uploaded_file = st.file_uploader(
+        "Attach previous leads list to skip duplicates (optional)",
+        type=["xlsx", "csv"],
+        key="previous_list_upload",
+        label_visibility="collapsed",
+    )
 
     if run:
         if not prompt.strip():
