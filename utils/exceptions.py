@@ -10,7 +10,7 @@ class RateLimitError(Exception):
         "gemini":   "Gemini (AI model)",
         "serper":   "Serper (Google Search)",
         "apollo":   "Apollo (Contacts)",
-        "proxycurl":"ProxyCurl (LinkedIn)",
+        "apify":    "Apify (Web scraper)",
         "tracxn":   "Tracxn (Funding data)",
         "hunter":   "Hunter.io (Email finder)",
     }

@@ -3,16 +3,19 @@ Multi-source decision-maker enrichment.
 
 Cascade per company:
   1. Apollo people search (3 progressively-looser queries)
-  2. LinkedIn-via-Serper fallback if Apollo missed
-  3. Email recovery for any contact missing an email:
-       a. Hunter.io Email Finder (if HUNTER_API_KEY set)
+  2. Apify (3-actor cascade)
+       a. dominic-quaiser/decision-maker-name-email-extractor  (website NER)
+       b. harvestapi/linkedin-company-employees                (no cookies)
+       c. vdrmota/contact-info-scraper                        (public emails)
+  3. LinkedIn-via-Serper fallback (Google-indexed profiles)
+  4. Email recovery for any contact missing an email:
+       a. Hunter.io Email Finder
        b. Pattern guess + Hunter verifier ranking
-       c. Pure pattern guess (lowest tier)
 
 Always returns a dict with:
   contact_name, contact_title, email, phone, linkedin_url,
   email_confidence (verified/likely/guess/unknown),
-  contact_source (apollo/linkedin/empty),
+  contact_source (apollo/apify_*/linkedin/empty),
   enrichment_status (found/partial/not_found).
 """
 
@@ -21,6 +24,7 @@ import time
 import requests
 
 from utils.rate_limiter import apollo_limiter
+from utils.exceptions import RateLimitError
 from agent.contact_finder import (
     find_decision_maker_via_linkedin,
     hunter_find_email,
@@ -28,6 +32,7 @@ from agent.contact_finder import (
     extract_domain,
     split_name,
 )
+from agent.apify_enricher import find_contact_via_apify
 
 
 APOLLO_PEOPLE_SEARCH = "https://api.apollo.io/v1/mixed_people_search"
@@ -55,14 +60,30 @@ def enrich_contact(
     # ── Step 1: Apollo ────────────────────────────────────────────────────────
     contact = _apollo_search(company_name, target_titles, location)
 
-    # ── Step 2: LinkedIn-via-Serper fallback ──────────────────────────────────
+    # ── Step 2: Apify cascade (decision-maker → LinkedIn → website) ───────────
+    if not (contact.get("contact_name") and contact.get("email")):
+        try:
+            apify_hit = find_contact_via_apify(company_name, website, target_titles)
+        except RateLimitError:
+            apify_hit = {}
+        if apify_hit:
+            # Merge: Apify fills whatever Apollo missed
+            if not contact.get("contact_name"):
+                contact.update(apify_hit)
+            else:
+                # Apollo gave us a name but no email — borrow email/phone from Apify
+                contact["email"]       = contact.get("email") or apify_hit.get("email", "")
+                contact["phone"]       = contact.get("phone") or apify_hit.get("phone", "")
+                contact["linkedin_url"]= contact.get("linkedin_url") or apify_hit.get("linkedin_url", "")
+
+    # ── Step 3: LinkedIn-via-Serper fallback ──────────────────────────────────
     if not contact.get("contact_name"):
         linkedin_hit = find_decision_maker_via_linkedin(company_name, target_titles)
         if linkedin_hit:
             contact.update(linkedin_hit)
             contact["contact_source"] = "linkedin"
 
-    # ── Step 3: Email recovery ────────────────────────────────────────────────
+    # ── Step 4: Email recovery ────────────────────────────────────────────────
     if contact.get("contact_name") and not contact.get("email"):
         domain = extract_domain(website)
         first, last = split_name(contact["contact_name"])
