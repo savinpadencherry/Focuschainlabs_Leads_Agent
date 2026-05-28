@@ -17,6 +17,7 @@ from datetime import datetime
 from google import genai
 
 from utils.rate_limiter import gemini_limiter
+from utils.exceptions import RateLimitError
 
 
 PLAN_PROMPT = """
@@ -109,6 +110,7 @@ def plan_search(user_prompt: str, base_icp: dict) -> dict:
             print("  [SKIP] Planner JSON parse failed — using fallback")
             return _fallback_plan(base_icp, user_prompt)
         except Exception as e:
+            _raise_if_rate_limit("gemini", e)
             print(f"  [ERROR] Planner call failed: {e}")
             return _fallback_plan(base_icp, user_prompt)
 
@@ -130,6 +132,13 @@ def _normalise(plan: dict, base_icp: dict, user_prompt: str) -> dict:
         "gap_hypothesis":    plan.get("gap_hypothesis", "") or "",
         "custom_focus":      plan.get("custom_focus", user_prompt[:300]),
     }
+
+
+def _raise_if_rate_limit(service: str, exc: Exception) -> None:
+    """Re-raise as RateLimitError if the exception looks like a quota error."""
+    msg = str(exc).lower()
+    if any(k in msg for k in ("429", "resource_exhausted", "quota", "rate limit", "ratelimit")):
+        raise RateLimitError(service, str(exc))
 
 
 def _as_list(value) -> list:

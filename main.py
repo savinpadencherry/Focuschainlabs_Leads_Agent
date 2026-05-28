@@ -31,10 +31,11 @@ from agent.searcher import (
 from agent.researcher import research_company
 from agent.scorer import score_company
 from agent.enricher import enrich_contact
-from agent.pitcher import generate_pitch, generate_outreach_note, generate_reason_to_reach
+from agent.pitcher import generate_pitch_bundle
 from agent.planner import plan_search
 from utils.deduplicator import load_exclusion_list, deduplicate
 from utils.excel_writer import write_leads_to_excel
+from utils.exceptions import RateLimitError
 
 
 def today() -> str:
@@ -100,13 +101,24 @@ def run_pipeline_streaming(
             kws = kws[:20]
         for kw in kws:
             yield {"type": "keyword_searching", "keyword": kw[:80], "source": "serper"}
-            kw_results = search_serper(kw)
+            try:
+                kw_results = search_serper(kw)
+            except RateLimitError as e:
+                yield {"type": "rate_limit", "service": e.service, "message": str(e), "stage": "search"}
+                yield {"type": "source_done", "source": "serper", "count": len(serper_results), "status": "rate_limited"}
+                kw_results = []
+                break
             serper_results.extend(kw_results)
             yield {"type": "keyword_done", "keyword": kw[:80], "count": len(kw_results), "source": "serper"}
             time.sleep(0.25)
         for q in plan.get("linkedin_queries", [])[:3]:
             yield {"type": "keyword_searching", "keyword": q[:80], "source": "linkedin"}
-            q_results = search_serper(q)
+            try:
+                q_results = search_serper(q)
+            except RateLimitError as e:
+                yield {"type": "rate_limit", "service": e.service, "message": str(e), "stage": "search"}
+                q_results = []
+                break
             serper_results.extend(q_results)
             yield {"type": "keyword_done", "keyword": q[:80], "count": len(q_results), "source": "linkedin"}
             time.sleep(0.25)
@@ -224,7 +236,11 @@ def run_pipeline_streaming(
         yield {"type": "score_progress",
                "idx": i + 1, "total": len(researched),
                "company": company["company_name"]}
-        result = score_company(company, icp)
+        try:
+            result = score_company(company, icp)
+        except RateLimitError as e:
+            yield {"type": "rate_limit", "service": e.service, "message": str(e), "stage": "score"}
+            result = {"total_score": 0, "qualify": False, "primary_signal": "", "error": "rate_limited"}
         merged = {**company, **result}
         scored.append(merged)
         yield {
@@ -299,9 +315,15 @@ def run_pipeline_streaming(
         yield {"type": "pitch_progress",
                "idx": i + 1, "total": len(enriched),
                "company": lead["company_name"]}
-        lead["opening_line"]     = generate_pitch(lead)
-        lead["outreach_note"]    = generate_outreach_note(lead)
-        lead["reason_to_reach"]  = generate_reason_to_reach(lead)
+        try:
+            bundle = generate_pitch_bundle(lead)
+        except RateLimitError as e:
+            yield {"type": "rate_limit", "service": e.service,
+                   "message": str(e), "stage": "pitch"}
+            bundle = {"opening_line": "", "outreach_note": "", "reason_to_reach": ""}
+        lead["opening_line"]    = bundle["opening_line"]
+        lead["outreach_note"]   = bundle["outreach_note"]
+        lead["reason_to_reach"] = bundle["reason_to_reach"]
         final_leads.append(lead)
     yield {"type": "stage_done", "stage": "pitch"}
 

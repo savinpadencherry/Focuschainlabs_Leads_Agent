@@ -1,123 +1,82 @@
 """
-Three Gemini-powered outputs per lead:
-  1. opening_line     — 1-2 sentence peer-to-peer opener referencing real, recent activity.
-  2. outreach_note    — Private 4-point call strategy note for the human rep.
-  3. reason_to_reach  — Single sentence tying the named contact to the trigger.
+Gemini pitch bundle — ONE call per lead, three outputs:
+  opening_line     — 1-2 sentence peer-to-peer opener.
+  outreach_note    — Private 4-point call strategy for the human rep.
+  reason_to_reach  — Single sentence: why THIS person, THIS week.
+
+Single-call design keeps Gemini usage to 1 call/lead instead of 3,
+cutting daily quota consumption by ~60%.
 """
 
 import os
+import json
+import re
 
 from google import genai
 
 from utils.rate_limiter import gemini_limiter
+from utils.exceptions import RateLimitError
 
 
-# ── Opening line ──────────────────────────────────────────────────────────────
+PITCH_BUNDLE_PROMPT = """
+You are briefing a human sales rep. Return ONLY valid JSON — no markdown, no prose.
 
-PITCH_PROMPT = """
-You are writing the first line of a cold outreach message to a decision
-maker at a potential client company. You are NOT a salesperson — you are
-a senior operator who actually read about their company this morning.
+Generate three outputs for this lead:
 
-Rules:
-- Exactly 1 to 2 sentences. No more.
-- Reference something SPECIFIC and RECENT — a hire, a launch, a post,
-  a funding round, a job opening, a quote.
-- If they posted recently on LinkedIn, react to that post — not the company brochure.
-- Do not say "digital transformation", "synergy", "leverage", or "circle back".
-- Peer-to-peer tone. Do not ask for a meeting — make them curious enough to reply.
+1. opening_line
+   - Exactly 1-2 sentences. Peer-to-peer tone.
+   - Reference something SPECIFIC and RECENT about the company or contact.
+   - Do NOT use "digital transformation", "synergy", "leverage", "circle back".
+   - Do NOT ask for a meeting — make them curious enough to reply.
 
+2. outreach_note  (PRIVATE — not sent to prospect)
+   - Exactly 4 numbered points, each 1-2 sentences:
+     1. LEAD WITH: Most specific insight to open the conversation. Cite a real signal.
+     2. AVOID: One thing NOT to say or pitch first. Name the specific mistake.
+     3. ANGLE: The business pain phrased the way THEY would say it to themselves.
+     4. CONTACT NOTE: Who to call, why this person, what their likely priorities are.
+
+3. reason_to_reach  (one sentence, max 30 words)
+   - Why message THIS specific contact THIS week.
+   - Anchor to: their name + title + the trigger event + why it's urgent now.
+   - Example: "Reach Priya Sharma (CHRO) this week — Cadabams just announced
+     a 200-bed expansion and her HR ops will need elder-care benefits before
+     the onboarding wave hits."
+
+---
 Contact:        {contact_name}, {contact_title} at {company_name}
 Primary signal: {primary_signal}
 Pain point:     {pain_point}
-Recent news:    {recent_news}
-Roles hiring:   {job_postings}
-Their LinkedIn posts (most recent first):
-{contact_posts}
-Their company's LinkedIn chatter:
-{linkedin_posts}
-Their Reddit mentions:
-{reddit_signals}
-Our offering: {offering}
-
-Return ONLY the opening line. No quotes. No subject line. No explanation.
-"""
-
-
-def generate_pitch(lead: dict) -> str:
-    gemini_limiter.wait()
-
-    def _join(items, n=2):
-        return " | ".join(str(x) for x in items[:n] if x) or "(none)"
-
-    prompt = PITCH_PROMPT.format(
-        contact_name=lead.get("contact_name") or "there",
-        contact_title=lead.get("contact_title", ""),
-        company_name=lead.get("company_name", ""),
-        primary_signal=lead.get("primary_signal", ""),
-        pain_point=lead.get("pain_point", ""),
-        recent_news=_join([n.get("title", "") for n in lead.get("recent_news", [])]),
-        job_postings=_join([
-            f"{j.get('role', '')}: {j.get('observation', '')}"
-            for j in lead.get("job_postings", [])
-        ]),
-        contact_posts=_join(lead.get("contact_posts", [])),
-        linkedin_posts=_join(lead.get("linkedin_posts", [])),
-        reddit_signals=_join(lead.get("reddit_signals", [])),
-        offering=lead.get("gap_hypothesis") or lead.get("custom_focus")
-                  or lead.get("vertical", "B2B consulting"),
-    )
-
-    try:
-        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        response = client.models.generate_content(
-            model="gemini-3.5-flash",
-            contents=prompt,
-        )
-        return response.text.strip().strip('"')
-
-    except Exception as e:
-        print(f"  [ERROR] Pitch generation failed: {e}")
-        return f"Reach out referencing their recent activity: {lead.get('primary_signal', '')}"
-
-
-# ── Outreach strategy note ────────────────────────────────────────────────────
-
-OUTREACH_NOTE_PROMPT = """
-You are briefing a human sales rep before their first call with a prospect.
-This is a PRIVATE tactical note — not a pitch, not a message to send.
-
-Write exactly 4 numbered points. Each point is 1-2 sentences max.
-
-1. LEAD WITH: The single most specific insight or signal to open the conversation with.
-   Cite what was actually found — a real ad, a real job post, a real news item.
-   Do not be generic.
-
-2. AVOID: One thing to NOT say or pitch first. Name the specific mistake
-   a bad rep would make with this prospect.
-
-3. ANGLE: The business pain angle most likely to make this person lean forward.
-   Phrase it the way they would say it to themselves, not the way we would pitch it.
-
-4. CONTACT NOTE: Nuance about who to call and why. If we have a named contact,
-   comment on their role and likely priorities. If not, suggest who to ask for and why.
-
-Company:        {company_name}
-Contact:        {contact_name}, {contact_title}
-Primary signal: {primary_signal}
-Pain point:     {pain_point}
+Score note:     {score_reasoning}
+Trigger timing: {trigger_recency}
 Ad activity:    {ad_activity}
 Evidence:
 {evidence_block}
 Our offering:   {offering}
-Score note:     {score_reasoning}
 
-Return only the 4 numbered points. No headers. No preamble. No sign-off.
+Return ONLY this JSON and nothing else:
+{{
+  "opening_line":    "<1-2 sentences>",
+  "outreach_note":   "1. LEAD WITH: ...\\n2. AVOID: ...\\n3. ANGLE: ...\\n4. CONTACT NOTE: ...",
+  "reason_to_reach": "<one sentence>"
+}}
 """
 
 
-def generate_outreach_note(lead: dict) -> str:
+def generate_pitch_bundle(lead: dict) -> dict:
+    """
+    Single Gemini call that returns opening_line, outreach_note, reason_to_reach.
+    Falls back to safe defaults on any error.
+    """
     gemini_limiter.wait()
+
+    recency_score = lead.get("intent_recency_score", 0) or 0
+    recency_label = (
+        "within last 30 days"  if recency_score >= 18 else
+        "within last 90 days"  if recency_score >= 12 else
+        "within last 6 months" if recency_score >= 6  else
+        "older signal"
+    )
 
     evidence = lead.get("evidence", [])
     evidence_block = "\n".join(
@@ -126,107 +85,88 @@ def generate_outreach_note(lead: dict) -> str:
         for e in evidence[:5]
     ) or "  (no evidence collected)"
 
-    ad_signals = lead.get("ad_signals", [])
+    ad_signals  = lead.get("ad_signals", []) or []
     ad_activity = " | ".join(ad_signals[:3]) if ad_signals else "None detected"
 
-    prompt = OUTREACH_NOTE_PROMPT.format(
-        company_name=lead.get("company_name", ""),
-        contact_name=lead.get("contact_name") or "unknown",
-        contact_title=lead.get("contact_title", ""),
-        primary_signal=lead.get("primary_signal", ""),
-        pain_point=lead.get("pain_point", ""),
-        ad_activity=ad_activity,
-        evidence_block=evidence_block,
-        offering=lead.get("gap_hypothesis") or lead.get("custom_focus")
-                  or lead.get("vertical", "B2B consulting"),
-        score_reasoning=lead.get("score_reasoning", ""),
+    contact_name = lead.get("contact_name") or "the decision maker"
+    contact_title = lead.get("contact_title", "")
+
+    prompt = PITCH_BUNDLE_PROMPT.format(
+        contact_name   = contact_name,
+        contact_title  = contact_title,
+        company_name   = lead.get("company_name", ""),
+        primary_signal = lead.get("primary_signal", ""),
+        pain_point     = lead.get("pain_point", ""),
+        score_reasoning= lead.get("score_reasoning", ""),
+        trigger_recency= recency_label,
+        ad_activity    = ad_activity,
+        evidence_block = evidence_block,
+        offering       = (lead.get("gap_hypothesis") or lead.get("custom_focus")
+                          or lead.get("vertical", "B2B consulting")),
     )
 
     try:
-        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        client   = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
         response = client.models.generate_content(
-            model="gemini-3.5-flash",
-            contents=prompt,
+            model    = "gemini-3.5-flash",
+            contents = prompt,
         )
-        return response.text.strip()
+        raw  = re.sub(r"```json|```", "", response.text.strip()).strip()
+        data = json.loads(raw)
+        return {
+            "opening_line":    str(data.get("opening_line",    "")).strip().strip('"'),
+            "outreach_note":   str(data.get("outreach_note",   "")).strip(),
+            "reason_to_reach": str(data.get("reason_to_reach", "")).strip().strip('"'),
+        }
+
+    except json.JSONDecodeError:
+        # Gemini returned text but not valid JSON — extract what we can
+        text = response.text if "response" in dir() else ""
+        return _fallback_bundle(lead, hint=text)
 
     except Exception as e:
-        print(f"  [ERROR] Outreach note generation failed: {e}")
-        signal = lead.get("primary_signal", "recent company activity")
-        pain   = lead.get("pain_point", "")
-        return (
-            f"1. LEAD WITH: Reference {signal}.\n"
-            f"2. AVOID: Generic software pitch.\n"
-            f"3. ANGLE: {pain or 'Explore their operational bottlenecks.'}\n"
-            f"4. CONTACT NOTE: Ask for the decision maker by title if contact unknown."
-        )
+        _raise_if_rate_limit("gemini", e)
+        print(f"  [ERROR] Pitch bundle failed for {lead.get('company_name', '')}: {e}")
+        return _fallback_bundle(lead)
 
 
-# ── Reason to reach (per-contact action prompt) ───────────────────────────────
+def _fallback_bundle(lead: dict, hint: str = "") -> dict:
+    signal  = lead.get("primary_signal", "their recent activity")
+    pain    = lead.get("pain_point", "operational bottlenecks")
+    name    = lead.get("contact_name") or "the decision maker"
+    title   = lead.get("contact_title", "")
+    company = lead.get("company_name", "")
 
-REASON_TO_REACH_PROMPT = """
-You are writing a single-sentence action prompt for a sales rep about WHY
-to message this specific person THIS WEEK. Output exactly one sentence, max 30 words.
+    opening = f"Saw {company}'s recent activity around {signal} — wanted to reach out directly."
+    note    = (
+        f"1. LEAD WITH: Reference {signal}.\n"
+        f"2. AVOID: Generic software pitch.\n"
+        f"3. ANGLE: {pain}\n"
+        f"4. CONTACT NOTE: Ask for {title or 'the decision maker'} if contact unclear."
+    )
+    reason = f"Reach {name}{' (' + title + ')' if title else ''} — {signal}."
 
-Anchor the sentence to:
-  - The person (use their name and title)
-  - The recent trigger event at their company
-  - The pain that makes our offering urgent to them right now
+    return {
+        "opening_line":    opening,
+        "outreach_note":   note,
+        "reason_to_reach": reason,
+    }
 
-Bad:  "Reach out to discuss digital transformation."
-Good: "Reach Priya Sharma (CHRO) this week — Cadabams just announced a 200-bed expansion, and her HR ops will need elder-care benefits before onboarding kicks off."
 
-Contact:        {contact_name}, {contact_title}
-Company:        {company_name}
-Primary signal: {primary_signal}
-Pain point:     {pain_point}
-Trigger date:   {trigger_recency}
-Our offering:   {offering}
+# Keep legacy function names so nothing else breaks
+def generate_pitch(lead: dict) -> str:
+    return generate_pitch_bundle(lead).get("opening_line", "")
 
-Return ONLY the one sentence. No quotes. No labels.
-"""
+
+def generate_outreach_note(lead: dict) -> str:
+    return generate_pitch_bundle(lead).get("outreach_note", "")
 
 
 def generate_reason_to_reach(lead: dict) -> str:
-    """Generate the per-contact 'why message this person now' line."""
-    if not lead.get("contact_name"):
-        # No named contact — fall back to a role-based prompt
-        title = lead.get("responsible_owner") or lead.get("contact_title") or "the decision maker"
-        signal = lead.get("primary_signal", "recent activity")
-        return f"Ask for {title} and lead with: {signal}."
+    return generate_pitch_bundle(lead).get("reason_to_reach", "")
 
-    gemini_limiter.wait()
 
-    recency_score = lead.get("intent_recency_score", 0) or 0
-    recency_label = (
-        "within last 30 days" if recency_score >= 18
-        else "within last 90 days" if recency_score >= 12
-        else "within last 6 months" if recency_score >= 6
-        else "older signal"
-    )
-
-    prompt = REASON_TO_REACH_PROMPT.format(
-        contact_name=lead.get("contact_name", ""),
-        contact_title=lead.get("contact_title", ""),
-        company_name=lead.get("company_name", ""),
-        primary_signal=lead.get("primary_signal", ""),
-        pain_point=lead.get("pain_point", ""),
-        trigger_recency=recency_label,
-        offering=lead.get("gap_hypothesis") or lead.get("custom_focus")
-                  or lead.get("vertical", "B2B consulting"),
-    )
-
-    try:
-        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        response = client.models.generate_content(
-            model="gemini-3.5-flash",
-            contents=prompt,
-        )
-        return response.text.strip().strip('"')
-
-    except Exception as e:
-        print(f"  [ERROR] Reason-to-reach generation failed: {e}")
-        name   = lead.get("contact_name", "the contact")
-        title  = lead.get("contact_title", "")
-        signal = lead.get("primary_signal", "their recent activity")
-        return f"Reach {name} ({title}) — {signal}."
+def _raise_if_rate_limit(service: str, exc: Exception) -> None:
+    msg = str(exc).lower()
+    if any(k in msg for k in ("429", "resource_exhausted", "quota", "rate limit", "ratelimit")):
+        raise RateLimitError(service, str(exc))
