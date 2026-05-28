@@ -14,6 +14,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 
 from utils.rate_limiter import serper_limiter
+from utils.exceptions import RateLimitError
 
 
 SERPER_URL = "https://google.serper.dev/search"
@@ -42,8 +43,12 @@ def search_serper_raw(keyword: str, num: int = 5) -> dict:
     body = {"q": keyword, "gl": "in", "hl": "en", "num": num}
     try:
         response = requests.post(SERPER_URL, headers=headers, json=body, timeout=10)
+        if response.status_code == 429:
+            raise RateLimitError("serper", "Serper search quota reached")
         response.raise_for_status()
         return response.json()
+    except RateLimitError:
+        raise
     except Exception as e:
         print(f"  [WARN] Serper raw failed for '{keyword[:60]}': {e}")
         return {}
@@ -60,6 +65,8 @@ def search_serper(keyword: str, num: int = 10) -> list:
 
     try:
         response = requests.post(SERPER_URL, headers=headers, json=body, timeout=10)
+        if response.status_code == 429:
+            raise RateLimitError("serper", "Serper search quota reached")
         response.raise_for_status()
         results = response.json().get("organic", [])
         return [
@@ -74,6 +81,8 @@ def search_serper(keyword: str, num: int = 10) -> list:
             }
             for r in results if r.get("title")
         ]
+    except RateLimitError:
+        raise
     except Exception as e:
         print(f"  [WARN] Serper failed for '{keyword[:60]}': {e}")
         return []

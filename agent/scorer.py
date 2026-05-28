@@ -16,6 +16,7 @@ import re
 from google import genai
 
 from utils.rate_limiter import gemini_limiter
+from utils.exceptions import RateLimitError
 
 
 SCORING_PROMPT = """
@@ -134,9 +135,16 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
                 "one_line_reasoning": "", "score_reasoning": "Scoring failed.",
             }
         except Exception as e:
+            _raise_if_rate_limit("gemini", e)
             print(f"  [ERROR] Gemini call failed: {e}")
             return {
                 "total_score": 0, "qualify": False, "error": str(e),
                 "primary_signal": "", "pain_point": "", "responsible_owner": "",
                 "one_line_reasoning": "", "score_reasoning": "",
             }
+
+
+def _raise_if_rate_limit(service: str, exc: Exception) -> None:
+    msg = str(exc).lower()
+    if any(k in msg for k in ("429", "resource_exhausted", "quota", "rate limit", "ratelimit")):
+        raise RateLimitError(service, str(exc))

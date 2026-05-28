@@ -971,6 +971,47 @@ h1, h2, h3, h4, p, div, span, label {
 @media (max-width: 720px) { .plan-grid { grid-template-columns: 1fr; } }
 
 /* ── Notice box ── */
+/* ── API Status Bar ──────────────────────────────────────────────── */
+.api-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(15,42,51,.55); border: 1px solid rgba(229,224,211,.1);
+    border-radius: 10px; padding: 10px 16px; margin-bottom: 14px;
+    flex-wrap: wrap; gap: 8px;
+}
+.api-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.api-chip {
+    display: flex; align-items: center; gap: 5px;
+    border-radius: 20px; padding: 3px 10px 3px 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    border: 1px solid transparent; cursor: default;
+}
+.api-icon { font-size: 10px; }
+.api-name { color: #CBD5C0; font-weight: 500; }
+.api-badge { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; margin-left: 3px; }
+.api-chip.api-idle  { background: rgba(203,213,192,.06); border-color: rgba(203,213,192,.12); }
+.api-chip.api-idle  .api-badge { color: #7A8F7A; }
+.api-chip.api-ok    { background: rgba(46,139,77,.12);  border-color: rgba(46,139,77,.25); }
+.api-chip.api-ok    .api-badge { color: #2E8B4D; }
+.api-chip.api-rl    { background: rgba(239,68,68,.12);  border-color: rgba(239,68,68,.35); animation: api-pulse 1.4s ease infinite; }
+.api-chip.api-rl    .api-badge { color: #EF4444; }
+.api-chip.api-err   { background: rgba(239,68,68,.1);   border-color: rgba(239,68,68,.25); }
+.api-chip.api-err   .api-badge { color: #EF4444; }
+.api-chip.api-nokey { background: rgba(203,213,192,.04); border-color: rgba(203,213,192,.07); opacity: .45; }
+.api-chip.api-nokey .api-badge { color: #7A8F7A; }
+@keyframes api-pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.3); }
+    50%      { box-shadow: 0 0 0 4px rgba(239,68,68,.0); }
+}
+.api-cost { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #7A8F7A; }
+.api-cost strong { color: #CBD5C0; }
+.api-cost-note { color: #556B55; margin-left: 6px; }
+.api-alert {
+    background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.3);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #FCA5A5;
+}
+.api-alert strong { color: #EF4444; }
+/* ─────────────────────────────────────────────────────────────────── */
 .notice {
     padding: 12px 16px;
     border-radius: var(--rs);
@@ -1265,6 +1306,8 @@ if st.session_state.stage == "setup":
         st.session_state.events       = []
         st.session_state.sources      = {}
         st.session_state.stage_status = {}
+        st.session_state.api_status   = {}   # service → {state, message, ts}
+        st.session_state.gemini_calls = 0
         st.session_state.stage        = "running"
         st.rerun()
 
@@ -1283,6 +1326,94 @@ elif st.session_state.stage == "running":
         ("enrich",   "Enrich"),
         ("pitch",    "Pitch"),
     ]
+
+    # ── Cost constants (Gemini 3.5 Flash, as of May 2026) ─────────────────────
+    # Input: $0.075/M tokens ≈ ₹6.25/M  |  Output: $0.30/M ≈ ₹25/M
+    # Per bundle call: ~1500 input + 400 output tokens → ₹0.019
+    # Per score call:  ~2000 input + 200 output tokens → ₹0.018
+    # Per plan call:   ~800 input  + 300 output tokens → ₹0.013
+    COST_PER_PLAN_CALL  = 0.013   # ₹
+    COST_PER_SCORE_CALL = 0.018   # ₹
+    COST_PER_PITCH_CALL = 0.019   # ₹ (merged bundle)
+
+    _SERVICE_META = {
+        "gemini":    {"label": "Gemini AI",      "icon": "◆"},
+        "serper":    {"label": "Serper Search",   "icon": "◉"},
+        "apollo":    {"label": "Apollo Contacts", "icon": "◈"},
+        "hunter":    {"label": "Hunter Email",    "icon": "◎"},
+        "proxycurl": {"label": "ProxyCurl",       "icon": "◌"},
+    }
+
+    def render_api_status(api_status: dict, gemini_calls: int) -> str:
+        # Cost estimate (₹)
+        num_leads = len(st.session_state.get("leads") or [])
+        est_cost  = (
+            COST_PER_PLAN_CALL
+            + gemini_calls * COST_PER_SCORE_CALL
+            + num_leads    * COST_PER_PITCH_CALL
+        )
+        cost_html = (
+            f'<div class="api-cost">Est. cost this run: '
+            f'<strong>₹{est_cost:.2f}</strong> '
+            f'<span class="api-cost-note">Gemini {gemini_calls} calls</span></div>'
+        )
+
+        services = ["gemini", "serper", "apollo", "hunter", "proxycurl"]
+        dots = ""
+        alerts = ""
+        for svc in services:
+            info  = api_status.get(svc, {})
+            state = info.get("state", "idle")
+            meta  = _SERVICE_META.get(svc, {"label": svc, "icon": "●"})
+
+            # Grey out services with no key configured
+            if state == "idle":
+                key_env = {
+                    "gemini": "GEMINI_API_KEY", "serper": "SERPER_API_KEY",
+                    "apollo": "APOLLO_API_KEY", "hunter": "HUNTER_API_KEY",
+                    "proxycurl": "PROXYCURL_API_KEY",
+                }.get(svc)
+                if key_env and not os.getenv(key_env):
+                    state = "no_key"
+
+            cls   = {"ok": "api-ok", "rate_limited": "api-rl",
+                     "error": "api-err", "idle": "api-idle",
+                     "no_key": "api-nokey"}.get(state, "api-idle")
+            label = {"ok": "OK", "rate_limited": "RATE LIMITED",
+                     "error": "ERROR", "idle": "Ready",
+                     "no_key": "No key"}.get(state, state)
+
+            dots += (
+                f'<div class="api-chip {cls}" title="{info.get("message", "")}">'
+                f'<span class="api-icon">{meta["icon"]}</span>'
+                f'<span class="api-name">{meta["label"]}</span>'
+                f'<span class="api-badge">{label}</span>'
+                f'</div>'
+            )
+
+            if state == "rate_limited":
+                alerts += (
+                    f'<div class="api-alert">'
+                    f'<strong>⚠ {meta["label"]} rate limit reached</strong> — '
+                    f'{info.get("message", "")} '
+                    f'Pipeline continues but this service is paused. '
+                    f'<a href="https://aistudio.google.com" target="_blank" '
+                    f'style="color:inherit;text-decoration:underline">Enable billing →</a>'
+                    if svc == "gemini" else
+                    f'<div class="api-alert">'
+                    f'<strong>⚠ {meta["label"]} rate limit reached</strong> — '
+                    f'{info.get("message", "")}</div>'
+                )
+                if svc == "gemini":
+                    alerts += '</div>'
+
+        return (
+            f'<div class="api-bar">'
+            f'<div class="api-chips">{dots}</div>'
+            f'{cost_html}'
+            f'</div>'
+            f'{alerts}'
+        )
 
     def render_pipe(status: dict) -> str:
         active_idx = 0
@@ -1521,10 +1652,11 @@ elif st.session_state.stage == "running":
                 )
         return f'<div class="act-log">{rows}</div>'
 
-    # Slots — research console, ticker, pipeline, live feed, then plan
-    console_slot = st.empty()
-    ticker_slot = st.empty()
-    pipe_slot   = st.empty()
+    # Slots — api status bar, research console, ticker, pipeline, live feed, then plan
+    api_status_slot = st.empty()
+    console_slot    = st.empty()
+    ticker_slot     = st.empty()
+    pipe_slot       = st.empty()
 
     col_l, col_r = st.columns([1, 1], gap="large")
     with col_l:
@@ -1573,7 +1705,17 @@ elif st.session_state.stage == "running":
             user_prompt=(st.session_state.prompt or "").strip(),
         )
 
+        if not hasattr(st.session_state, "api_status"):
+            st.session_state.api_status   = {}
+        if not hasattr(st.session_state, "gemini_calls"):
+            st.session_state.gemini_calls = 0
+
         def _refresh_all():
+            api_status_slot.markdown(
+                render_api_status(st.session_state.api_status,
+                                  st.session_state.gemini_calls),
+                unsafe_allow_html=True,
+            )
             console_slot.markdown(
                 render_agent_console(
                     st.session_state.events,
@@ -1663,9 +1805,38 @@ elif st.session_state.stage == "running":
                 """, unsafe_allow_html=True)
                 _refresh_all()
 
-            elif t in {"research_progress", "score_progress", "enrich_progress",
-                       "pitch_progress", "score_result", "enrich_result",
-                       "company_researched"}:
+            elif t == "rate_limit":
+                svc = ev.get("service", "unknown")
+                st.session_state.api_status[svc] = {
+                    "state":   "rate_limited",
+                    "message": ev.get("message", "Rate limit reached"),
+                }
+                _refresh_all()
+
+            elif t in {"plan_ready", "score_result"}:
+                # Mark Gemini as healthy + count calls
+                st.session_state.api_status["gemini"] = {"state": "ok", "message": ""}
+                if t == "score_result":
+                    st.session_state.gemini_calls += 1
+                _refresh_all()
+
+            elif t == "pitch_progress":
+                st.session_state.gemini_calls += 1   # one bundle call per lead
+                _refresh_all()
+
+            elif t in {"keyword_done"}:
+                # Serper responded — mark healthy
+                st.session_state.api_status["serper"] = {"state": "ok", "message": ""}
+                _refresh_all()
+
+            elif t == "enrich_result":
+                status = ev.get("status", "")
+                if status == "found":
+                    st.session_state.api_status["apollo"] = {"state": "ok", "message": ""}
+                _refresh_all()
+
+            elif t in {"research_progress", "enrich_progress",
+                       "score_progress", "company_researched"}:
                 _refresh_all()
 
             elif t == "final":
