@@ -1355,19 +1355,27 @@ DEFAULT_PROMPTS = {
         "email and phone if available, plus a one-line reason for why this is worth outreach."
     ),
     "Cadabams": (
-        "Find at least 30 real B2B referral or partnership leads for Cadabams WeNest.\n\n"
-        "Cadabams WeNest serves senior living, assisted care, elder care, dementia care, and "
-        "NRI parent-care needs around Bangalore. Search for corporates, hospitals, insurance/"
-        "TPA firms, EAP providers, wealth/private banking teams, NRI employee communities, "
-        "and wellness/benefits companies showing signals around employee parent-care, discharge "
-        "planning, caregiver burnout, elder-care benefits, geriatric referrals, or senior-care "
-        "partnerships.\n\n"
-        "For each lead, find the company, their likely pain point, proof from news/posts/job "
-        "openings, roles they are hiring for, and the senior manager responsible. Prioritise "
-        "Chief People Officers, HR Directors, Heads of Employee Wellness, Benefits Managers, "
-        "Hospital Administrators, Discharge Planning heads, Insurance Partnership heads, and "
-        "Wealth/NRI relationship leaders. Include email and phone if available, plus a one-line "
-        "reason for outreach."
+        "Find as many real leads as possible who would BUY, LEASE or RENT a senior-living "
+        "home at Cadabams WeNest — and the organisations/communities that have direct access "
+        "to those buyers. It's fine to include low-confidence leads.\n\n"
+        "Cadabams WeNest sells senior-friendly 1 & 2 BHK homes (around INR 52-67 lakh) in a "
+        "luxury senior-living community at Kaggalipura / Kanakapura Road, Bangalore — "
+        "barrier-free homes with 24/7 medical and nursing support, assisted living, dining, "
+        "wellness, and an assured buyback option. Buyers are typically seniors (55+) wanting "
+        "independent or assisted living, retirees downsizing, and adult children or NRIs "
+        "arranging a safe home and care for ageing parents in India.\n\n"
+        "Search broadly across Bangalore and India for: senior citizens' associations, "
+        "pensioner and retired-employee forums, geriatric care and home-nursing agencies, "
+        "elder-care NGOs and senior wellness communities, retirement and NRI wealth/financial "
+        "advisors, private-banking and NRI relationship teams, estate-planning advisors, "
+        "rehab and physiotherapy centres for the elderly, diagnostic chains and clinics with "
+        "elderly patients, senior-focused property consultants, and online posts/forums where "
+        "families (especially NRIs) ask about retirement homes, assisted living or parent care "
+        "in Bangalore.\n\n"
+        "For each lead capture: who they are, why they (or their members/clients) would want a "
+        "WeNest home, proof from their site/news/posts, a named person or office-bearer to "
+        "contact, and email/phone if available, plus a one-line reason to reach out. Surface "
+        "even low-confidence buyer leads and flag the uncertainty rather than dropping them."
     ),
 }
 
@@ -2293,28 +2301,32 @@ elif st.session_state.stage == "results":
 
             note_html = ""
             if note:
-                note_html = f'<div class="lc-note"><div class="lc-note-label">Call Strategy</div><div class="lc-note-body">{esc(note)}</div></div>'
+                note_body = esc(note).replace("\n", "<br>")
+                note_html = f'<div class="lc-note"><div class="lc-note-label">Call Strategy</div><div class="lc-note-body">{note_body}</div></div>'
 
-            st.markdown(f"""
-            <div class="lc">
-              <div class="lc-hd">
-                <div>
-                  <div class="lc-name">{esc(lead.get("company_name",""))}</div>
-                  <div class="lc-meta">{esc(lead.get("website","") or "—")}</div>
-                </div>
-                <span class="sc {sc_cls}">{score}/100</span>
-              </div>
-              {f'<div class="lc-sig">{esc(signal)}</div>' if signal else ""}
-              {f'<div class="lc-meta" style="margin-top:6px;font-size:12.5px">Pain · {esc(pain)}</div>' if pain else ""}
-              {f'<div class="lc-meta" style="margin-top:4px;font-size:12.5px">Owner · {esc(owner)}</div>' if owner else ""}
-              {f'<div class="lc-meta" style="margin-top:4px;font-size:12.5px;color:#92400E">Verify · {esc(selection_note)}</div>' if selection_note else ""}
-              {f'<div class="lc-reach"><span class="lc-channel">{esc(channel)}</span><div class="lc-reach-text">{esc(reach)}</div></div>' if reach else ""}
-              {f'<div class="lc-opener">{esc(opening)}</div>' if opening else ""}
-              {ev_html}
-              {note_html}
-              {f'<div class="lc-chips">{"".join(chips)}</div>' if chips else ""}
-            </div>
-            """, unsafe_allow_html=True)
+            sig_html   = f'<div class="lc-sig">{esc(signal)}</div>' if signal else ""
+            pain_html  = f'<div class="lc-meta" style="margin-top:6px;font-size:12.5px">Pain · {esc(pain)}</div>' if pain else ""
+            owner_html = f'<div class="lc-meta" style="margin-top:4px;font-size:12.5px">Owner · {esc(owner)}</div>' if owner else ""
+            verify_html = f'<div class="lc-meta" style="margin-top:4px;font-size:12.5px;color:#92400E">Verify · {esc(selection_note)}</div>' if selection_note else ""
+            reach_html = f'<div class="lc-reach"><span class="lc-channel">{esc(channel)}</span><div class="lc-reach-text">{esc(reach).replace(chr(10), " ")}</div></div>' if reach else ""
+            opener_html = f'<div class="lc-opener">{esc(opening)}</div>' if opening else ""
+            chips_html = f'<div class="lc-chips">{"".join(chips)}</div>' if chips else ""
+
+            # Single-line HTML — indented multi-line strings make Streamlit's
+            # markdown parser fall back to a code block when a field has newlines.
+            card_html = (
+                '<div class="lc">'
+                '<div class="lc-hd"><div>'
+                f'<div class="lc-name">{esc(lead.get("company_name",""))}</div>'
+                f'<div class="lc-meta">{esc(lead.get("website","") or "—")}</div>'
+                '</div>'
+                f'<span class="sc {sc_cls}">{score}/100</span>'
+                '</div>'
+                f'{sig_html}{pain_html}{owner_html}{verify_html}'
+                f'{reach_html}{opener_html}{ev_html}{note_html}{chips_html}'
+                '</div>'
+            )
+            st.markdown(card_html, unsafe_allow_html=True)
 
     with tab_table:
         df = pd.DataFrame([

@@ -19,10 +19,10 @@ from utils.gemini import generate_content_text
 
 
 SCORING_PROMPT = """
-You are a B2B lead qualification engine.
-Score this company and return ONLY valid JSON.
+You are a lead qualification engine.
+Score this lead and return ONLY valid JSON.
 No markdown. No prose. No code fences. Just the JSON object.
-
+{scoring_guidance_block}
 SCORING DIMENSIONS:
 
 1. fit_score (max 25)
@@ -83,6 +83,21 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
     custom_focus     = icp_config.get("custom_focus", "")
     pain_hypothesis  = icp_config.get("pain_hypothesis", "")
     gap_hypothesis   = icp_config.get("gap_hypothesis", "")
+    scoring_guidance = icp_config.get("scoring_guidance", "")
+
+    if scoring_guidance:
+        scoring_guidance_block = (
+            "\nVERTICAL CONTEXT — READ FIRST (overrides the generic assumptions below):\n"
+            f"{scoring_guidance}\n"
+            "If this vertical is NOT about B2B hiring/operations (e.g. real-estate buyers, "
+            "consumer demand, or referral channels that reach buyers), then reinterpret "
+            "trigger_score as the strength of BUYING INTENT or ACCESS TO QUALIFIED BUYERS "
+            "described above (not hiring activity), and reinterpret pain_point as the buyer "
+            "need the offering solves. Be generous: surface plausible leads even at low "
+            "confidence, and explain the uncertainty in score_reasoning.\n"
+        )
+    else:
+        scoring_guidance_block = ""
 
     if pain_hypothesis or gap_hypothesis:
         hypotheses_block = (
@@ -99,10 +114,11 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
 
     icp_clean = {
         k: v for k, v in icp_config.items()
-        if k not in ("custom_focus", "pain_hypothesis", "gap_hypothesis")
+        if k not in ("custom_focus", "pain_hypothesis", "gap_hypothesis", "scoring_guidance")
     }
 
     prompt = SCORING_PROMPT.format(
+        scoring_guidance_block=scoring_guidance_block,
         hypotheses_block=hypotheses_block,
         custom_focus_section=custom_focus_section,
         icp_config=json.dumps(icp_clean, indent=2, default=str),
