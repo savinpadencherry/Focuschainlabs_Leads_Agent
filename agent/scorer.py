@@ -77,7 +77,7 @@ Return exactly this JSON and nothing else:
 
 
 def score_company(research_bundle: dict, icp_config: dict) -> dict:
-    threshold = int(os.getenv("MIN_SCORE_THRESHOLD", 60))
+    threshold = int(icp_config.get("min_score_threshold") or os.getenv("MIN_SCORE_THRESHOLD", 60))
     gemini_limiter.wait()
 
     custom_focus     = icp_config.get("custom_focus", "")

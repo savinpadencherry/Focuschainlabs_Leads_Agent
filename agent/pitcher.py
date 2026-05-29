@@ -100,8 +100,8 @@ def generate_pitch_bundle(lead: dict) -> dict:
         trigger_recency= recency_label,
         ad_activity    = ad_activity,
         evidence_block = evidence_block,
-        offering       = (lead.get("gap_hypothesis") or lead.get("custom_focus")
-                          or lead.get("vertical", "B2B consulting")),
+        offering       = (lead.get("offering") or lead.get("gap_hypothesis")
+                          or lead.get("custom_focus") or lead.get("vertical", "")),
     )
 
     try:
@@ -133,7 +133,7 @@ def _fallback_bundle(lead: dict, hint: str = "") -> dict:
     opening = f"Saw {company}'s recent activity around {signal} — wanted to reach out directly."
     note    = (
         f"1. LEAD WITH: Reference {signal}.\n"
-        f"2. AVOID: Generic software pitch.\n"
+        f"2. AVOID: Generic or irrelevant pitch not tied to their specific context.\n"
         f"3. ANGLE: {pain}\n"
         f"4. CONTACT NOTE: Ask for {title or 'the decision maker'} if contact unclear."
     )

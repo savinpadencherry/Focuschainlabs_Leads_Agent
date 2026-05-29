@@ -56,7 +56,6 @@ def run_pipeline_streaming(
     """Generator pipeline — yields typed events for live UIs."""
 
     max_leads = max_leads or int(os.getenv("MAX_LEADS_PER_RUN", 30))
-    threshold = int(os.getenv("MIN_SCORE_THRESHOLD", 60))
     pilot     = os.getenv("PILOT_MODE", "true").lower() == "true"
 
     # ── Load base ICP ──────────────────────────────────────────────────────
@@ -71,6 +70,9 @@ def run_pipeline_streaming(
         icp["target_titles"] = override_titles
     if custom_focus and custom_focus.strip():
         icp["custom_focus"] = custom_focus.strip()
+
+    # ICP-level threshold takes precedence over env var
+    threshold = int(icp.get("min_score_threshold") or os.getenv("MIN_SCORE_THRESHOLD", 60))
 
     yield {"type": "config_loaded", "icp": icp, "pilot": pilot, "threshold": threshold}
 
@@ -162,16 +164,25 @@ def run_pipeline_streaming(
     yield {"type": "source_done", "source": "proxycurl",
            "count": 0, "status": "skip", "reason": "Sunset — replaced by Naukri + Serper"}
 
-    # Naukri
-    yield {"type": "source_start", "source": "naukri", "label": "Naukri Job Board (scraper)"}
-    yield {"type": "keyword_searching", "keyword": "Naukri job board scrape", "source": "naukri"}
-    nk = search_naukri(icp)
-    all_results.extend(nk)
-    yield {
-        "type": "source_done", "source": "naukri", "count": len(nk),
-        "status": "done" if nk else "warn",
-        "reason": None if nk else "Site may block automated access",
-    }
+    # Naukri — skip for buyer-intent / consumer verticals (job board irrelevant)
+    is_buyer_intent = (
+        icp.get("search_type") == "buyer_intent"
+        or bool(icp.get("scoring_guidance"))
+    )
+    if is_buyer_intent:
+        yield {"type": "source_done", "source": "naukri",
+               "count": 0, "status": "skip",
+               "reason": "Buyer-intent vertical — job board not applicable"}
+    else:
+        yield {"type": "source_start", "source": "naukri", "label": "Naukri Job Board (scraper)"}
+        yield {"type": "keyword_searching", "keyword": "Naukri job board scrape", "source": "naukri"}
+        nk = search_naukri(icp)
+        all_results.extend(nk)
+        yield {
+            "type": "source_done", "source": "naukri", "count": len(nk),
+            "status": "done" if nk else "warn",
+            "reason": None if nk else "Site may block automated access",
+        }
 
     # ── Dedupe ─────────────────────────────────────────────────────────────
     seen, unique = set(), []
@@ -212,6 +223,7 @@ def run_pipeline_streaming(
             company.get("website", ""),
             company.get("snippet", ""),
             icp.get("target_titles", []),
+            icp_config=icp,
         )
         researched.append({**company, **bundle})
         yield {"type": "company_researched",
