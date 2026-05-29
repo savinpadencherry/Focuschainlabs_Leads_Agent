@@ -1295,6 +1295,7 @@ def _init():
         "locations":      ["Bangalore"],
         "titles":         [],
         "prompt":         "",
+        "prompt_text":    "",
         "max_leads":      30,
         "exclusion_path": None,
         "exclusion_name": "",
@@ -1432,9 +1433,9 @@ if st.session_state.stage == "setup":
         st.stop()
 
     focus_label = resolve_client_label("FocusChainLabs")
-    if not st.session_state.prompt:
+    if not st.session_state.get("prompt_text"):
         st.session_state.selected_client = focus_label
-        st.session_state.prompt = DEFAULT_PROMPTS["FocusChainLabs"]
+        st.session_state.prompt_text = DEFAULT_PROMPTS["FocusChainLabs"]
 
     # ── TEMPLATE SELECTION ───────────────────────────────────────────────────
     st.markdown('<div class="sec">Template <span class="line"></span></div>',
@@ -1456,7 +1457,9 @@ if st.session_state.stage == "setup":
                 type="primary" if is_sel else "secondary",
             ):
                 st.session_state.selected_client = target_label
-                st.session_state.prompt = DEFAULT_PROMPTS[template_key]
+                st.session_state.prompt_text = DEFAULT_PROMPTS[template_key]
+                # Force the brief box for this client to re-seed with its default
+                st.session_state[f"brief_box::{target_label}"] = DEFAULT_PROMPTS[template_key]
                 st.session_state.industries = []
                 st.session_state.titles = []
                 st.rerun()
@@ -1468,11 +1471,13 @@ if st.session_state.stage == "setup":
     all_titles = base_icp.get("target_titles", [])
     locations = base_icp.get("locations", ["Bangalore"])
     threshold = int(base_icp.get("min_score_threshold", os.getenv("MIN_SCORE_THRESHOLD", 60)))
-    max_leads = 30
+    # Respect the deployment cap (Streamlit secrets / .env). Heavy runs on the free
+    # tier can be killed mid-way and reload to the home screen, so honour the limit.
+    max_leads = int(os.getenv("MAX_LEADS_PER_RUN", 30))
 
     st.markdown(
         f'<div class="template-note"><strong>{base_icp.get("client", client_choice)}</strong> '
-        f'will run a 30-lead search across {", ".join(locations[:2])}. '
+        f'will run a {max_leads}-lead search across {", ".join(locations[:2])}. '
         f'The prompt below is editable; the agent will refine searches, inspect job posts/news/posts, '
         f'find the responsible senior owner, and export a scored Excel sheet.</div>',
         unsafe_allow_html=True,
@@ -1495,6 +1500,13 @@ if st.session_state.stage == "setup":
             unsafe_allow_html=True,
         )
 
+    # The brief box uses a per-client key so switching templates always shows the
+    # right prompt (a single shared widget key would keep the previous template's
+    # text inside the form buffer and submit the wrong brief).
+    brief_key = f"brief_box::{client_choice}"
+    if brief_key not in st.session_state:
+        st.session_state[brief_key] = st.session_state.get("prompt_text", "")
+
     with st.form("run_form", border=False, clear_on_submit=False):
         prompt = st.text_area(
             "brief",
@@ -1504,7 +1516,7 @@ if st.session_state.stage == "setup":
                 "into web searches, company research, job-post proof, management mapping, "
                 "and an Excel sheet."
             ),
-            key="prompt",
+            key=brief_key,
             label_visibility="collapsed",
         )
         upload_col, hint_col, _btn = st.columns([0.10, 0.78, 0.12])
@@ -1530,6 +1542,8 @@ if st.session_state.stage == "setup":
         if not prompt.strip():
             st.warning("Add a brief — even one sentence — so the planner can build a search plan.")
             st.stop()
+        # Persist exactly what's visible in the box so the run uses the right brief.
+        st.session_state.prompt_text = prompt
         exclusion_path = None
         if uploaded_file:
             safe_name = "".join(
@@ -1964,8 +1978,8 @@ elif st.session_state.stage == "running":
             override_industries=st.session_state.industries or None,
             override_locations=st.session_state.locations or None,
             override_titles=st.session_state.titles or None,
-            custom_focus=(st.session_state.prompt or "").strip(),
-            user_prompt=(st.session_state.prompt or "").strip(),
+            custom_focus=(st.session_state.get("prompt_text") or "").strip(),
+            user_prompt=(st.session_state.get("prompt_text") or "").strip(),
         )
 
         if not hasattr(st.session_state, "api_status"):
@@ -2111,6 +2125,7 @@ elif st.session_state.stage == "running":
                 st.session_state.output_path = ev.get("output_path")
                 st.session_state.stats       = ev.get("stats", {})
                 st.session_state.plan        = ev.get("plan", st.session_state.plan)
+                st.session_state.run_error   = ev.get("error", "")
                 for k, _ in PIPE_STAGES:
                     st.session_state.stage_status[k] = "done"
                 _refresh_all()
@@ -2119,10 +2134,28 @@ elif st.session_state.stage == "running":
                 st.rerun()
 
     except Exception as e:
-        st.error(f"Pipeline error: {e}")
-        if st.button("← Back to brief"):
-            st.session_state.stage = "setup"
-            st.rerun()
+        import traceback
+        st.markdown(
+            f'<div class="api-alert"><strong>⚠ The run stopped early</strong> — {html.escape(str(e))}<br>'
+            f'Your brief and template are still selected. Try again, or go back to edit the brief.</div>',
+            unsafe_allow_html=True,
+        )
+        with st.expander("Technical details"):
+            st.code(traceback.format_exc())
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("↻ Retry run", use_container_width=True, type="primary"):
+                st.session_state.events       = []
+                st.session_state.sources      = {}
+                st.session_state.stage_status = {}
+                st.session_state.api_status   = {}
+                st.session_state.gemini_calls = 0
+                st.rerun()
+        with c2:
+            if st.button("← Back to brief", use_container_width=True):
+                st.session_state.stage = "setup"
+                st.rerun()
+        st.stop()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2148,17 +2181,35 @@ elif st.session_state.stage == "results":
     """, unsafe_allow_html=True)
 
     if not leads:
-        st.warning(
-            "No leads produced. Common causes: no API keys configured, "
-            "all companies scored below the threshold, or the brief was too narrow. "
-            "Try lowering the score floor or broadening the brief."
-        )
-        if st.button("← New brief"):
-            for k in ["stage", "events", "sources", "stage_status", "leads", "plan"]:
-                st.session_state[k] = {"stage": "setup", "events": [], "sources": {},
-                                        "stage_status": {}, "leads": [], "plan": {}}.get(k)
-            st.session_state.stage = "setup"
-            st.rerun()
+        run_error = st.session_state.get("run_error", "")
+        if run_error:
+            st.warning(
+                f"No leads produced — {run_error}\n\n"
+                "If this mentions Serper/Google or a key, check the API keys in your "
+                "Streamlit secrets. Otherwise try broadening the brief or lowering the score floor."
+            )
+        else:
+            st.warning(
+                "No leads produced. Common causes: a search source was rate-limited or "
+                "returned nothing, all companies scored below the threshold, or the brief "
+                "was too narrow. Try again, broaden the brief, or lower the score floor."
+            )
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("↻ Re-run same brief", use_container_width=True, type="primary"):
+                st.session_state.stage        = "running"
+                st.session_state.events       = []
+                st.session_state.sources      = {}
+                st.session_state.stage_status = {}
+                st.session_state.leads        = []
+                st.rerun()
+        with c2:
+            if st.button("← New brief", use_container_width=True):
+                for k in ["stage", "events", "sources", "stage_status", "leads", "plan"]:
+                    st.session_state[k] = {"stage": "setup", "events": [], "sources": {},
+                                            "stage_status": {}, "leads": [], "plan": {}}.get(k)
+                st.session_state.stage = "setup"
+                st.rerun()
         st.stop()
 
     leads_sorted = sorted(leads, key=lambda x: x.get("total_score", 0), reverse=True)
