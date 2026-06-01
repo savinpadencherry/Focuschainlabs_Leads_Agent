@@ -198,8 +198,8 @@ def run_pipeline_streaming(
     # so this is the single biggest driver of runtime and memory. Keeping it tight
     # protects against the host (e.g. Streamlit Cloud free tier) killing a long run.
     # Override with RESEARCH_FANOUT (multiplier) and RESEARCH_HARD_CAP (absolute).
-    fanout   = int(os.getenv("RESEARCH_FANOUT", 3))
-    hard_cap = int(os.getenv("RESEARCH_HARD_CAP", 24))
+    fanout   = int(os.getenv("RESEARCH_FANOUT", 2))
+    hard_cap = int(os.getenv("RESEARCH_HARD_CAP", 12))
     companies = companies[: min(max_leads * fanout, hard_cap)]
 
     yield {"type": "search_done",
