@@ -307,19 +307,25 @@ def research_company(
         pass
 
     # ── LinkedIn-indexed posts ─────────────────────────────────────────────
-    try:
-        for r in search_serper(f'site:linkedin.com/posts "{company_name}"')[:3]:
-            bundle["linkedin_posts"].append(r.get("snippet", "")[:200])
-    except Exception:
-        pass
+    # Skipped for buyer-intent verticals (consumer/referral leads rarely post on
+    # LinkedIn) to save Serper credits and shorten the run.
+    if not is_buyer_intent:
+        try:
+            for r in search_serper(f'site:linkedin.com/posts "{company_name}"')[:3]:
+                bundle["linkedin_posts"].append(r.get("snippet", "")[:200])
+        except Exception:
+            pass
 
     # ── Ad activity detection ──────────────────────────────────────────────
-    try:
-        ad = _detect_ad_activity(company_name, website)
-        bundle["running_ads"] = ad["running_ads"]
-        bundle["ad_signals"]  = ad["ad_signals"]
-    except Exception:
-        pass
+    # Paid-ad signals matter for B2B intent; for buyer-intent verticals they add
+    # two network calls (brand search + homepage refetch) with little value, so skip.
+    if not is_buyer_intent:
+        try:
+            ad = _detect_ad_activity(company_name, website)
+            bundle["running_ads"] = ad["running_ads"]
+            bundle["ad_signals"]  = ad["ad_signals"]
+        except Exception:
+            pass
 
     # ── Structured evidence ────────────────────────────────────────────────
     bundle["evidence"] = _collect_evidence(bundle, website)

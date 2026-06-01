@@ -42,6 +42,42 @@ if not os.getenv("GEMINI_API_KEY") and os.getenv("GOOGLE_API_KEY"):
 
 os.makedirs("output", exist_ok=True)
 
+# ── Crash detection across process restarts ──────────────────────────────────
+# Streamlit Cloud (free tier) kills the whole process on OOM / time limits.
+# When that happens, session_state is wiped and the app silently resets to the
+# home screen — no Python exception fires, so the user sees nothing. We persist
+# a tiny marker file at run start (survives the process restart) and clear it on
+# completion/handled-error. If we boot and find a stale marker, we know the last
+# run was killed by the platform and can tell the user exactly what happened.
+_RUN_MARKER = os.path.join("output", ".run_in_progress.json")
+
+
+def _write_run_marker(info: dict) -> None:
+    try:
+        with open(_RUN_MARKER, "w") as f:
+            json.dump({**info, "ts": time.time()}, f)
+    except Exception:
+        pass
+
+
+def _clear_run_marker() -> None:
+    try:
+        if os.path.exists(_RUN_MARKER):
+            os.remove(_RUN_MARKER)
+    except Exception:
+        pass
+
+
+def _read_run_marker() -> dict:
+    try:
+        if os.path.exists(_RUN_MARKER):
+            with open(_RUN_MARKER) as f:
+                return json.load(f) or {}
+    except Exception:
+        pass
+    return {}
+
+
 # ── Page Config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="FocusChain Labs — LeadGen",
@@ -1314,6 +1350,17 @@ def _init():
         if k not in st.session_state:
             st.session_state[k] = v
 
+    # First boot of this session — check for a run that was killed by the platform
+    if "crash_checked" not in st.session_state:
+        st.session_state.crash_checked = True
+        marker = _read_run_marker()
+        # Stale marker + session reset to setup ⇒ the process was killed mid-run
+        if marker and st.session_state.stage == "setup":
+            age = time.time() - marker.get("ts", 0)
+            if age < 3600:  # ignore very old markers
+                st.session_state.interrupted_run = marker
+        _clear_run_marker()
+
 _init()
 
 # ── ICP discovery ─────────────────────────────────────────────────────────────
@@ -1442,6 +1489,22 @@ if st.session_state.stage == "setup":
     if not ICPS:
         st.error("No ICP config files found in /config. Add a JSON file there.")
         st.stop()
+
+    # Surface a run that the hosting platform killed mid-way (OOM / time limit).
+    interrupted = st.session_state.pop("interrupted_run", None)
+    if interrupted:
+        client = interrupted.get("client", "your")
+        n = interrupted.get("max_leads", "")
+        st.error(
+            f"**Your previous {client} run was interrupted before it finished.**\n\n"
+            "This almost always means the hosting platform (Streamlit Cloud free tier) "
+            "hit its **memory or time limit** and restarted the app — which silently "
+            "resets it to this screen. It is not a bug in your brief or keys.\n\n"
+            "**To make the next run reliable:**\n"
+            f"- Lower **Leads per run** to **5–8** (you had {n}) in Advanced settings below\n"
+            "- Run during off-peak hours; the free tier throttles under load\n"
+            "- Each lead does ~10 web lookups, so fewer leads = far less memory & time"
+        )
 
     focus_label = resolve_client_label("FocusChainLabs")
     if not st.session_state.get("prompt_text"):
@@ -1984,6 +2047,12 @@ elif st.session_state.stage == "running":
                                             "count": 0, "reason": "queued"}
     sources_slot.markdown(render_sources(st.session_state.sources), unsafe_allow_html=True)
 
+    # Drop a crash marker — if the platform kills us mid-run, we detect it on reboot.
+    _write_run_marker({
+        "client":    st.session_state.get("selected_client", "your"),
+        "max_leads": st.session_state.get("max_leads", ""),
+    })
+
     try:
         gen = run_pipeline_streaming(
             icp_config_path=st.session_state.icp_path,
@@ -2143,16 +2212,23 @@ elif st.session_state.stage == "running":
                 st.session_state.run_error   = ev.get("error", "")
                 for k, _ in PIPE_STAGES:
                     st.session_state.stage_status[k] = "done"
+                _clear_run_marker()  # run finished cleanly
                 _refresh_all()
                 st.session_state.stage = "results"
                 time.sleep(0.35)
                 st.rerun()
 
     except Exception as e:
+        # Handled Python error — capture full context and route to the error stage.
         import traceback as _tb
+        _clear_run_marker()
         st.session_state.run_error     = str(e)
         st.session_state.run_traceback = _tb.format_exc()
-        st.session_state.stage         = "error"
+        st.session_state.run_stage_at_error = next(
+            (ev.get("stage") for ev in reversed(st.session_state.events)
+             if ev.get("type") == "stage_start"), "—"
+        )
+        st.session_state.stage = "error"
         st.rerun()
 
 
