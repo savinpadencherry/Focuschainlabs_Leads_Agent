@@ -1306,6 +1306,9 @@ def _init():
         "plan":           {},
         "sources":        {},
         "stage_status":   {},
+        "run_error":      "",
+        "run_traceback":  "",
+        "run_warnings":   [],
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -1574,12 +1577,15 @@ if st.session_state.stage == "setup":
         st.session_state.locations    = locations
         st.session_state.titles       = all_titles
         st.session_state.max_leads    = max_leads
-        st.session_state.events       = []
-        st.session_state.sources      = {}
-        st.session_state.stage_status = {}
-        st.session_state.api_status   = {}   # service → {state, message, ts}
-        st.session_state.gemini_calls = 0
-        st.session_state.stage        = "running"
+        st.session_state.events        = []
+        st.session_state.sources       = {}
+        st.session_state.stage_status  = {}
+        st.session_state.api_status    = {}   # service → {state, message, ts}
+        st.session_state.gemini_calls  = 0
+        st.session_state.run_error     = ""
+        st.session_state.run_traceback = ""
+        st.session_state.run_warnings  = []
+        st.session_state.stage         = "running"
         st.rerun()
 
 
@@ -2092,10 +2098,11 @@ elif st.session_state.stage == "running":
 
             elif t == "rate_limit":
                 svc = ev.get("service", "unknown")
-                st.session_state.api_status[svc] = {
-                    "state":   "rate_limited",
-                    "message": ev.get("message", "Rate limit reached"),
-                }
+                msg = ev.get("message", "Rate limit reached")
+                st.session_state.api_status[svc] = {"state": "rate_limited", "message": msg}
+                warn = f"{svc.upper()} quota exhausted — {msg}"
+                if warn not in st.session_state.run_warnings:
+                    st.session_state.run_warnings.append(warn)
                 _refresh_all()
 
             elif t in {"plan_ready", "score_result"}:
@@ -2142,28 +2149,11 @@ elif st.session_state.stage == "running":
                 st.rerun()
 
     except Exception as e:
-        import traceback
-        st.markdown(
-            f'<div class="api-alert"><strong>⚠ The run stopped early</strong> — {html.escape(str(e))}<br>'
-            f'Your brief and template are still selected. Try again, or go back to edit the brief.</div>',
-            unsafe_allow_html=True,
-        )
-        with st.expander("Technical details"):
-            st.code(traceback.format_exc())
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("↻ Retry run", use_container_width=True, type="primary"):
-                st.session_state.events       = []
-                st.session_state.sources      = {}
-                st.session_state.stage_status = {}
-                st.session_state.api_status   = {}
-                st.session_state.gemini_calls = 0
-                st.rerun()
-        with c2:
-            if st.button("← Back to brief", use_container_width=True):
-                st.session_state.stage = "setup"
-                st.rerun()
-        st.stop()
+        import traceback as _tb
+        st.session_state.run_error     = str(e)
+        st.session_state.run_traceback = _tb.format_exc()
+        st.session_state.stage         = "error"
+        st.rerun()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2189,27 +2179,73 @@ elif st.session_state.stage == "results":
     """, unsafe_allow_html=True)
 
     if not leads:
-        run_error = st.session_state.get("run_error", "")
-        if run_error:
-            st.warning(
-                f"No leads produced — {run_error}\n\n"
-                "If this mentions Serper/Google or a key, check the API keys in your "
-                "Streamlit secrets. Otherwise try broadening the brief or lowering the score floor."
+        run_error    = st.session_state.get("run_error", "")
+        run_warnings = st.session_state.get("run_warnings", [])
+        events       = st.session_state.get("events", [])
+
+        # Detect specific failure causes from events
+        serper_rate_limited = any(
+            e.get("type") == "rate_limit" and "serper" in str(e.get("service", "")).lower()
+            for e in events
+        )
+        no_serper_key = any(
+            e.get("type") == "source_done" and e.get("source") == "serper"
+            and e.get("status") == "skip" and "key" in str(e.get("reason", "")).lower()
+            for e in events
+        )
+        all_skipped = all(
+            e.get("status") in ("skip",)
+            for e in events if e.get("type") == "source_done"
+        ) and any(e.get("type") == "source_done" for e in events)
+
+        if serper_rate_limited or "serper" in run_error.lower():
+            st.error(
+                "**Serper search quota exhausted** — no Google searches could run.\n\n"
+                "To fix: log in at [serper.dev](https://serper.dev), top up your credits, "
+                "then re-run. Your API key and brief are still saved."
             )
+        elif no_serper_key or "serper_api_key" in run_error.lower():
+            st.error(
+                "**SERPER_API_KEY not configured** — add it in Streamlit Cloud → Settings → Secrets.\n\n"
+                "At minimum, Serper is required to find companies."
+            )
+        elif run_error:
+            st.error(f"**Run stopped with an error:** {run_error}\n\n"
+                     "Check your API keys in Secrets, broaden the brief, or try again.")
         else:
             st.warning(
-                "No leads produced. Common causes: a search source was rate-limited or "
-                "returned nothing, all companies scored below the threshold, or the brief "
-                "was too narrow. Try again, broaden the brief, or lower the score floor."
+                "**No leads produced.** Common causes:\n"
+                "- A search source was rate-limited or returned nothing\n"
+                "- All companies scored below the threshold\n"
+                "- The brief was too narrow\n\n"
+                "Try again, broaden the brief, or lower the score floor."
             )
+
+        # Show any API warnings collected during the run
+        for w in run_warnings:
+            st.warning(f"⚠ {w}")
+
+        # Show scored-but-excluded count if available
+        scored_events = [e for e in events if e.get("type") == "score_result"]
+        if scored_events:
+            n_scored = len(scored_events)
+            n_qual = sum(1 for e in scored_events if e.get("qualify"))
+            st.info(
+                f"{n_scored} companies were researched and scored; "
+                f"{n_qual} met the threshold. "
+                f"{'Lower the Min Score in advanced settings to see more.' if n_scored > n_qual else ''}"
+            )
+
         c1, c2 = st.columns(2)
         with c1:
             if st.button("↻ Re-run same brief", use_container_width=True, type="primary"):
-                st.session_state.stage        = "running"
-                st.session_state.events       = []
-                st.session_state.sources      = {}
-                st.session_state.stage_status = {}
-                st.session_state.leads        = []
+                st.session_state.stage         = "running"
+                st.session_state.events        = []
+                st.session_state.sources       = {}
+                st.session_state.stage_status  = {}
+                st.session_state.leads         = []
+                st.session_state.run_error     = ""
+                st.session_state.run_warnings  = []
                 st.rerun()
         with c2:
             if st.button("← New brief", use_container_width=True):
@@ -2362,9 +2398,112 @@ elif st.session_state.stage == "results":
             st.rerun()
     with b2:
         if st.button("Re-run", use_container_width=True):
-            st.session_state.stage = "running"
-            st.session_state.events = []
-            st.session_state.sources = {}
-            st.session_state.stage_status = {}
-            st.session_state.leads = []
+            st.session_state.stage         = "running"
+            st.session_state.events        = []
+            st.session_state.sources       = {}
+            st.session_state.stage_status  = {}
+            st.session_state.leads         = []
+            st.session_state.run_error     = ""
+            st.session_state.run_warnings  = []
+            st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  STAGE — ERROR  (persistent error display, survives Streamlit reruns)
+# ═══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.stage == "error":
+    import html as _html
+
+    err_msg  = st.session_state.get("run_error", "An unexpected error occurred.")
+    err_tb   = st.session_state.get("run_traceback", "")
+    warnings = st.session_state.get("run_warnings", [])
+    events   = st.session_state.get("events", [])
+
+    # Human-readable diagnosis based on error text
+    err_lower = err_msg.lower()
+    if "serper" in err_lower or "429" in err_lower or "quota" in err_lower or "rate limit" in err_lower:
+        diagnosis = (
+            "**API quota exhausted.** A search or AI service ran out of credits mid-run.\n\n"
+            "- **Serper quota**: top up at serper.dev — your key is already saved.\n"
+            "- **Gemini quota**: free tier resets daily; try again later or upgrade.\n"
+            "Your brief and template are still selected."
+        )
+    elif "gemini" in err_lower or "google" in err_lower:
+        diagnosis = (
+            "**Gemini AI call failed.** The GEMINI_API_KEY may be missing, invalid, or "
+            "the free-tier quota has been reached.\n\n"
+            "Check your key in Streamlit → Settings → Secrets and try again."
+        )
+    elif "serper_api_key" in err_lower or "api key" in err_lower:
+        diagnosis = (
+            "**API key missing or invalid.** Check that all required keys "
+            "(SERPER_API_KEY, GEMINI_API_KEY) are set in Streamlit → Settings → Secrets."
+        )
+    elif "filenotfounderror" in err_lower or "icp" in err_lower or "config" in err_lower:
+        diagnosis = (
+            "**ICP configuration file could not be loaded.** "
+            "Make sure the config JSON file exists in the `/config` directory."
+        )
+    elif "json" in err_lower or "decode" in err_lower:
+        diagnosis = (
+            "**JSON parsing failed** — Gemini returned an unexpected response. "
+            "This is usually transient; try running again."
+        )
+    else:
+        diagnosis = (
+            "**The run stopped unexpectedly.** Your brief and template are still selected. "
+            "Retry the run or go back to edit the brief."
+        )
+
+    st.markdown(
+        f'<div class="api-alert">'
+        f'<strong>⚠ Run failed</strong> — {_html.escape(err_msg)}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"\n\n{diagnosis}")
+
+    # Show any rate-limit or quota warnings collected before the crash
+    for w in warnings:
+        st.warning(f"⚠ {w}")
+
+    # Show events summary (how far the run got)
+    scored_events = [e for e in events if e.get("type") == "score_result"]
+    search_done   = next((e for e in reversed(events) if e.get("type") == "search_done"), None)
+    last_stage    = next(
+        (e.get("stage") for e in reversed(events) if e.get("type") == "stage_start"), "—"
+    )
+    if events:
+        parts = [f"Last active stage: **{last_stage}**"]
+        if search_done:
+            parts.append(f"{search_done.get('unique', 0)} companies found")
+        if scored_events:
+            parts.append(f"{len(scored_events)} scored")
+        st.info("  ·  ".join(parts))
+
+    # Technical traceback in expander
+    if err_tb:
+        with st.expander("Technical details (traceback)"):
+            st.code(err_tb)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("↻ Retry run", use_container_width=True, type="primary"):
+            st.session_state.stage         = "running"
+            st.session_state.events        = []
+            st.session_state.sources       = {}
+            st.session_state.stage_status  = {}
+            st.session_state.api_status    = {}
+            st.session_state.gemini_calls  = 0
+            st.session_state.run_error     = ""
+            st.session_state.run_traceback = ""
+            st.session_state.run_warnings  = []
+            st.rerun()
+    with c2:
+        if st.button("← Back to brief", use_container_width=True):
+            st.session_state.stage         = "setup"
+            st.session_state.run_error     = ""
+            st.session_state.run_traceback = ""
+            st.session_state.run_warnings  = []
             st.rerun()

@@ -285,6 +285,27 @@ def run_pipeline_streaming(
             if len(selected_for_output) >= max_leads:
                 break
 
+    # Minimum output guarantee — ICP can request a floor (e.g. Cadabams wants 5).
+    # If we're still short, include the remaining scored companies at any score,
+    # clearly flagged as very-low-confidence so the team knows to verify first.
+    min_output = int(icp.get("min_output_leads", 0))
+    if min_output and len(selected_for_output) < min_output:
+        selected_names = {
+            (c.get("company_name") or "").lower().strip()
+            for c in selected_for_output
+        }
+        for company in scored_sorted:
+            key = (company.get("company_name") or "").lower().strip()
+            if key not in selected_names:
+                company["selection_note"] = (
+                    "Very low confidence — included to meet minimum output target. "
+                    "Verify relevance and contact details before any outreach."
+                )
+                selected_for_output.append(company)
+                selected_names.add(key)
+            if len(selected_for_output) >= min_output:
+                break
+
     # ── Stage 4: Enrich ────────────────────────────────────────────────────
     enrich_cap = min(
         max_leads,
