@@ -8,14 +8,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-# Default pipeline — can be extended with custom statuses from the UI.
+# Default sales pipeline shown as the Stage dropdown in the CRM UI.
 CRM_STATUSES = [
     "new",
     "contacted",
     "qualified",
-    "meeting",
     "proposal",
-    "nurture",
     "won",
     "lost",
 ]
@@ -24,9 +22,33 @@ STATUS_LABELS = {
     "new": "New",
     "contacted": "Contacted",
     "qualified": "Qualified",
-    "meeting": "Meeting",
     "proposal": "Proposal",
-    "nurture": "Nurture",
+    "won": "Won",
+    "lost": "Lost",
+}
+
+CRM_SOURCE_OPTIONS = [
+    "linkedin",
+    "referral",
+    "inbound",
+    "whatsapp",
+    "event",
+    "other",
+]
+
+SOURCE_LABELS = {
+    "linkedin": "LinkedIn",
+    "referral": "Referral",
+    "inbound": "Inbound",
+    "whatsapp": "WhatsApp",
+    "event": "Event",
+    "other": "Other",
+}
+
+DEAL_STATUSES = ["open", "won", "lost"]
+
+DEAL_STATUS_LABELS = {
+    "open": "Open",
     "won": "Won",
     "lost": "Lost",
 }
@@ -36,13 +58,34 @@ _STATUS_ALIASES = {
     # Legacy from earlier UI versions
     "interested": "qualified",
     # Common variants / typos
-    "meeting_booked": "meeting",
-    "meeting_scheduled": "meeting",
+    "meeting": "qualified",
+    "meeting_booked": "qualified",
+    "meeting_scheduled": "qualified",
     "proposal_sent": "proposal",
-    "nurturing": "nurture",
+    "nurture": "contacted",
+    "nurturing": "contacted",
 }
 
 _STATUS_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+_SOURCE_ALIASES = {
+    "agent": "other",
+    "manual": "other",
+    "website": "inbound",
+    "web": "inbound",
+    "wa": "whatsapp",
+    "whats_app": "whatsapp",
+}
+
+_DEAL_STATUS_ALIASES = {
+    "active": "open",
+    "new": "open",
+    "contacted": "open",
+    "qualified": "open",
+    "proposal": "open",
+    "closed_won": "won",
+    "closed_lost": "lost",
+}
 
 
 def _slugify_status(raw: str) -> str:
@@ -70,39 +113,55 @@ def empty_crm_db() -> dict[str, Any]:
 
 
 def normalize_status(raw: str) -> str:
-    """
-    Normalize a pipeline status.
-
-    - Keeps default statuses as-is.
-    - Preserves custom statuses (slugified) so users can add stages.
-    - Falls back to "new" only when the input is empty/invalid.
-    """
+    """Normalize the Stage dropdown value, falling back to ``new``."""
     s = _slugify_status(raw or "new")
     s = _STATUS_ALIASES.get(s, s)
-    return s or "new"
+    return s if s in CRM_STATUSES else "new"
+
+
+def normalize_source(raw: str) -> str:
+    """Normalize the lead Source dropdown value."""
+    s = _slugify_status(raw or "other")
+    s = _SOURCE_ALIASES.get(s, s)
+    return s if s in CRM_SOURCE_OPTIONS else "other"
+
+
+def normalize_deal_status(raw: str, *, stage: str = "") -> str:
+    """Normalize overall deal Status: Open, Won, or Lost."""
+    if not raw and stage in {"won", "lost"}:
+        return stage
+    s = _slugify_status(raw or "open")
+    s = _DEAL_STATUS_ALIASES.get(s, s)
+    return s if s in DEAL_STATUSES else "open"
 
 
 def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
     """Ensure all CRM fields exist with sane defaults."""
     now = utc_now_iso()
-    status = normalize_status(raw.get("status") or "new")
+    status = normalize_status(raw.get("status") or raw.get("stage") or "new")
+    deal_status = normalize_deal_status(raw.get("deal_status") or raw.get("deal_state") or "", stage=status)
 
     tags = raw.get("tags") or []
     if isinstance(tags, str):
         tags = [t.strip() for t in tags.split(",") if t.strip()]
 
-    source = (raw.get("source") or "manual").strip()
-    if source == "agent" and "agent-import" not in tags:
+    original_source = (raw.get("source") or "").strip().lower()
+    source = normalize_source(raw.get("source") or raw.get("lead_source") or "other")
+    if original_source == "agent" and "agent-import" not in tags:
         tags = ["agent-import"] + tags
 
     return {
         "id": raw.get("id") or new_contact_id(),
         "name": (raw.get("name") or raw.get("contact_name") or "").strip(),
         "company": (raw.get("company") or raw.get("company_name") or "").strip(),
+        "industry": (raw.get("industry") or "").strip(),
         "phone": (raw.get("phone") or "").strip(),
-        "email": (raw.get("email") or "").strip(),
+        "email": (raw.get("email") or raw.get("contact_email") or "").strip(),
         "client": (raw.get("client") or "").strip(),
+        "owner": (raw.get("owner") or "").strip(),
+        "value": str(raw.get("value") or raw.get("deal_value") or "").strip(),
         "status": status,
+        "deal_status": deal_status,
         "notes": (raw.get("notes") or "").strip(),
         "next_follow_up": (raw.get("next_follow_up") or "").strip(),
         "source": source,
@@ -137,9 +196,13 @@ def lead_to_contact(lead: dict[str, Any], *, agent_run_id: str = "") -> dict[str
             "phone": lead.get("phone", ""),
             "email": lead.get("email", ""),
             "client": lead.get("client", ""),
+            "industry": lead.get("industry", ""),
+            "owner": lead.get("owner", ""),
+            "value": lead.get("value", ""),
             "status": "new",
+            "deal_status": "open",
             "notes": "\n".join(note_lines),
-            "source": "agent",
+            "source": lead.get("source", "other"),
             "tags": ["agent-import"],
             "title": lead.get("contact_title", ""),
             "linkedin_url": lead.get("linkedin_url", ""),
@@ -172,10 +235,16 @@ def contact_fingerprint(contact: dict[str, Any]) -> str:
 
 def merge_contacts(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
     merged = normalize_contact({**existing, **incoming, "id": existing["id"]})
-    for key in ("name", "phone", "email", "company", "client"):
-        if not (existing.get(key) or "").strip() and (incoming.get(key) or "").strip():
-            merged[key] = incoming[key]
+    for key in ("name", "phone", "email", "company", "client", "industry", "owner", "value"):
+        existing_value = str(existing.get(key) or "").strip()
+        incoming_value = str(incoming.get(key) or "").strip()
+        if not existing_value and incoming_value:
+            merged[key] = incoming_value
     merged["status"] = normalize_status(existing.get("status") or "new")
+    merged["deal_status"] = normalize_deal_status(
+        existing.get("deal_status") or incoming.get("deal_status") or "",
+        stage=merged["status"],
+    )
     if incoming.get("notes") and not existing.get("notes"):
         merged["notes"] = incoming["notes"]
     merged["created_at"] = existing.get("created_at") or incoming.get("created_at")
@@ -202,7 +271,5 @@ def display_subtitle(contact: dict[str, Any]) -> str:
 
 
 def source_label(contact: dict[str, Any]) -> str:
-    src = (contact.get("source") or "").lower()
-    if src == "agent" or "agent-import" in (contact.get("tags") or []):
-        return "Agent"
-    return "Manual"
+    src = normalize_source(contact.get("source") or "other")
+    return SOURCE_LABELS.get(src, "Other")
