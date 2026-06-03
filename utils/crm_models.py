@@ -135,53 +135,6 @@ def normalize_deal_status(raw: str, *, stage: str = "") -> str:
     return s if s in DEAL_STATUSES else "open"
 
 
-def normalize_email_event(raw: dict[str, Any]) -> dict[str, Any]:
-    """Store client email history as structured, LLM-ready CRM timeline data."""
-    now = utc_now_iso()
-    direction = (raw.get("direction") or "sent").strip().lower()
-    if direction not in {"sent", "received"}:
-        direction = "sent"
-    sent_at = str(raw.get("sent_at") or raw.get("date") or now).strip()
-    return {
-        "id": raw.get("id") or new_contact_id(),
-        "direction": direction,
-        "sent_at": sent_at,
-        "from": (raw.get("from") or raw.get("sender") or "").strip(),
-        "to": (raw.get("to") or raw.get("recipient") or "").strip(),
-        "subject": (raw.get("subject") or "").strip(),
-        "body": (raw.get("body") or raw.get("message") or "").strip(),
-        "summary": (raw.get("summary") or raw.get("insight") or "").strip(),
-        "source": (raw.get("source") or "manual").strip(),
-        "created_at": raw.get("created_at") or now,
-    }
-
-
-def normalize_comment(raw: dict[str, Any]) -> dict[str, Any]:
-    """Store CRM comments as timeline entries for account-level context."""
-    now = utc_now_iso()
-    return {
-        "id": raw.get("id") or new_contact_id(),
-        "created_at": raw.get("created_at") or now,
-        "author": (raw.get("author") or raw.get("owner") or "").strip(),
-        "body": (raw.get("body") or raw.get("comment") or raw.get("note") or "").strip(),
-        "source": (raw.get("source") or "manual").strip(),
-    }
-
-
-def normalize_contact_person(raw: dict[str, Any]) -> dict[str, Any]:
-    """Normalize additional people attached to the same client/account."""
-    now = utc_now_iso()
-    return {
-        "id": raw.get("id") or new_contact_id(),
-        "name": (raw.get("name") or raw.get("contact_name") or "").strip(),
-        "title": (raw.get("title") or raw.get("contact_title") or "").strip(),
-        "email": (raw.get("email") or raw.get("contact_email") or "").strip(),
-        "phone": (raw.get("phone") or "").strip(),
-        "role": (raw.get("role") or "").strip(),
-        "created_at": raw.get("created_at") or now,
-    }
-
-
 def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
     """Ensure all CRM fields exist with sane defaults."""
     now = utc_now_iso()
@@ -206,24 +159,6 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
         if isinstance(event, dict)
     ]
 
-    raw_comments = raw.get("comments") or raw.get("comment_thread") or []
-    if not isinstance(raw_comments, list):
-        raw_comments = []
-    comments = [
-        normalize_comment(comment)
-        for comment in raw_comments
-        if isinstance(comment, dict)
-    ]
-
-    raw_people = raw.get("contact_people") or raw.get("contacts") or []
-    if not isinstance(raw_people, list):
-        raw_people = []
-    contact_people = [
-        normalize_contact_person(person)
-        for person in raw_people
-        if isinstance(person, dict)
-    ]
-
     return {
         "id": raw.get("id") or new_contact_id(),
         "name": (raw.get("name") or raw.get("contact_name") or "").strip(),
@@ -241,8 +176,6 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
         "source": source,
         "tags": tags,
         "email_events": email_events,
-        "comments": comments,
-        "contact_people": contact_people,
         "created_at": raw.get("created_at") or now,
         "updated_at": raw.get("updated_at") or now,
         # Kept in storage but hidden from simple UI — agent import extras
@@ -331,16 +264,6 @@ def merge_contacts(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[s
         normalize_email_event(event)
         for event in (existing.get("email_events") or []) + (incoming.get("email_events") or [])
         if isinstance(event, dict)
-    ]
-    merged["comments"] = [
-        normalize_comment(comment)
-        for comment in (existing.get("comments") or []) + (incoming.get("comments") or [])
-        if isinstance(comment, dict)
-    ]
-    merged["contact_people"] = [
-        normalize_contact_person(person)
-        for person in (existing.get("contact_people") or []) + (incoming.get("contact_people") or [])
-        if isinstance(person, dict)
     ]
     return merged
 
