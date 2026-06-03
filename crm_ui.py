@@ -73,24 +73,130 @@ CRM_CSS = """
     font-size: 18px; font-weight: 800; color: var(--ink); margin-bottom: 2px;
 }
 .crm-add-box .hint { font-size: 13px; color: var(--ink-mute); line-height: 1.45; }
-.crm-list { display: flex; flex-direction: column; gap: 8px; }
-.crm-card {
-    background: var(--cream-3); border: 1px solid var(--line-soft);
-    border-radius: var(--r); padding: 15px 16px; margin: 0 0 8px;
+.crm-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* Ledger header (table-like) */
+.crm-ledger-head {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 2.2fr) minmax(0, 1.35fr) minmax(0, .95fr) minmax(0, 1.25fr);
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rs);
+    background: rgba(255,255,255,.55);
+    color: var(--ink-mute);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
 }
-.crm-card-top {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; flex-wrap: wrap;
+.crm-ledger-head span { display: inline-flex; align-items: center; gap: 8px; }
+.crm-ledger-head .line {
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(90deg, rgba(15,42,51,.12), transparent);
 }
-.crm-card-name {
+
+/* Contact row (book-in-table feel) */
+.crm-row {
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r);
+    background: rgba(255,255,255,.65);
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 2.2fr) minmax(0, 1.35fr) minmax(0, .95fr) minmax(0, 1.25fr);
+    gap: 12px;
+    align-items: center;
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease, background .18s ease;
+    box-shadow: 0 10px 24px rgba(15,42,51,.06);
+}
+.crm-row:hover {
+    background: #fff;
+    border-color: rgba(46,139,77,.28);
+    transform: translateY(-1px);
+    box-shadow: 0 14px 32px rgba(15,42,51,.10);
+}
+.crm-book {
+    width: 34px;
+    height: 26px;
+    border-radius: 7px;
+    position: relative;
+    background: rgba(15,42,51,.06);
+    border: 1px solid rgba(15,42,51,.08);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+}
+.crm-book::before {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 4px;
+    bottom: 4px;
+    width: 6px;
+    border-radius: 5px;
+    background: rgba(15,42,51,.18);
+}
+.crm-book::after {
+    content: "";
+    position: absolute;
+    left: 13px;
+    top: 6px;
+    right: 6px;
+    height: 1px;
+    background: rgba(15,42,51,.12);
+    box-shadow: 0 5px 0 rgba(15,42,51,.10), 0 10px 0 rgba(15,42,51,.08);
+    opacity: .9;
+}
+.crm-book.new { background: rgba(46,139,77,.14); border-color: rgba(46,139,77,.18); }
+.crm-book.contacted { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.18); }
+.crm-book.interested { background: rgba(168,85,247,.12); border-color: rgba(168,85,247,.20); }
+.crm-book.won { background: rgba(46,139,77,.18); border-color: rgba(46,139,77,.22); }
+.crm-book.lost { background: rgba(169,61,61,.12); border-color: rgba(169,61,61,.20); }
+
+.crm-row-main { min-width: 0; }
+.crm-row-name {
     font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 17px; font-weight: 800; color: var(--ink);
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.15;
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    flex-wrap: wrap;
 }
-.crm-card-title {
-    font-size: 12px; color: var(--ink-mute); font-weight: 600; margin-left: 6px;
+.crm-row-title {
+    font-size: 12px;
+    color: var(--ink-mute);
+    font-weight: 650;
 }
-.crm-card-sub { font-size: 12.5px; color: var(--ink-mute); margin-top: 4px; line-height: 1.45; }
-.crm-card-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.crm-row-sub {
+    font-size: 12.5px;
+    color: var(--ink-mute);
+    margin-top: 4px;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.crm-row-k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 2px;
+}
+.crm-row-v {
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 650;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.crm-row-v.mute { color: var(--ink-mute); font-weight: 600; }
+.crm-row-meta { justify-self: end; width: 100%; }
+.crm-row-meta-top { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .crm-pill {
     display: inline-block; padding: 4px 9px; border-radius: 999px;
     font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
@@ -106,21 +212,16 @@ CRM_CSS = """
     text-transform: uppercase; font-weight: 600;
 }
 .crm-actions {
-    display: flex; gap: 7px; flex-wrap: wrap; margin-top: 12px;
+    display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-top: 8px;
 }
 .crm-actions a {
     display: inline-flex; align-items: center; justify-content: center;
-    min-height: 30px; padding: 5px 10px; border-radius: 7px;
-    border: 1px solid var(--line-soft); background: rgba(15,42,51,.025);
-    color: var(--ink-soft); text-decoration: none; font-size: 12px; font-weight: 700;
+    min-height: 28px; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid var(--line-soft); background: rgba(255,255,255,.55);
+    color: var(--ink-soft); text-decoration: none; font-size: 11.5px; font-weight: 750;
+    transition: transform .15s ease, border-color .15s ease, background .15s ease;
 }
 .crm-actions a:hover { border-color: rgba(46,139,77,.35); color: var(--green); background: var(--green-bg); }
-.crm-next {
-    margin-top: 9px;
-    font-size: 12px;
-    color: var(--ink-mute);
-}
-.crm-next strong { color: var(--ink); }
 .crm-edit-wrap {
     margin: -2px 0 14px;
 }
@@ -185,6 +286,16 @@ CRM_CSS = """
     font-size: 14px !important;
     line-height: 1.2 !important;
     display: inline-flex !important;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease !important;
+    transform: none !important;
+}
+.crm-shell [data-testid="stForm"] [data-testid="stFormSubmitButton"] button { transform: none !important; }
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 8px 22px rgba(46,139,77,.18) !important;
+}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:active {
+    transform: translateY(0) scale(.985) !important;
 }
 .stTextInput input,
 .stTextArea textarea {
@@ -196,9 +307,12 @@ CRM_CSS = """
     .crm-sync { width: 100%; justify-content: center; white-space: normal; text-align: center; }
     .crm-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .crm-stat { padding: 13px 12px; }
-    .crm-card { padding: 14px; }
-    .crm-card-top { align-items: flex-start; }
-    .crm-card-meta { width: 100%; justify-content: flex-start; }
+    .crm-ledger-head { display: none; }
+    .crm-row { grid-template-columns: 44px minmax(0, 1fr); padding: 12px; }
+    .crm-row-sub { white-space: normal; }
+    .crm-row-meta { justify-self: start; width: auto; }
+    .crm-row-meta-top { justify-content: flex-start; }
+    .crm-actions { justify-content: flex-start; }
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: column !important;
@@ -303,13 +417,13 @@ def _contact_actions(contact: dict) -> str:
     website = (contact.get("website") or "").strip()
     if phone:
         tel = "".join(ch for ch in phone if ch.isdigit() or ch == "+")
-        links.append((f"tel:{tel}", "Call"))
+        links.append((f"tel:{tel}", "☎ Call"))
     if email:
-        links.append((f"mailto:{email}", "Email"))
+        links.append((f"mailto:{email}", "✉ Email"))
     if linkedin:
-        links.append((_href(linkedin), "LinkedIn"))
+        links.append((_href(linkedin), "in LinkedIn"))
     if website:
-        links.append((_href(website), "Website"))
+        links.append((_href(website), "↗ Site"))
     if not links:
         return ""
     return '<div class="crm-actions">' + "".join(
@@ -407,36 +521,52 @@ def _render_contact_card(contact: dict, idx: int) -> None:
     pill = STATUS_LABELS.get(status, status.title())
     src = source_label(contact)
     title = (contact.get("title") or "").strip()
-    due_html = (
-        '<span class="crm-pill due">Due</span>'
-        if _is_due(contact) and status not in {"won", "lost"} else ""
+    due_html = '<span class="crm-pill due">Due</span>' if _is_due(contact) and status not in {"won", "lost"} else ""
+    title_html = f'<span class="crm-row-title">{html.escape(title)}</span>' if title else ""
+
+    company = (contact.get("company") or "").strip()
+    client = (contact.get("client") or "").strip()
+    company_primary = company or client or "—"
+    company_secondary = client if company and client else ""
+    company_secondary_html = (
+        f'<div class="crm-row-v mute">{html.escape(company_secondary)}</div>'
+        if company_secondary
+        else ""
     )
-    title_html = f'<span class="crm-card-title">{html.escape(title)}</span>' if title else ""
-    follow_html = ""
-    if contact.get("next_follow_up"):
-        follow_html = (
-            f'<div class="crm-next">Next follow-up: '
-            f'<strong>{html.escape((contact.get("next_follow_up") or "")[:10])}</strong></div>'
-        )
+
+    follow = (contact.get("next_follow_up") or "").strip()[:10]
+    follow_disp = follow if follow else "—"
+    follow_cls = "" if follow else " mute"
 
     st.markdown(
-        f'<div class="crm-card">'
-        f'<div class="crm-card-top">'
-        f'<div><div class="crm-card-name">{html.escape(name)}'
-        f'{title_html}'
-        f'</div><div class="crm-card-sub">{html.escape(sub)}</div></div>'
-        f'<div class="crm-card-meta">'
-        f'<span class="crm-src">{html.escape(src)}</span>'
-        f'{due_html}'
-        f'<span class="crm-pill {html.escape(status)}">{html.escape(pill)}</span>'
-        f'</div></div>'
-        f'{follow_html}'
-        f'{_contact_actions(contact)}'
+        f'<div class="crm-row">'
+        f'<div class="crm-book {html.escape(status)}"></div>'
+        f'<div class="crm-row-main">'
+        f'  <div class="crm-row-name">{html.escape(name)}{title_html}</div>'
+        f'  <div class="crm-row-sub">{html.escape(sub)}</div>'
+        f'</div>'
+        f'<div>'
+        f'  <div class="crm-row-k">Company</div>'
+        f'  <div class="crm-row-v">{html.escape(company_primary)}</div>'
+        f'  {company_secondary_html}'
+        f'</div>'
+        f'<div>'
+        f'  <div class="crm-row-k">Next</div>'
+        f'  <div class="crm-row-v{follow_cls}">{html.escape(follow_disp)}</div>'
+        f'</div>'
+        f'<div class="crm-row-meta">'
+        f'  <div class="crm-row-meta-top">'
+        f'    <span class="crm-src">{html.escape(src)}</span>'
+        f'    {due_html}'
+        f'    <span class="crm-pill {html.escape(status)}">{html.escape(pill)}</span>'
+        f'  </div>'
+        f'  {_contact_actions(contact)}'
+        f'</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
 
-    with st.expander(f"Edit {name}", expanded=False):
+    with st.expander(f"Open {name}", expanded=False):
         st.markdown('<div class="crm-edit-wrap">', unsafe_allow_html=True)
 
         e1, e2 = st.columns(2)
@@ -619,6 +749,17 @@ def render_crm_page() -> None:
         return
 
     st.caption(f"{len(filtered)} contact{'s' if len(filtered) != 1 else ''}")
+
+    st.markdown(
+        '<div class="crm-ledger-head">'
+        '<span>Book <span class="line"></span></span>'
+        '<span>Contact <span class="line"></span></span>'
+        '<span>Company <span class="line"></span></span>'
+        '<span>Next <span class="line"></span></span>'
+        '<span>Status <span class="line"></span></span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
     id_to_idx = {c.get("id"): i for i, c in enumerate(contacts)}
     for contact in filtered:
