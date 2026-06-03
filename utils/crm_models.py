@@ -135,27 +135,6 @@ def normalize_deal_status(raw: str, *, stage: str = "") -> str:
     return s if s in DEAL_STATUSES else "open"
 
 
-def normalize_email_event(raw: dict[str, Any]) -> dict[str, Any]:
-    """Store client email history as structured, LLM-ready CRM timeline data."""
-    now = utc_now_iso()
-    direction = (raw.get("direction") or "sent").strip().lower()
-    if direction not in {"sent", "received"}:
-        direction = "sent"
-    sent_at = str(raw.get("sent_at") or raw.get("date") or now).strip()
-    return {
-        "id": raw.get("id") or new_contact_id(),
-        "direction": direction,
-        "sent_at": sent_at,
-        "from": (raw.get("from") or raw.get("sender") or "").strip(),
-        "to": (raw.get("to") or raw.get("recipient") or "").strip(),
-        "subject": (raw.get("subject") or "").strip(),
-        "body": (raw.get("body") or raw.get("message") or "").strip(),
-        "summary": (raw.get("summary") or raw.get("insight") or "").strip(),
-        "source": (raw.get("source") or "manual").strip(),
-        "created_at": raw.get("created_at") or now,
-    }
-
-
 def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
     """Ensure all CRM fields exist with sane defaults."""
     now = utc_now_iso()
