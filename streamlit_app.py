@@ -1427,16 +1427,40 @@ DEFAULT_PROMPTS = {
         "contact, and email/phone if available, plus a one-line reason to reach out. Surface "
         "even low-confidence buyer leads and flag the uncertainty rather than dropping them."
     ),
+    "SNRealtors": (
+        "Find as many real leads as possible who would BUY premium residential property "
+        "in Bangalore — and the referral channels that have direct access to HNI and NRI "
+        "buyers. It's fine to include low-confidence leads.\n\n"
+        "SN Realtors is a premium real estate brokerage LLP in Bangalore. They "
+        "channel-partner with top developers (Prestige, Sobha, Brigade, Godrej, etc.) and "
+        "earn commission by placing wealthy buyers into high-value projects — luxury "
+        "apartments, villas, and penthouses typically in the INR 1.5–10 Cr+ range across "
+        "Bangalore. Buyers are typically HNIs, NRIs investing back home, startup founders/"
+        "CXOs upgrading, senior tech professionals, and families relocating to Bangalore.\n\n"
+        "Search broadly across Bangalore and NRI communities for: people publicly asking "
+        "where to buy premium property, NRI investment/relocation posts, startup founders "
+        "and executives house-hunting, wealth managers and private/NRI bankers, family "
+        "offices, premium property consultants, corporate relocation desks, CAs and "
+        "estate advisors, interior designers working on new luxury homes, HNI clubs, "
+        "and forum threads (Reddit, Quora, Facebook groups) about buying in Whitefield, "
+        "Sarjapur, Hebbal, North Bangalore, Electronic City, etc.\n\n"
+        "For each lead capture: who they are, why they (or their clients) would buy "
+        "premium Bangalore property, proof from their site/news/posts, a named person "
+        "to contact, and email/phone if available, plus a one-line reason to reach out. "
+        "Surface even low-confidence buyer leads and flag the uncertainty rather than "
+        "dropping them."
+    ),
 }
 
 
 def resolve_client_label(template_key: str) -> str:
-    """Map the two visible templates to whatever labels exist in /config."""
+    """Map visible templates to whatever labels exist in /config."""
     if not ICPS:
         return ""
     needles = {
         "FocusChainLabs": ("focus", "digital"),
         "Cadabams": ("cadabams", "wenest", "senior"),
+        "SNRealtors": ("sn realtors", "sn", "realtor", "premium real estate"),
     }.get(template_key, ())
     for label, payload in ICPS.items():
         haystack = f"{label} {payload['data'].get('client', '')} {payload['data'].get('vertical', '')}".lower()
@@ -1515,10 +1539,11 @@ if st.session_state.stage == "setup":
     st.markdown('<div class="sec">Template <span class="line"></span></div>',
                 unsafe_allow_html=True)
 
-    t_col1, t_col2 = st.columns(2, gap="medium")
+    t_col1, t_col2, t_col3 = st.columns(3, gap="medium")
     template_options = [
         ("FocusChainLabs", "FocusChainLabs", t_col1),
         ("Cadabams", "Cadabams", t_col2),
+        ("SNRealtors", "SN Realtors", t_col3),
     ]
     for template_key, label, col in template_options:
         target_label = resolve_client_label(template_key)
