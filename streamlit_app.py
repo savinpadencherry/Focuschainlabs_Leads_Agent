@@ -14,6 +14,7 @@ from datetime import datetime
 
 import streamlit as st
 from utils.reach import best_reach_channel, how_to_reach
+from crm_ui import add_leads_to_crm, render_crm_page
 
 # ── Environment ──────────────────────────────────────────────────────────────
 try:
@@ -1345,6 +1346,7 @@ def _init():
         "run_error":      "",
         "run_traceback":  "",
         "run_warnings":   [],
+        "app_view":       "agent",
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -1428,27 +1430,26 @@ DEFAULT_PROMPTS = {
         "even low-confidence buyer leads and flag the uncertainty rather than dropping them."
     ),
     "SNRealtors": (
-        "Find as many real leads as possible who would BUY premium residential property "
-        "in Bangalore — and the referral channels that have direct access to HNI and NRI "
-        "buyers. It's fine to include low-confidence leads.\n\n"
+        "Find real, CONTACTABLE leads for SN Realtors — prioritise leads we can actually "
+        "call or email: named professionals and referral channels with discoverable "
+        "contacts, plus identifiable HNI/NRI buyers looking for premium Bangalore property.\n\n"
         "SN Realtors is a premium real estate brokerage LLP in Bangalore. They "
         "channel-partner with top developers (Prestige, Sobha, Brigade, Godrej, etc.) and "
         "earn commission by placing wealthy buyers into high-value projects — luxury "
         "apartments, villas, and penthouses typically in the INR 1.5–10 Cr+ range across "
         "Bangalore. Buyers are typically HNIs, NRIs investing back home, startup founders/"
         "CXOs upgrading, senior tech professionals, and families relocating to Bangalore.\n\n"
-        "Search broadly across Bangalore and NRI communities for: people publicly asking "
-        "where to buy premium property, NRI investment/relocation posts, startup founders "
-        "and executives house-hunting, wealth managers and private/NRI bankers, family "
-        "offices, premium property consultants, corporate relocation desks, CAs and "
-        "estate advisors, interior designers working on new luxury homes, HNI clubs, "
-        "and forum threads (Reddit, Quora, Facebook groups) about buying in Whitefield, "
-        "Sarjapur, Hebbal, North Bangalore, Electronic City, etc.\n\n"
+        "Prioritise REFERRAL CHANNELS that have direct access to these buyers and come with "
+        "a named person + public contact: wealth managers and private/NRI bankers, family "
+        "offices, premium property consultants and channel partners, corporate relocation "
+        "and expat-housing desks, CAs and estate advisors, interior designers and architects "
+        "working on luxury homes, and HNI clubs. Also surface NAMED individuals on LinkedIn "
+        "in these high-earning cohorts. Use forum/Reddit threads mainly to find which firms, "
+        "brokers and advisors are recommended — not anonymous one-off posters.\n\n"
         "For each lead capture: who they are, why they (or their clients) would buy "
-        "premium Bangalore property, proof from their site/news/posts, a named person "
+        "premium Bangalore property, proof from their site/profile/posts, a named person "
         "to contact, and email/phone if available, plus a one-line reason to reach out. "
-        "Surface even low-confidence buyer leads and flag the uncertainty rather than "
-        "dropping them."
+        "Rank leads we can actually reach above un-contactable anonymous signals."
     ),
 }
 
@@ -1484,6 +1485,31 @@ st.markdown("""
 </h1>
 <p class="tagline">prompt.intake()&nbsp;&nbsp;→&nbsp;&nbsp;signals.scan&nbsp;&nbsp;→&nbsp;&nbsp;outreach.deploy</p>
 """, unsafe_allow_html=True)
+
+# ── App navigation ────────────────────────────────────────────────────────────
+nav_agent, nav_crm, _nav_sp = st.columns([1, 1, 6])
+with nav_agent:
+    if st.button(
+        "Lead Agent",
+        use_container_width=True,
+        type="primary" if st.session_state.get("app_view", "agent") == "agent" else "secondary",
+        key="nav_agent",
+    ):
+        st.session_state.app_view = "agent"
+        st.rerun()
+with nav_crm:
+    if st.button(
+        "CRM",
+        use_container_width=True,
+        type="primary" if st.session_state.get("app_view") == "crm" else "secondary",
+        key="nav_crm",
+    ):
+        st.session_state.app_view = "crm"
+        st.rerun()
+
+if st.session_state.get("app_view") == "crm":
+    render_crm_page()
+    st.stop()
 
 # ── Step rail ─────────────────────────────────────────────────────────────────
 def render_steps(cur: str):
@@ -2371,6 +2397,19 @@ elif st.session_state.stage == "results":
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                 )
+        if st.button(
+            "Add all to CRM",
+            use_container_width=True,
+            help="Save these leads to your GitHub-backed CRM",
+        ):
+            stats = add_leads_to_crm(
+                leads_sorted,
+                client=st.session_state.get("selected_client", ""),
+            )
+            st.success(
+                f"Added to CRM — {stats.get('added', 0)} new, "
+                f"{stats.get('updated', 0)} updated."
+            )
     with plan_col:
         if st.session_state.plan:
             p = st.session_state.plan
@@ -2487,7 +2526,7 @@ elif st.session_state.stage == "results":
         st.dataframe(df, use_container_width=True, hide_index=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    b1, b2, _ = st.columns([1, 1, 4])
+    b1, b2, b3, _ = st.columns([1, 1, 1, 3])
     with b1:
         if st.button("New brief", use_container_width=True):
             st.session_state.stage = "setup"
@@ -2506,6 +2545,10 @@ elif st.session_state.stage == "results":
             st.session_state.leads         = []
             st.session_state.run_error     = ""
             st.session_state.run_warnings  = []
+            st.rerun()
+    with b3:
+        if st.button("Open CRM", use_container_width=True):
+            st.session_state.app_view = "crm"
             st.rerun()
 
 
