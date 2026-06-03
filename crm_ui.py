@@ -18,6 +18,7 @@ from utils.crm_models import (
     display_name,
     merge_contacts,
     new_contact_id,
+    normalize_comment,
     normalize_contact,
     normalize_deal_status,
     normalize_source,
@@ -294,6 +295,68 @@ CRM_CSS = """
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
+}
+.crm-snapshot-card {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.86), rgba(255,255,255,.58)),
+      radial-gradient(95% 130% at 100% 0%, rgba(46,139,77,.11), transparent 50%);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rl);
+    padding: 16px;
+    box-shadow: 0 14px 34px rgba(15,42,51,.06);
+}
+.crm-snapshot-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+.crm-snapshot-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px;
+    font-weight: 850;
+    color: var(--ink);
+    line-height: 1.1;
+}
+.crm-snapshot-sub {
+    color: var(--ink-mute);
+    font-size: 12.5px;
+    margin-top: 4px;
+}
+.crm-snapshot-totals {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(72px, 1fr));
+    gap: 8px;
+    min-width: min(100%, 360px);
+}
+.crm-snapshot-total {
+    background: rgba(255,255,255,.66);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rs);
+    padding: 9px 10px;
+}
+.crm-snapshot-total .n {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px;
+    font-weight: 850;
+    color: var(--ink);
+    line-height: 1;
+}
+.crm-snapshot-total .l {
+    color: var(--ink-mute);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    margin-top: 5px;
+    text-transform: uppercase;
+}
+.crm-stage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+    gap: 8px;
 }
 .crm-snapshot-card {
     background:
@@ -1086,7 +1149,7 @@ def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
         unsafe_allow_html=True,
     )
 
-    with st.expander(f"Open {name}", expanded=False):
+    with st.expander(f"Open client: {company} · {name}", expanded=False):
         st.markdown('<div class="crm-edit-wrap">', unsafe_allow_html=True)
 
         e1, e2, e3 = st.columns(3)
@@ -1233,7 +1296,6 @@ def render_crm_page() -> None:
         unsafe_allow_html=True,
     )
 
-    _render_pipeline_stage_controls(statuses)
     _render_quick_add()
 
     f1, f2, f3, f4, f5, f6 = st.columns([1.8, 1, 1, 1, 1, 0.7])
