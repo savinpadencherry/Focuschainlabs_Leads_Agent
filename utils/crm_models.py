@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 
-# Simple pipeline — easy to scan at a glance
+# Default pipeline — can be extended with custom statuses from the UI.
 CRM_STATUSES = [
     "new",
     "contacted",
-    "interested",
+    "qualified",
+    "meeting",
+    "proposal",
+    "nurture",
     "won",
     "lost",
 ]
@@ -19,18 +23,33 @@ CRM_STATUSES = [
 STATUS_LABELS = {
     "new": "New",
     "contacted": "Contacted",
-    "interested": "Interested",
+    "qualified": "Qualified",
+    "meeting": "Meeting",
+    "proposal": "Proposal",
+    "nurture": "Nurture",
     "won": "Won",
     "lost": "Lost",
 }
 
-# Map legacy / agent statuses into the simple set
+# Map legacy / alternate wording into the default set
 _STATUS_ALIASES = {
-    "qualified": "interested",
-    "meeting": "interested",
-    "proposal": "interested",
-    "nurture": "contacted",
+    # Legacy from earlier UI versions
+    "interested": "qualified",
+    # Common variants / typos
+    "meeting_booked": "meeting",
+    "meeting_scheduled": "meeting",
+    "proposal_sent": "proposal",
+    "nurturing": "nurture",
 }
+
+_STATUS_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _slugify_status(raw: str) -> str:
+    s = (raw or "").lower().strip()
+    s = _STATUS_SLUG_RE.sub("_", s).strip("_")
+    s = re.sub(r"_+", "_", s)
+    return s
 
 
 def utc_now_iso() -> str:
@@ -46,13 +65,21 @@ def empty_crm_db() -> dict[str, Any]:
         "version": 1,
         "updated_at": utc_now_iso(),
         "contacts": [],
+        "custom_statuses": [],
     }
 
 
 def normalize_status(raw: str) -> str:
-    s = (raw or "new").lower().strip()
+    """
+    Normalize a pipeline status.
+
+    - Keeps default statuses as-is.
+    - Preserves custom statuses (slugified) so users can add stages.
+    - Falls back to "new" only when the input is empty/invalid.
+    """
+    s = _slugify_status(raw or "new")
     s = _STATUS_ALIASES.get(s, s)
-    return s if s in CRM_STATUSES else "new"
+    return s or "new"
 
 
 def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
@@ -148,7 +175,7 @@ def merge_contacts(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[s
     for key in ("name", "phone", "email", "company", "client"):
         if not (existing.get(key) or "").strip() and (incoming.get(key) or "").strip():
             merged[key] = incoming[key]
-    merged["status"] = existing.get("status") or "new"
+    merged["status"] = normalize_status(existing.get("status") or "new")
     if incoming.get("notes") and not existing.get("notes"):
         merged["notes"] = incoming["notes"]
     merged["created_at"] = existing.get("created_at") or incoming.get("created_at")
