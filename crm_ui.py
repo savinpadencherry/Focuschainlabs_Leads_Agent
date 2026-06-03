@@ -230,21 +230,126 @@ CRM_CSS = """
     gap: 10px;
     margin: 10px 0 2px;
 }
+.crm-snapshot-card {
+    grid-column: 1 / -1;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.78), rgba(255,255,255,.46)),
+      radial-gradient(90% 140% at 100% 0%, rgba(46,139,77,.12), transparent 48%);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rl);
+    padding: 16px;
+    box-shadow: 0 14px 34px rgba(15,42,51,.06);
+}
+.crm-snapshot-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 13px;
+    flex-wrap: wrap;
+}
+.crm-snapshot-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px;
+    font-weight: 850;
+    color: var(--ink);
+    line-height: 1.1;
+}
+.crm-snapshot-sub {
+    color: var(--ink-mute);
+    font-size: 12.5px;
+    margin-top: 4px;
+}
+.crm-snapshot-totals {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(72px, 1fr));
+    gap: 8px;
+    min-width: min(100%, 360px);
+}
+.crm-snapshot-total {
+    background: rgba(255,255,255,.58);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rs);
+    padding: 9px 10px;
+}
+.crm-snapshot-total .n {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px;
+    font-weight: 850;
+    color: var(--ink);
+    line-height: 1;
+}
+.crm-snapshot-total .l {
+    color: var(--ink-mute);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    margin-top: 5px;
+    text-transform: uppercase;
+}
+.crm-stage-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
 .crm-stage {
-    background: var(--cream-3);
+    background: rgba(255,255,255,.62);
     border: 1px solid var(--line-soft);
     border-radius: var(--r);
     padding: 12px 14px;
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 94px;
+    position: relative;
+    overflow: hidden;
+}
+.crm-stage::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: rgba(15,42,51,.16);
+}
+.crm-stage.open::before { background: var(--green); }
+.crm-stage.close::before { background: var(--ink-mute); }
+.crm-stage.win::before { background: var(--green-br); }
+.crm-stage.loss::before { background: var(--red); }
+.crm-stage .crm-stage-row {
+    display: flex;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
+    align-items: flex-start;
 }
 .crm-stage .n {
     font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 18px; font-weight: 850; color: var(--ink); line-height: 1;
+    font-size: 24px; font-weight: 850; color: var(--ink); line-height: 1;
+}
+.crm-stage .pct {
+    color: var(--ink-mute);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    padding-top: 3px;
 }
 .crm-stage .l { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.crm-stage-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(15,42,51,.07);
+    overflow: hidden;
+}
+.crm-stage-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--green), #9BCF9E);
+}
+.crm-stage.close .crm-stage-fill { background: linear-gradient(90deg, var(--ink-mute), rgba(107,127,133,.38)); }
+.crm-stage.win .crm-stage-fill { background: linear-gradient(90deg, var(--green-br), #9BCF9E); }
+.crm-stage.loss .crm-stage-fill { background: linear-gradient(90deg, var(--red), rgba(169,61,61,.38)); }
 .crm-src {
     font-size: 10px; color: var(--ink-mute); letter-spacing: .04em;
     text-transform: uppercase; font-weight: 600;
@@ -344,7 +449,9 @@ CRM_CSS = """
     .crm-head h2 { font-size: 26px; }
     .crm-sync { width: 100%; justify-content: center; white-space: normal; text-align: center; }
     .crm-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .crm-stage-snap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .crm-stage-snap { grid-template-columns: 1fr; }
+    .crm-stage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .crm-snapshot-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .crm-stat { padding: 13px 12px; }
     .crm-ledger-head { display: none; }
     .crm-row { grid-template-columns: 44px minmax(0, 1fr); padding: 12px; }
@@ -460,16 +567,72 @@ def _stage_snapshot_html(statuses: list[str], contacts: list[dict]) -> str:
         if s in counts:
             counts[s] += 1
 
+    total = len(contacts)
+    active_statuses = [s for s in statuses if s not in {"won", "lost"}]
+    open_count = sum(counts.get(s, 0) for s in active_statuses)
+    won_count = counts.get("won", 0)
+    lost_count = counts.get("lost", 0)
+    due_count = sum(
+        1
+        for c in contacts
+        if _is_due(c) and normalize_status(c.get("status") or "new") not in {"won", "lost"}
+    )
+    max_count = max(counts.values(), default=0) or 1
+
+    totals = (
+        ("Total", total),
+        ("Open", open_count),
+        ("Due", due_count),
+        ("Closed", won_count + lost_count),
+    )
+    totals_html = "".join(
+        '<div class="crm-snapshot-total">'
+        f'<div class="n">{value}</div>'
+        f'<div class="l">{html.escape(label)}</div>'
+        '</div>'
+        for label, value in totals
+    )
+
     cards = []
     for s in statuses:
         label = _status_label(s)
+        count = counts.get(s, 0)
+        pct = round((count / total) * 100) if total else 0
+        width = round((count / max_count) * 100) if count else 0
+        tone = "win" if s == "won" else "loss" if s == "lost" else "open" if s in active_statuses else "close"
         cards.append(
-            '<div class="crm-stage">'
-            f'<div class="n">{counts.get(s, 0)}</div>'
+            f'<div class="crm-stage {tone}">'
+            '<div class="crm-stage-row">'
+            f'<div class="n">{count}</div>'
+            f'<div class="pct">{pct}%</div>'
+            '</div>'
             f'<div class="l"><span class="crm-pill {html.escape(s)}">{html.escape(label)}</span></div>'
+            '<div class="crm-stage-bar">'
+            f'<span class="crm-stage-fill" style="width:{width}%"></span>'
+            '</div>'
             "</div>"
         )
-    return '<div class="crm-stage-snap">' + "".join(cards) + "</div>"
+
+    empty_hint = (
+        "Add contacts or import a lead-agent run to see pipeline movement."
+        if not contacts else
+        "Counts update instantly as contacts move through the pipeline."
+    )
+
+    return (
+        '<div class="crm-stage-snap">'
+        '<div class="crm-snapshot-card">'
+        '<div class="crm-snapshot-top">'
+        '<div>'
+        '<div class="crm-snapshot-title">Pipeline snapshot</div>'
+        f'<div class="crm-snapshot-sub">{html.escape(empty_hint)}</div>'
+        '</div>'
+        f'<div class="crm-snapshot-totals">{totals_html}</div>'
+        '</div>'
+        f'<div class="crm-stage-grid">{"".join(cards)}</div>'
+        '</div>'
+        '</div>'
+    )
 
 
 def _render_pipeline_stage_controls(statuses: list[str]) -> None:
