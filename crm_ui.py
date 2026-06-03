@@ -116,6 +116,15 @@ CRM_CSS = """
     transform: translateY(-1px);
     box-shadow: 0 14px 32px rgba(15,42,51,.10);
 }
+.crm-row.crm-due {
+    border-color: rgba(183,121,31,.24);
+    box-shadow: 0 12px 28px rgba(183,121,31,.08);
+}
+.crm-row.crm-due:hover {
+    border-color: rgba(183,121,31,.36);
+    box-shadow: 0 16px 34px rgba(183,121,31,.12);
+}
+.crm-row.crm-due .crm-book::before { background: rgba(183,121,31,.42); }
 .crm-book {
     width: 34px;
     height: 26px;
@@ -195,7 +204,7 @@ CRM_CSS = """
     white-space: nowrap;
 }
 .crm-row-v.mute { color: var(--ink-mute); font-weight: 600; }
-.crm-row-meta { justify-self: end; width: 100%; }
+.crm-row-meta { justify-self: end; width: 100%; min-width: 0; }
 .crm-row-meta-top { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .crm-pill {
     display: inline-block; padding: 4px 9px; border-radius: 999px;
@@ -521,7 +530,8 @@ def _render_contact_card(contact: dict, idx: int) -> None:
     pill = STATUS_LABELS.get(status, status.title())
     src = source_label(contact)
     title = (contact.get("title") or "").strip()
-    due_html = '<span class="crm-pill due">Due</span>' if _is_due(contact) and status not in {"won", "lost"} else ""
+    is_due = _is_due(contact) and status not in {"won", "lost"}
+    due_html = '<span class="crm-pill due">Due</span>' if is_due else ""
     title_html = f'<span class="crm-row-title">{html.escape(title)}</span>' if title else ""
 
     company = (contact.get("company") or "").strip()
@@ -537,9 +547,10 @@ def _render_contact_card(contact: dict, idx: int) -> None:
     follow = (contact.get("next_follow_up") or "").strip()[:10]
     follow_disp = follow if follow else "—"
     follow_cls = "" if follow else " mute"
+    row_cls = "crm-row crm-due" if is_due else "crm-row"
 
     st.markdown(
-        f'<div class="crm-row">'
+        f'<div class="{row_cls}">'
         f'<div class="crm-book {html.escape(status)}"></div>'
         f'<div class="crm-row-main">'
         f'  <div class="crm-row-name">{html.escape(name)}{title_html}</div>'
