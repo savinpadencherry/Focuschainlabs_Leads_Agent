@@ -28,6 +28,113 @@ from utils.crm_models import (
 from utils.crm_store import github_configured, import_leads_to_crm, load_crm, save_crm
 
 
+CRM_STATUSES = getattr(crm_models, "CRM_STATUSES", ["new", "contacted", "qualified", "proposal", "won", "lost"])
+STATUS_LABELS = getattr(
+    crm_models,
+    "STATUS_LABELS",
+    {
+        "new": "New",
+        "contacted": "Contacted",
+        "qualified": "Qualified",
+        "proposal": "Proposal",
+        "won": "Won",
+        "lost": "Lost",
+    },
+)
+CRM_SOURCE_OPTIONS = getattr(crm_models, "CRM_SOURCE_OPTIONS", ["linkedin", "referral", "inbound", "whatsapp", "event", "other"])
+SOURCE_LABELS = getattr(
+    crm_models,
+    "SOURCE_LABELS",
+    {
+        "linkedin": "LinkedIn",
+        "referral": "Referral",
+        "inbound": "Inbound",
+        "whatsapp": "WhatsApp",
+        "event": "Event",
+        "other": "Other",
+    },
+)
+DEAL_STATUSES = getattr(crm_models, "DEAL_STATUSES", ["open", "won", "lost"])
+DEAL_STATUS_LABELS = getattr(crm_models, "DEAL_STATUS_LABELS", {"open": "Open", "won": "Won", "lost": "Lost"})
+
+contact_fingerprint = crm_models.contact_fingerprint
+display_name = crm_models.display_name
+merge_contacts = crm_models.merge_contacts
+new_contact_id = crm_models.new_contact_id
+normalize_contact = crm_models.normalize_contact
+normalize_status = crm_models.normalize_status
+utc_now_iso = crm_models.utc_now_iso
+
+
+def normalize_source(raw: str) -> str:
+    fn = getattr(crm_models, "normalize_source", None)
+    if fn:
+        return fn(raw)
+    slug = (raw or "other").lower().strip().replace(" ", "_")
+    aliases = {"agent": "other", "manual": "other", "website": "inbound", "web": "inbound", "wa": "whatsapp"}
+    slug = aliases.get(slug, slug)
+    return slug if slug in CRM_SOURCE_OPTIONS else "other"
+
+
+def normalize_deal_status(raw: str, *, stage: str = "") -> str:
+    fn = getattr(crm_models, "normalize_deal_status", None)
+    if fn:
+        return fn(raw, stage=stage)
+    if not raw and stage in {"won", "lost"}:
+        return stage
+    slug = (raw or "open").lower().strip().replace(" ", "_")
+    aliases = {"active": "open", "closed_won": "won", "closed_lost": "lost"}
+    slug = aliases.get(slug, slug)
+    return slug if slug in DEAL_STATUSES else "open"
+
+
+def normalize_email_event(raw: dict) -> dict:
+    fn = getattr(crm_models, "normalize_email_event", None)
+    if fn:
+        return fn(raw)
+    now = utc_now_iso()
+    return {
+        "id": raw.get("id") or new_contact_id(),
+        "direction": (raw.get("direction") or "sent").strip().lower(),
+        "sent_at": str(raw.get("sent_at") or raw.get("date") or now).strip(),
+        "from": (raw.get("from") or raw.get("sender") or "").strip(),
+        "to": (raw.get("to") or raw.get("recipient") or "").strip(),
+        "subject": (raw.get("subject") or "").strip(),
+        "body": (raw.get("body") or raw.get("message") or "").strip(),
+        "summary": (raw.get("summary") or raw.get("insight") or "").strip(),
+        "source": (raw.get("source") or "manual").strip(),
+        "created_at": raw.get("created_at") or now,
+    }
+
+
+def normalize_comment(raw: dict) -> dict:
+    fn = getattr(crm_models, "normalize_comment", None)
+    if fn:
+        return fn(raw)
+    return {
+        "id": raw.get("id") or new_contact_id(),
+        "created_at": raw.get("created_at") or utc_now_iso(),
+        "author": (raw.get("author") or raw.get("owner") or "").strip(),
+        "body": (raw.get("body") or raw.get("comment") or raw.get("note") or "").strip(),
+        "source": (raw.get("source") or "manual").strip(),
+    }
+
+
+def normalize_contact_person(raw: dict) -> dict:
+    fn = getattr(crm_models, "normalize_contact_person", None)
+    if fn:
+        return fn(raw)
+    return {
+        "id": raw.get("id") or new_contact_id(),
+        "name": (raw.get("name") or raw.get("contact_name") or "").strip(),
+        "title": (raw.get("title") or raw.get("contact_title") or "").strip(),
+        "email": (raw.get("email") or raw.get("contact_email") or "").strip(),
+        "phone": (raw.get("phone") or "").strip(),
+        "role": (raw.get("role") or "").strip(),
+        "created_at": raw.get("created_at") or utc_now_iso(),
+    }
+
+
 CRM_CSS = """
 <style>
 .crm-shell {
@@ -295,6 +402,68 @@ CRM_CSS = """
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
+}
+.crm-snapshot-card {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.86), rgba(255,255,255,.58)),
+      radial-gradient(95% 130% at 100% 0%, rgba(46,139,77,.11), transparent 50%);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rl);
+    padding: 16px;
+    box-shadow: 0 14px 34px rgba(15,42,51,.06);
+}
+.crm-snapshot-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+.crm-snapshot-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px;
+    font-weight: 850;
+    color: var(--ink);
+    line-height: 1.1;
+}
+.crm-snapshot-sub {
+    color: var(--ink-mute);
+    font-size: 12.5px;
+    margin-top: 4px;
+}
+.crm-snapshot-totals {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(72px, 1fr));
+    gap: 8px;
+    min-width: min(100%, 360px);
+}
+.crm-snapshot-total {
+    background: rgba(255,255,255,.66);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rs);
+    padding: 9px 10px;
+}
+.crm-snapshot-total .n {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px;
+    font-weight: 850;
+    color: var(--ink);
+    line-height: 1;
+}
+.crm-snapshot-total .l {
+    color: var(--ink-mute);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    margin-top: 5px;
+    text-transform: uppercase;
+}
+.crm-stage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+    gap: 8px;
 }
 .crm-snapshot-card {
     background:
@@ -1305,7 +1474,7 @@ def render_crm_page() -> None:
         status_filter = st.selectbox(
             "Stage",
             ["all"] + statuses,
-            format_func=lambda s: "All" if s == "all" else _status_label(s),
+            format_func=lambda s: "All stages" if s == "all" else _status_label(s),
             label_visibility="collapsed",
         )
     with f3:
