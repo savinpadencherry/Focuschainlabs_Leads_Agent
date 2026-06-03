@@ -225,26 +225,184 @@ CRM_CSS = """
 .crm-pill.lost { background: rgba(169,61,61,.12); color: var(--red); }
 .crm-pill.due { background: rgba(183,121,31,.12); color: var(--amber); }
 .crm-stage-snap {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
     margin: 10px 0 2px;
 }
+.crm-snapshot-card {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.86), rgba(255,255,255,.58)),
+      radial-gradient(95% 130% at 100% 0%, rgba(46,139,77,.11), transparent 50%);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rl);
+    padding: 16px;
+    box-shadow: 0 14px 34px rgba(15,42,51,.06);
+}
+.crm-snapshot-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+.crm-snapshot-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px;
+    font-weight: 850;
+    color: var(--ink);
+    line-height: 1.1;
+}
+.crm-snapshot-sub {
+    color: var(--ink-mute);
+    font-size: 12.5px;
+    margin-top: 4px;
+}
+.crm-snapshot-totals {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(72px, 1fr));
+    gap: 8px;
+    min-width: min(100%, 360px);
+}
+.crm-snapshot-total {
+    background: rgba(255,255,255,.66);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rs);
+    padding: 9px 10px;
+}
+.crm-snapshot-total .n {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px;
+    font-weight: 850;
+    color: var(--ink);
+    line-height: 1;
+}
+.crm-snapshot-total .l {
+    color: var(--ink-mute);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    margin-top: 5px;
+    text-transform: uppercase;
+}
+.crm-stage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+    gap: 8px;
+}
 .crm-stage {
-    background: var(--cream-3);
+    background: rgba(255,255,255,.66);
     border: 1px solid var(--line-soft);
     border-radius: var(--r);
-    padding: 12px 14px;
+    padding: 10px 11px;
+    min-height: 78px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 3px 0 0 rgba(15,42,51,.12);
+}
+.crm-stage.open { box-shadow: inset 3px 0 0 var(--green); }
+.crm-stage.close { box-shadow: inset 3px 0 0 var(--ink-mute); }
+.crm-stage.win { box-shadow: inset 3px 0 0 var(--green-br); }
+.crm-stage.loss { box-shadow: inset 3px 0 0 var(--red); }
+.crm-stage-top {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.crm-stage-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .crm-stage .n {
     font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 18px; font-weight: 850; color: var(--ink); line-height: 1;
+    font-size: 26px;
+    font-weight: 850;
+    color: var(--ink);
+    line-height: .95;
 }
-.crm-stage .l { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.crm-stage .pct {
+    color: var(--ink-mute);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    margin-top: 3px;
+}
+.crm-stage-bar {
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(15,42,51,.07);
+    overflow: hidden;
+}
+.crm-stage-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--green), #9BCF9E);
+}
+.crm-stage.close .crm-stage-fill { background: linear-gradient(90deg, var(--ink-mute), rgba(107,127,133,.38)); }
+.crm-stage.win .crm-stage-fill { background: linear-gradient(90deg, var(--green-br), #9BCF9E); }
+.crm-stage.loss .crm-stage-fill { background: linear-gradient(90deg, var(--red), rgba(169,61,61,.38)); }
+.crm-stage-empty .crm-stage-fill { width: 0 !important; }
+.crm-stage-empty .n { color: var(--ink-soft); }
+.crm-stage-empty { opacity: .72; }
+.crm-stage-note {
+    margin-top: 10px;
+    color: var(--ink-mute);
+    font-size: 12px;
+    line-height: 1.45;
+}
+.crm-stage-tools {
+    background: rgba(255,255,255,.62);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r);
+    padding: 14px 16px;
+    margin: 12px 0 0;
+}
+.crm-stage-tools-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+.crm-stage-tools-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 16px;
+    font-weight: 850;
+    color: var(--ink);
+}
+.crm-stage-tools-hint {
+    color: var(--ink-mute);
+    font-size: 12.5px;
+}
+.crm-setup-card {
+    background: rgba(183,121,31,.08);
+    border: 1px solid rgba(183,121,31,.20);
+    border-radius: var(--r);
+    padding: 13px 15px;
+    margin: 0 0 2px;
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.crm-setup-card strong { color: var(--ink); }
+.crm-setup-card code {
+    background: rgba(255,255,255,.65);
+    border: 1px solid var(--line-soft);
+    border-radius: 5px;
+    padding: 1px 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+}
 .crm-src {
     font-size: 10px; color: var(--ink-mute); letter-spacing: .04em;
     text-transform: uppercase; font-weight: 600;
@@ -344,7 +502,8 @@ CRM_CSS = """
     .crm-head h2 { font-size: 26px; }
     .crm-sync { width: 100%; justify-content: center; white-space: normal; text-align: center; }
     .crm-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .crm-stage-snap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .crm-stage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .crm-snapshot-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .crm-stat { padding: 13px 12px; }
     .crm-ledger-head { display: none; }
     .crm-row { grid-template-columns: 44px minmax(0, 1fr); padding: 12px; }
@@ -432,6 +591,15 @@ def _sync_badge(meta: dict) -> str:
     )
 
 
+def _github_setup_hint_html() -> str:
+    return (
+        '<div class="crm-setup-card">'
+        '<strong>CRM persistence is not active yet.</strong> Add a GitHub token in Streamlit Secrets as '
+        '<code>GITHUB_TOKEN</code>. Optional overrides: <code>GITHUB_REPO</code> and <code>GITHUB_BRANCH</code>.'
+        '</div>'
+    )
+
+
 def _status_label(status: str) -> str:
     return STATUS_LABELS.get(status, (status or "new").replace("_", " ").title())
 
@@ -460,56 +628,122 @@ def _stage_snapshot_html(statuses: list[str], contacts: list[dict]) -> str:
         if s in counts:
             counts[s] += 1
 
+    total = len(contacts)
+    active_statuses = [s for s in statuses if s not in {"won", "lost"}]
+    open_count = sum(counts.get(s, 0) for s in active_statuses)
+    won_count = counts.get("won", 0)
+    lost_count = counts.get("lost", 0)
+    due_count = sum(
+        1
+        for c in contacts
+        if _is_due(c) and normalize_status(c.get("status") or "new") not in {"won", "lost"}
+    )
+    max_count = max(counts.values(), default=0) or 1
+
+    totals = (
+        ("Total", total),
+        ("Open", open_count),
+        ("Due", due_count),
+        ("Closed", won_count + lost_count),
+    )
+    totals_html = "".join(
+        '<div class="crm-snapshot-total">'
+        f'<div class="n">{value}</div>'
+        f'<div class="l">{html.escape(label)}</div>'
+        '</div>'
+        for label, value in totals
+    )
+
     cards = []
     for s in statuses:
         label = _status_label(s)
+        count = counts.get(s, 0)
+        pct = round((count / total) * 100) if total else 0
+        width = round((count / max_count) * 100) if count else 0
+        tone = "win" if s == "won" else "loss" if s == "lost" else "open" if s in active_statuses else "close"
+        empty_cls = " crm-stage-empty" if count == 0 else ""
+        pct_text = f"{pct}% share" if total else "No leads"
         cards.append(
-            '<div class="crm-stage">'
-            f'<div class="n">{counts.get(s, 0)}</div>'
-            f'<div class="l"><span class="crm-pill {html.escape(s)}">{html.escape(label)}</span></div>'
+            f'<div class="crm-stage {tone}{empty_cls}">'
+            '<div class="crm-stage-top">'
+            f'<div class="crm-stage-label" title="{html.escape(label)}">{html.escape(label)}</div>'
+            f'<div class="pct">{html.escape(pct_text)}</div>'
+            '</div>'
+            f'<div class="n">{count}</div>'
+            '<div class="crm-stage-bar">'
+            f'<span class="crm-stage-fill" style="width:{width}%"></span>'
+            '</div>'
             "</div>"
         )
-    return '<div class="crm-stage-snap">' + "".join(cards) + "</div>"
+
+    empty_hint = (
+        "Add contacts or import a lead-agent run to see stage counts here."
+        if not contacts else
+        "Counts update as contacts move through each stage."
+    )
+
+    return (
+        '<div class="crm-stage-snap">'
+        '<div class="crm-snapshot-card">'
+        '<div class="crm-snapshot-top">'
+        '<div>'
+        '<div class="crm-snapshot-title">Pipeline snapshot</div>'
+        f'<div class="crm-snapshot-sub">{html.escape(empty_hint)}</div>'
+        '</div>'
+        f'<div class="crm-snapshot-totals">{totals_html}</div>'
+        '</div>'
+        f'<div class="crm-stage-grid">{"".join(cards)}</div>'
+        '</div>'
+        '</div>'
+    )
 
 
 def _render_pipeline_stage_controls(statuses: list[str]) -> None:
-    with st.expander("Pipeline stages", expanded=False):
-        st.caption("Use default stages or add your own (saved to the CRM file).")
+    st.markdown(
+        '<div class="crm-stage-tools">'
+        '<div class="crm-stage-tools-head">'
+        '<div class="crm-stage-tools-title">Pipeline stages</div>'
+        '<div class="crm-stage-tools-hint">Add a custom stage only when the defaults are not enough.</div>'
+        '</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
+    new_col, add_col, reset_col = st.columns([2.2, 1, 1])
+    with new_col:
         new_label = st.text_input(
-            "Add a stage",
+            "Custom stage name",
             placeholder="e.g. Demo scheduled",
             label_visibility="collapsed",
             key="crm_new_stage",
         )
-        b1, b2, _ = st.columns([1, 1, 3])
-        with b1:
-            if st.button("Add stage", use_container_width=True):
-                slug = normalize_status(new_label)
-                if not slug or slug == "all":
-                    st.error("Enter a stage name.")
-                elif slug in CRM_STATUSES:
-                    st.info(f"'{_status_label(slug)}' is already a default stage.")
-                else:
-                    db = st.session_state.get("crm_db") or {}
-                    custom = list(db.get("custom_statuses") or [])
-                    if slug not in custom:
-                        custom.append(slug)
-                        db["custom_statuses"] = custom
-                        st.session_state.crm_db = db
-                        if persist_crm(f"CRM: add stage {slug}"):
-                            st.toast("Stage added")
-                            st.rerun()
-                    else:
-                        st.info("That stage already exists.")
-        with b2:
-            if st.button("Reset to defaults", use_container_width=True, help="Removes custom stages"):
+    with add_col:
+        if st.button("Add stage", use_container_width=True):
+            slug = normalize_status(new_label)
+            if not slug or slug == "all":
+                st.error("Enter a stage name.")
+            elif slug in CRM_STATUSES:
+                st.info(f"'{_status_label(slug)}' is already a default stage.")
+            else:
                 db = st.session_state.get("crm_db") or {}
-                db["custom_statuses"] = []
-                st.session_state.crm_db = db
-                if persist_crm("CRM: reset custom stages"):
-                    st.toast("Reset")
-                    st.rerun()
+                custom = list(db.get("custom_statuses") or [])
+                if slug not in custom:
+                    custom.append(slug)
+                    db["custom_statuses"] = custom
+                    st.session_state.crm_db = db
+                    if persist_crm(f"CRM: add stage {slug}"):
+                        st.toast("Stage added")
+                        st.rerun()
+                else:
+                    st.info("That stage already exists.")
+    with reset_col:
+        if st.button("Reset stages", use_container_width=True, help="Removes custom stages"):
+            db = st.session_state.get("crm_db") or {}
+            db["custom_statuses"] = []
+            st.session_state.crm_db = db
+            if persist_crm("CRM: reset custom stages"):
+                st.toast("Reset")
+                st.rerun()
 
 
 def _clean_follow_up(raw: str) -> str | None:
@@ -798,6 +1032,7 @@ def render_crm_page() -> None:
         if _is_due(c) and normalize_status(c.get("status") or "new") not in {"won", "lost"}
     )
     won = sum(1 for c in contacts if normalize_status(c.get("status") or "new") == "won")
+    setup_hint_html = "" if github_configured() else _github_setup_hint_html()
     snapshot_html = _stage_snapshot_html(statuses, contacts)
 
     st.markdown(
@@ -810,6 +1045,7 @@ def render_crm_page() -> None:
           </div>
           {_sync_badge(meta)}
         </div>
+        {setup_hint_html}
         <div class="crm-stats">
           <div class="crm-stat"><div class="n">{len(contacts)}</div><div class="l">Total</div></div>
           <div class="crm-stat"><div class="n">{active}</div><div class="l">Active</div></div>
