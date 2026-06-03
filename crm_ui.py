@@ -8,16 +8,20 @@ from datetime import date, datetime
 import streamlit as st
 
 from utils.crm_models import (
+    CRM_SOURCE_OPTIONS,
     CRM_STATUSES,
+    DEAL_STATUS_LABELS,
+    DEAL_STATUSES,
+    SOURCE_LABELS,
     STATUS_LABELS,
     contact_fingerprint,
     display_name,
-    display_subtitle,
     merge_contacts,
     new_contact_id,
     normalize_contact,
+    normalize_deal_status,
+    normalize_source,
     normalize_status,
-    source_label,
     utc_now_iso,
 )
 from utils.crm_store import github_configured, import_leads_to_crm, load_crm, save_crm
@@ -79,7 +83,7 @@ CRM_CSS = """
 /* Ledger header (table-like) */
 .crm-ledger-head {
     display: grid;
-    grid-template-columns: 44px minmax(0, 2.2fr) minmax(0, 1.35fr) minmax(0, .95fr) minmax(0, 1.25fr);
+    grid-template-columns: 92px minmax(0, 1.35fr) minmax(0, 1.45fr) minmax(0, .9fr) minmax(0, .9fr) minmax(0, 1fr);
     gap: 12px;
     padding: 10px 14px;
     border: 1px solid var(--line-soft);
@@ -105,7 +109,7 @@ CRM_CSS = """
     background: rgba(255,255,255,.65);
     padding: 12px 14px;
     display: grid;
-    grid-template-columns: 44px minmax(0, 2.2fr) minmax(0, 1.35fr) minmax(0, .95fr) minmax(0, 1.25fr);
+    grid-template-columns: 92px minmax(0, 1.35fr) minmax(0, 1.45fr) minmax(0, .9fr) minmax(0, .9fr) minmax(0, 1fr);
     gap: 12px;
     align-items: center;
     transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease, background .18s ease;
@@ -224,6 +228,7 @@ CRM_CSS = """
 .crm-pill.won { background: rgba(46,139,77,.18); color: #166534; }
 .crm-pill.lost { background: rgba(169,61,61,.12); color: var(--red); }
 .crm-pill.due { background: rgba(183,121,31,.12); color: var(--amber); }
+.crm-pill.open { background: rgba(59,130,246,.10); color: #1D4ED8; }
 .crm-stage-snap {
     margin: 10px 0 2px;
 }
@@ -506,7 +511,7 @@ CRM_CSS = """
     .crm-snapshot-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .crm-stat { padding: 13px 12px; }
     .crm-ledger-head { display: none; }
-    .crm-row { grid-template-columns: 44px minmax(0, 1fr); padding: 12px; }
+    .crm-row { grid-template-columns: 1fr; padding: 12px; }
     .crm-row-sub { white-space: normal; }
     .crm-row-meta { justify-self: start; width: auto; }
     .crm-row-meta-top { justify-content: flex-start; }
@@ -604,14 +609,23 @@ def _status_label(status: str) -> str:
     return STATUS_LABELS.get(status, (status or "new").replace("_", " ").title())
 
 
+def _source_label(source: str) -> str:
+    return SOURCE_LABELS.get(source, (source or "other").replace("_", " ").title())
+
+
+def _deal_status_label(status: str) -> str:
+    return DEAL_STATUS_LABELS.get(status, (status or "open").replace("_", " ").title())
+
+
+def _value_display(value: str) -> str:
+    value = str(value or "").strip()
+    return value or "—"
+
+
 def _available_statuses(db: dict, contacts: list[dict]) -> list[str]:
+    """Return fixed pipeline stages plus any legacy values already saved."""
     base = list(CRM_STATUSES)
     extras: list[str] = []
-
-    for s in (db.get("custom_statuses") or []):
-        slug = normalize_status(str(s))
-        if slug and slug not in base and slug not in extras:
-            extras.append(slug)
 
     for c in contacts:
         slug = normalize_status(c.get("status") or "new")
@@ -636,7 +650,7 @@ def _stage_snapshot_html(statuses: list[str], contacts: list[dict]) -> str:
     due_count = sum(
         1
         for c in contacts
-        if _is_due(c) and normalize_status(c.get("status") or "new") not in {"won", "lost"}
+        if _is_due(c) and normalize_deal_status(c.get("deal_status") or "", stage=normalize_status(c.get("status") or "new")) == "open"
     )
     max_count = max(counts.values(), default=0) or 1
 
@@ -699,51 +713,21 @@ def _stage_snapshot_html(statuses: list[str], contacts: list[dict]) -> str:
 
 
 def _render_pipeline_stage_controls(statuses: list[str]) -> None:
+    stage_flow = " → ".join(_status_label(s) for s in CRM_STATUSES)
+    source_flow = " · ".join(_source_label(s) for s in CRM_SOURCE_OPTIONS)
+    deal_flow = " · ".join(_deal_status_label(s) for s in DEAL_STATUSES)
     st.markdown(
         '<div class="crm-stage-tools">'
         '<div class="crm-stage-tools-head">'
-        '<div class="crm-stage-tools-title">Pipeline stages</div>'
-        '<div class="crm-stage-tools-hint">Add a custom stage only when the defaults are not enough.</div>'
+        '<div class="crm-stage-tools-title">CRM fields</div>'
+        '<div class="crm-stage-tools-hint">Use dropdowns while adding or editing leads.</div>'
         '</div>'
+        f'<div class="crm-stage-note"><strong>Stage:</strong> {html.escape(stage_flow)}</div>'
+        f'<div class="crm-stage-note"><strong>Source:</strong> {html.escape(source_flow)}</div>'
+        f'<div class="crm-stage-note"><strong>Status:</strong> {html.escape(deal_flow)}</div>'
         '</div>',
         unsafe_allow_html=True,
     )
-
-    new_col, add_col, reset_col = st.columns([2.2, 1, 1])
-    with new_col:
-        new_label = st.text_input(
-            "Custom stage name",
-            placeholder="e.g. Demo scheduled",
-            label_visibility="collapsed",
-            key="crm_new_stage",
-        )
-    with add_col:
-        if st.button("Add stage", use_container_width=True):
-            slug = normalize_status(new_label)
-            if not slug or slug == "all":
-                st.error("Enter a stage name.")
-            elif slug in CRM_STATUSES:
-                st.info(f"'{_status_label(slug)}' is already a default stage.")
-            else:
-                db = st.session_state.get("crm_db") or {}
-                custom = list(db.get("custom_statuses") or [])
-                if slug not in custom:
-                    custom.append(slug)
-                    db["custom_statuses"] = custom
-                    st.session_state.crm_db = db
-                    if persist_crm(f"CRM: add stage {slug}"):
-                        st.toast("Stage added")
-                        st.rerun()
-                else:
-                    st.info("That stage already exists.")
-    with reset_col:
-        if st.button("Reset stages", use_container_width=True, help="Removes custom stages"):
-            db = st.session_state.get("crm_db") or {}
-            db["custom_statuses"] = []
-            st.session_state.crm_db = db
-            if persist_crm("CRM: reset custom stages"):
-                st.toast("Reset")
-                st.rerun()
 
 
 def _clean_follow_up(raw: str) -> str | None:
@@ -767,7 +751,7 @@ def _is_due(contact: dict) -> bool:
 
 
 def _contact_source(contact: dict) -> str:
-    return "agent" if source_label(contact).lower() == "agent" else "manual"
+    return normalize_source(contact.get("source") or "other")
 
 
 def _href(url: str) -> str:
@@ -826,45 +810,51 @@ def _upsert_contact(contact: dict) -> tuple[str, dict]:
 def _render_quick_add() -> None:
     st.markdown(
         '<div class="crm-add-box">'
-        '<div class="label">Add contact</div>'
-        '<div class="hint">Save a new prospect, walk-in, referral, or imported lead follow-up.</div>'
+        '<div class="label">Add lead</div>'
+        '<div class="hint">Track company, contact, source, stage, owner, value, and overall status.</div>'
         '</div>',
         unsafe_allow_html=True,
     )
     with st.form("crm_quick_add", clear_on_submit=True, border=False):
-        statuses = _available_statuses(
-            st.session_state.get("crm_db") or {},
-            list((st.session_state.get("crm_db") or {}).get("contacts") or []),
-        )
-        c1, c2, c3 = st.columns([1.1, 1, 1])
+        c1, c2, c3 = st.columns([1.2, 1, 1])
         with c1:
-            name = st.text_input("Name", placeholder="Rajesh Kumar")
-        with c2:
-            phone = st.text_input("Phone", placeholder="+91 98xxx xxxxx")
-        with c3:
-            email = st.text_input("Email", placeholder="name@company.com")
-
-        c4, c5, c6 = st.columns([1, 1, 1])
-        with c4:
             company = st.text_input("Company", placeholder="Prestige Group")
-        with c5:
-            client = st.text_input("For client", placeholder="SN Realtors")
-        with c6:
-            status = st.selectbox(
-                "Status",
-                statuses,
-                index=0,
-                format_func=_status_label,
-            )
+        with c2:
+            industry = st.text_input("Industry", placeholder="Real estate")
+        with c3:
+            owner = st.text_input("Owner", placeholder="Sales owner")
 
-        follow_up = st.text_input("Follow-up date", placeholder="YYYY-MM-DD")
-        notes = st.text_area("Quick note", placeholder="Met at event, looking for villa in Whitefield...")
-        if st.form_submit_button("Save contact", type="primary", use_container_width=True):
+        c4, c5, c6 = st.columns([1.1, 1, 1])
+        with c4:
+            name = st.text_input("Contact name", placeholder="Rajesh Kumar")
+        with c5:
+            email = st.text_input("Contact email", placeholder="name@company.com")
+        with c6:
+            phone = st.text_input("Phone", placeholder="+91 98xxx xxxxx")
+
+        c7, c8, c9, c10 = st.columns([1, 1, 1, 1])
+        with c7:
+            source = st.selectbox("Source", CRM_SOURCE_OPTIONS, format_func=_source_label)
+        with c8:
+            stage = st.selectbox("Stage", CRM_STATUSES, format_func=_status_label)
+        with c9:
+            deal_status = st.selectbox("Status", DEAL_STATUSES, format_func=_deal_status_label)
+        with c10:
+            value = st.text_input("Value", placeholder="₹1,00,000")
+
+        c11, c12 = st.columns([1, 2])
+        with c11:
+            follow_up = st.text_input("Follow-up date", placeholder="YYYY-MM-DD")
+        with c12:
+            client = st.text_input("For client", placeholder="SN Realtors")
+
+        notes = st.text_area("Quick note", placeholder="Context, requirements, or next step...")
+        if st.form_submit_button("Save lead", type="primary", use_container_width=True):
             clean_follow_up = _clean_follow_up(follow_up)
             if clean_follow_up is None:
                 st.error("Use YYYY-MM-DD for follow-up date.")
-            elif not name.strip() and not phone.strip() and not email.strip():
-                st.error("Add at least a name, phone, or email.")
+            elif not company.strip() and not name.strip() and not phone.strip() and not email.strip():
+                st.error("Add at least a company, contact name, phone, or email.")
             else:
                 contact = normalize_contact(
                     {
@@ -873,11 +863,15 @@ def _render_quick_add() -> None:
                         "phone": phone,
                         "email": email,
                         "company": company,
+                        "industry": industry,
                         "client": client,
-                        "status": status,
+                        "owner": owner,
+                        "value": value,
+                        "status": stage,
+                        "deal_status": deal_status,
                         "notes": notes,
                         "next_follow_up": clean_follow_up,
-                        "source": "manual",
+                        "source": source,
                         "tags": ["manual", "ground"],
                     }
                 )
@@ -889,53 +883,63 @@ def _render_quick_add() -> None:
 
 def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
     cid = contact.get("id", f"row-{idx}")
+    lead_id = str(cid)[:8]
     name = display_name(contact)
-    sub = display_subtitle(contact)
-    status = normalize_status(contact.get("status") or "new")
-    pill = _status_label(status)
-    src = source_label(contact)
+    stage = normalize_status(contact.get("status") or "new")
+    stage_label = _status_label(stage)
+    deal_status = normalize_deal_status(contact.get("deal_status") or "", stage=stage)
+    deal_label = _deal_status_label(deal_status)
+    source = normalize_source(contact.get("source") or "other")
+    source_disp = _source_label(source)
     title = (contact.get("title") or "").strip()
-    is_due = _is_due(contact) and status not in {"won", "lost"}
+    is_due = _is_due(contact) and deal_status == "open"
     due_html = '<span class="crm-pill due">Due</span>' if is_due else ""
     title_html = f'<span class="crm-row-title">{html.escape(title)}</span>' if title else ""
 
-    company = (contact.get("company") or "").strip()
+    company = (contact.get("company") or "").strip() or "—"
+    industry = (contact.get("industry") or "").strip()
+    industry_html = f'<div class="crm-row-v mute">{html.escape(industry)}</div>' if industry else ""
+    email = (contact.get("email") or "").strip() or "—"
+    owner = (contact.get("owner") or "").strip() or "—"
+    value = _value_display(contact.get("value") or "")
     client = (contact.get("client") or "").strip()
-    company_primary = company or client or "—"
-    company_secondary = client if company and client else ""
-    company_secondary_html = (
-        f'<div class="crm-row-v mute">{html.escape(company_secondary)}</div>'
-        if company_secondary
-        else ""
-    )
-
+    client_html = f'<div class="crm-row-sub">{html.escape(client)}</div>' if client else ""
     follow = (contact.get("next_follow_up") or "").strip()[:10]
-    follow_disp = follow if follow else "—"
-    follow_cls = "" if follow else " mute"
+    follow_html = f'<div class="crm-row-sub">Next: {html.escape(follow)}</div>' if follow else ""
     row_cls = "crm-row crm-due" if is_due else "crm-row"
 
     st.markdown(
         f'<div class="{row_cls}">'
-        f'<div class="crm-book {html.escape(status)}"></div>'
-        f'<div class="crm-row-main">'
-        f'  <div class="crm-row-name">{html.escape(name)}{title_html}</div>'
-        f'  <div class="crm-row-sub">{html.escape(sub)}</div>'
+        f'<div>'
+        f'  <div class="crm-row-k">Lead ID</div>'
+        f'  <div class="crm-row-v">{html.escape(lead_id)}</div>'
         f'</div>'
         f'<div>'
         f'  <div class="crm-row-k">Company</div>'
-        f'  <div class="crm-row-v">{html.escape(company_primary)}</div>'
-        f'  {company_secondary_html}'
+        f'  <div class="crm-row-v">{html.escape(company)}</div>'
+        f'  {industry_html}'
+        f'</div>'
+        f'<div class="crm-row-main">'
+        f'  <div class="crm-row-k">Contact</div>'
+        f'  <div class="crm-row-name">{html.escape(name)}{title_html}</div>'
+        f'  <div class="crm-row-sub">{html.escape(email)}</div>'
+        f'  {client_html}'
         f'</div>'
         f'<div>'
-        f'  <div class="crm-row-k">Next</div>'
-        f'  <div class="crm-row-v{follow_cls}">{html.escape(follow_disp)}</div>'
+        f'  <div class="crm-row-k">Source</div>'
+        f'  <div class="crm-row-v">{html.escape(source_disp)}</div>'
+        f'  {follow_html}'
+        f'</div>'
+        f'<div>'
+        f'  <div class="crm-row-k">Stage</div>'
+        f'  <span class="crm-pill {html.escape(stage)}">{html.escape(stage_label)}</span>'
         f'</div>'
         f'<div class="crm-row-meta">'
         f'  <div class="crm-row-meta-top">'
-        f'    <span class="crm-src">{html.escape(src)}</span>'
         f'    {due_html}'
-        f'    <span class="crm-pill {html.escape(status)}">{html.escape(pill)}</span>'
+        f'    <span class="crm-pill {html.escape(deal_status)}">{html.escape(deal_label)}</span>'
         f'  </div>'
+        f'  <div class="crm-row-sub">Owner: {html.escape(owner)} · Value: {html.escape(value)}</div>'
         f'  {_contact_actions(contact)}'
         f'</div>'
         f'</div>',
@@ -945,28 +949,51 @@ def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
     with st.expander(f"Open {name}", expanded=False):
         st.markdown('<div class="crm-edit-wrap">', unsafe_allow_html=True)
 
-        e1, e2 = st.columns(2)
+        e1, e2, e3 = st.columns(3)
         with e1:
-            v_name = st.text_input("Name", contact.get("name", ""), key=f"n_{cid}")
-            v_phone = st.text_input("Phone", contact.get("phone", ""), key=f"p_{cid}")
-            v_email = st.text_input("Email", contact.get("email", ""), key=f"e_{cid}")
-        with e2:
             v_company = st.text_input("Company", contact.get("company", ""), key=f"c_{cid}")
-            v_client = st.text_input("For client", contact.get("client", ""), key=f"cl_{cid}")
-            v_status = st.selectbox(
-                "Status",
-                statuses,
-                index=statuses.index(status) if status in statuses else 0,
+            v_industry = st.text_input("Industry", contact.get("industry", ""), key=f"i_{cid}")
+            v_owner = st.text_input("Owner", contact.get("owner", ""), key=f"o_{cid}")
+        with e2:
+            v_name = st.text_input("Contact name", contact.get("name", ""), key=f"n_{cid}")
+            v_email = st.text_input("Contact email", contact.get("email", ""), key=f"e_{cid}")
+            v_phone = st.text_input("Phone", contact.get("phone", ""), key=f"p_{cid}")
+        with e3:
+            v_source = st.selectbox(
+                "Source",
+                CRM_SOURCE_OPTIONS,
+                index=CRM_SOURCE_OPTIONS.index(source) if source in CRM_SOURCE_OPTIONS else 0,
+                format_func=_source_label,
+                key=f"src_{cid}",
+            )
+            v_stage = st.selectbox(
+                "Stage",
+                CRM_STATUSES,
+                index=CRM_STATUSES.index(stage) if stage in CRM_STATUSES else 0,
                 format_func=_status_label,
                 key=f"s_{cid}",
             )
+            v_deal_status = st.selectbox(
+                "Status",
+                DEAL_STATUSES,
+                index=DEAL_STATUSES.index(deal_status) if deal_status in DEAL_STATUSES else 0,
+                format_func=_deal_status_label,
+                key=f"ds_{cid}",
+            )
+
+        e4, e5, e6 = st.columns([1, 1, 1])
+        with e4:
+            v_value = st.text_input("Value", contact.get("value", ""), key=f"v_{cid}")
+        with e5:
+            v_follow = st.text_input(
+                "Follow up on (YYYY-MM-DD)",
+                (contact.get("next_follow_up") or "")[:10],
+                key=f"f_{cid}",
+            )
+        with e6:
+            v_client = st.text_input("For client", contact.get("client", ""), key=f"cl_{cid}")
 
         v_notes = st.text_area("Notes", contact.get("notes", ""), height=96, key=f"nt_{cid}")
-        v_follow = st.text_input(
-            "Follow up on (YYYY-MM-DD)",
-            (contact.get("next_follow_up") or "")[:10],
-            key=f"f_{cid}",
-        )
 
         # Agent extras — only if present, tucked away
         if contact.get("signal") or contact.get("opening_line") or contact.get("score"):
@@ -992,8 +1019,13 @@ def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
                             "phone": v_phone,
                             "email": v_email,
                             "company": v_company,
+                            "industry": v_industry,
                             "client": v_client,
-                            "status": v_status,
+                            "owner": v_owner,
+                            "value": v_value,
+                            "source": v_source,
+                            "status": v_stage,
+                            "deal_status": v_deal_status,
                             "notes": v_notes,
                             "next_follow_up": clean_follow_up,
                             "updated_at": utc_now_iso(),
@@ -1025,13 +1057,13 @@ def render_crm_page() -> None:
 
     statuses = _available_statuses(db, contacts)
 
-    active = sum(1 for c in contacts if normalize_status(c.get("status") or "new") not in {"won", "lost"})
+    active = sum(1 for c in contacts if normalize_deal_status(c.get("deal_status") or "", stage=normalize_status(c.get("status") or "new")) == "open")
     due = sum(
         1
         for c in contacts
-        if _is_due(c) and normalize_status(c.get("status") or "new") not in {"won", "lost"}
+        if _is_due(c) and normalize_deal_status(c.get("deal_status") or "", stage=normalize_status(c.get("status") or "new")) == "open"
     )
-    won = sum(1 for c in contacts if normalize_status(c.get("status") or "new") == "won")
+    won = sum(1 for c in contacts if normalize_deal_status(c.get("deal_status") or "", stage=normalize_status(c.get("status") or "new")) == "won")
     setup_hint_html = "" if github_configured() else _github_setup_hint_html()
     snapshot_html = _stage_snapshot_html(statuses, contacts)
 
@@ -1062,12 +1094,12 @@ def render_crm_page() -> None:
     _render_pipeline_stage_controls(statuses)
     _render_quick_add()
 
-    f1, f2, f3, f4, f5 = st.columns([2.1, 1.15, 1, 1.15, 0.7])
+    f1, f2, f3, f4, f5, f6 = st.columns([1.8, 1, 1, 1, 1, 0.7])
     with f1:
-        q = st.text_input("Search", placeholder="Name, phone, company...", label_visibility="collapsed")
+        q = st.text_input("Search", placeholder="Lead ID, company, contact, owner...", label_visibility="collapsed")
     with f2:
         status_filter = st.selectbox(
-            "Status",
+            "Stage",
             ["all"] + statuses,
             format_func=lambda s: "All" if s == "all" else _status_label(s),
             label_visibility="collapsed",
@@ -1075,11 +1107,18 @@ def render_crm_page() -> None:
     with f3:
         source_filter = st.selectbox(
             "Source",
-            ["all", "manual", "agent"],
-            format_func=lambda s: {"all": "All sources", "manual": "Manual", "agent": "Agent"}.get(s, s),
+            ["all"] + CRM_SOURCE_OPTIONS,
+            format_func=lambda s: "All sources" if s == "all" else _source_label(s),
             label_visibility="collapsed",
         )
     with f4:
+        deal_status_filter = st.selectbox(
+            "Status",
+            ["all"] + DEAL_STATUSES,
+            format_func=lambda s: "All statuses" if s == "all" else _deal_status_label(s),
+            label_visibility="collapsed",
+        )
+    with f5:
         sort_by = st.selectbox(
             "Sort",
             ["recent", "follow_up", "name"],
@@ -1090,7 +1129,7 @@ def render_crm_page() -> None:
             }[s],
             label_visibility="collapsed",
         )
-    with f5:
+    with f6:
         if st.button("Sync", use_container_width=True, help="Reload from GitHub"):
             ensure_crm_loaded(force=True)
             st.rerun()
@@ -1106,12 +1145,18 @@ def render_crm_page() -> None:
         filtered = [
             c for c in filtered
             if needle in " ".join([
-                c.get("name", ""), c.get("phone", ""), c.get("email", ""),
-                c.get("company", ""), c.get("client", ""), c.get("notes", ""),
+                c.get("id", ""), c.get("name", ""), c.get("phone", ""), c.get("email", ""),
+                c.get("company", ""), c.get("industry", ""), c.get("owner", ""),
+                c.get("value", ""), c.get("client", ""), c.get("notes", ""),
             ]).lower()
         ]
     if source_filter != "all":
         filtered = [c for c in filtered if _contact_source(c) == source_filter]
+    if deal_status_filter != "all":
+        filtered = [
+            c for c in filtered
+            if normalize_deal_status(c.get("deal_status") or "", stage=normalize_status(c.get("status") or "new")) == deal_status_filter
+        ]
 
     if sort_by == "follow_up":
         filtered = sorted(
@@ -1143,10 +1188,11 @@ def render_crm_page() -> None:
 
     st.markdown(
         '<div class="crm-ledger-head">'
-        '<span>Book <span class="line"></span></span>'
-        '<span>Contact <span class="line"></span></span>'
+        '<span>Lead ID <span class="line"></span></span>'
         '<span>Company <span class="line"></span></span>'
-        '<span>Next <span class="line"></span></span>'
+        '<span>Contact <span class="line"></span></span>'
+        '<span>Source <span class="line"></span></span>'
+        '<span>Stage <span class="line"></span></span>'
         '<span>Status <span class="line"></span></span>'
         '</div>',
         unsafe_allow_html=True,
