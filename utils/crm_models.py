@@ -135,6 +135,43 @@ def normalize_deal_status(raw: str, *, stage: str = "") -> str:
     return s if s in DEAL_STATUSES else "open"
 
 
+def normalize_email_event(raw: dict) -> dict:
+    now = utc_now_iso()
+    return {
+        "id": raw.get("id") or new_contact_id(),
+        "direction": (raw.get("direction") or "sent").strip().lower(),
+        "sent_at": str(raw.get("sent_at") or raw.get("date") or now).strip(),
+        "from_addr": (raw.get("from_addr") or raw.get("from") or raw.get("sender") or "").strip(),
+        "to": (raw.get("to") or raw.get("recipient") or "").strip(),
+        "subject": (raw.get("subject") or "").strip(),
+        "body": (raw.get("body") or raw.get("message") or "").strip(),
+        "summary": (raw.get("summary") or raw.get("insight") or "").strip(),
+        "source": (raw.get("source") or "manual").strip(),
+        "created_at": raw.get("created_at") or now,
+    }
+
+
+def normalize_comment(raw: dict) -> dict:
+    return {
+        "id": raw.get("id") or new_contact_id(),
+        "created_at": raw.get("created_at") or utc_now_iso(),
+        "author": (raw.get("author") or raw.get("owner") or "").strip(),
+        "body": (raw.get("body") or raw.get("comment") or raw.get("note") or "").strip(),
+        "type": "comment",
+    }
+
+
+def normalize_contact_person(raw: dict) -> dict:
+    return {
+        "id": raw.get("id") or new_contact_id(),
+        "name": (raw.get("name") or raw.get("contact_name") or "").strip(),
+        "title": (raw.get("title") or raw.get("contact_title") or "").strip(),
+        "email": (raw.get("email") or raw.get("contact_email") or "").strip(),
+        "phone": (raw.get("phone") or "").strip(),
+        "created_at": raw.get("created_at") or utc_now_iso(),
+    }
+
+
 def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
     """Ensure all CRM fields exist with sane defaults."""
     now = utc_now_iso()
@@ -186,6 +223,8 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
         "signal": (raw.get("signal") or raw.get("primary_signal") or "").strip(),
         "opening_line": (raw.get("opening_line") or "").strip(),
         "agent_run_id": (raw.get("agent_run_id") or "").strip(),
+        "comments": [normalize_comment(c) for c in (raw.get("comments") or []) if isinstance(c, dict)],
+        "contact_people": [normalize_contact_person(p) for p in (raw.get("contact_people") or []) if isinstance(p, dict)],
     }
 
 
@@ -264,6 +303,14 @@ def merge_contacts(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[s
         normalize_email_event(event)
         for event in (existing.get("email_events") or []) + (incoming.get("email_events") or [])
         if isinstance(event, dict)
+    ]
+    merged["comments"] = (existing.get("comments") or []) + [
+        c for c in (incoming.get("comments") or [])
+        if c.get("id") not in {x.get("id") for x in (existing.get("comments") or [])}
+    ]
+    merged["contact_people"] = (existing.get("contact_people") or []) + [
+        p for p in (incoming.get("contact_people") or [])
+        if p.get("id") not in {x.get("id") for x in (existing.get("contact_people") or [])}
     ]
     return merged
 

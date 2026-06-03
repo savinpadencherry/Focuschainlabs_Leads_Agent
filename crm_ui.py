@@ -7,6 +7,7 @@ from datetime import date, datetime
 
 import streamlit as st
 
+import utils.crm_models as crm_models  # needed for getattr fallbacks below
 from utils.crm_models import (
     CRM_SOURCE_OPTIONS,
     CRM_STATUSES,
