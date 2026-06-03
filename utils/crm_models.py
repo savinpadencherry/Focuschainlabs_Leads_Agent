@@ -8,14 +8,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-# Default pipeline — can be extended with custom statuses from the UI.
+# Default sales pipeline shown as the Stage dropdown in the CRM UI.
 CRM_STATUSES = [
     "new",
     "contacted",
     "qualified",
-    "meeting",
     "proposal",
-    "nurture",
     "won",
     "lost",
 ]
@@ -24,9 +22,33 @@ STATUS_LABELS = {
     "new": "New",
     "contacted": "Contacted",
     "qualified": "Qualified",
-    "meeting": "Meeting",
     "proposal": "Proposal",
-    "nurture": "Nurture",
+    "won": "Won",
+    "lost": "Lost",
+}
+
+CRM_SOURCE_OPTIONS = [
+    "linkedin",
+    "referral",
+    "inbound",
+    "whatsapp",
+    "event",
+    "other",
+]
+
+SOURCE_LABELS = {
+    "linkedin": "LinkedIn",
+    "referral": "Referral",
+    "inbound": "Inbound",
+    "whatsapp": "WhatsApp",
+    "event": "Event",
+    "other": "Other",
+}
+
+DEAL_STATUSES = ["open", "won", "lost"]
+
+DEAL_STATUS_LABELS = {
+    "open": "Open",
     "won": "Won",
     "lost": "Lost",
 }
@@ -36,13 +58,34 @@ _STATUS_ALIASES = {
     # Legacy from earlier UI versions
     "interested": "qualified",
     # Common variants / typos
-    "meeting_booked": "meeting",
-    "meeting_scheduled": "meeting",
+    "meeting": "qualified",
+    "meeting_booked": "qualified",
+    "meeting_scheduled": "qualified",
     "proposal_sent": "proposal",
-    "nurturing": "nurture",
+    "nurture": "contacted",
+    "nurturing": "contacted",
 }
 
 _STATUS_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+_SOURCE_ALIASES = {
+    "agent": "other",
+    "manual": "other",
+    "website": "inbound",
+    "web": "inbound",
+    "wa": "whatsapp",
+    "whats_app": "whatsapp",
+}
+
+_DEAL_STATUS_ALIASES = {
+    "active": "open",
+    "new": "open",
+    "contacted": "open",
+    "qualified": "open",
+    "proposal": "open",
+    "closed_won": "won",
+    "closed_lost": "lost",
+}
 
 
 def _slugify_status(raw: str) -> str:
@@ -70,43 +113,136 @@ def empty_crm_db() -> dict[str, Any]:
 
 
 def normalize_status(raw: str) -> str:
-    """
-    Normalize a pipeline status.
-
-    - Keeps default statuses as-is.
-    - Preserves custom statuses (slugified) so users can add stages.
-    - Falls back to "new" only when the input is empty/invalid.
-    """
+    """Normalize the Stage dropdown value, falling back to ``new``."""
     s = _slugify_status(raw or "new")
     s = _STATUS_ALIASES.get(s, s)
-    return s or "new"
+    return s if s in CRM_STATUSES else "new"
+
+
+def normalize_source(raw: str) -> str:
+    """Normalize the lead Source dropdown value."""
+    s = _slugify_status(raw or "other")
+    s = _SOURCE_ALIASES.get(s, s)
+    return s if s in CRM_SOURCE_OPTIONS else "other"
+
+
+def normalize_deal_status(raw: str, *, stage: str = "") -> str:
+    """Normalize overall deal Status: Open, Won, or Lost."""
+    if not raw and stage in {"won", "lost"}:
+        return stage
+    s = _slugify_status(raw or "open")
+    s = _DEAL_STATUS_ALIASES.get(s, s)
+    return s if s in DEAL_STATUSES else "open"
+
+
+def normalize_email_event(raw: dict[str, Any]) -> dict[str, Any]:
+    """Store client email history as structured, LLM-ready CRM timeline data."""
+    now = utc_now_iso()
+    direction = (raw.get("direction") or "sent").strip().lower()
+    if direction not in {"sent", "received"}:
+        direction = "sent"
+    sent_at = str(raw.get("sent_at") or raw.get("date") or now).strip()
+    return {
+        "id": raw.get("id") or new_contact_id(),
+        "direction": direction,
+        "sent_at": sent_at,
+        "from": (raw.get("from") or raw.get("sender") or "").strip(),
+        "to": (raw.get("to") or raw.get("recipient") or "").strip(),
+        "subject": (raw.get("subject") or "").strip(),
+        "body": (raw.get("body") or raw.get("message") or "").strip(),
+        "summary": (raw.get("summary") or raw.get("insight") or "").strip(),
+        "source": (raw.get("source") or "manual").strip(),
+        "created_at": raw.get("created_at") or now,
+    }
+
+
+def normalize_comment(raw: dict[str, Any]) -> dict[str, Any]:
+    """Store CRM comments as timeline entries for account-level context."""
+    now = utc_now_iso()
+    return {
+        "id": raw.get("id") or new_contact_id(),
+        "created_at": raw.get("created_at") or now,
+        "author": (raw.get("author") or raw.get("owner") or "").strip(),
+        "body": (raw.get("body") or raw.get("comment") or raw.get("note") or "").strip(),
+        "source": (raw.get("source") or "manual").strip(),
+    }
+
+
+def normalize_contact_person(raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize additional people attached to the same client/account."""
+    now = utc_now_iso()
+    return {
+        "id": raw.get("id") or new_contact_id(),
+        "name": (raw.get("name") or raw.get("contact_name") or "").strip(),
+        "title": (raw.get("title") or raw.get("contact_title") or "").strip(),
+        "email": (raw.get("email") or raw.get("contact_email") or "").strip(),
+        "phone": (raw.get("phone") or "").strip(),
+        "role": (raw.get("role") or "").strip(),
+        "created_at": raw.get("created_at") or now,
+    }
 
 
 def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
     """Ensure all CRM fields exist with sane defaults."""
     now = utc_now_iso()
-    status = normalize_status(raw.get("status") or "new")
+    status = normalize_status(raw.get("status") or raw.get("stage") or "new")
+    deal_status = normalize_deal_status(raw.get("deal_status") or raw.get("deal_state") or "", stage=status)
 
     tags = raw.get("tags") or []
     if isinstance(tags, str):
         tags = [t.strip() for t in tags.split(",") if t.strip()]
 
-    source = (raw.get("source") or "manual").strip()
-    if source == "agent" and "agent-import" not in tags:
+    original_source = (raw.get("source") or "").strip().lower()
+    source = normalize_source(raw.get("source") or raw.get("lead_source") or "other")
+    if original_source == "agent" and "agent-import" not in tags:
         tags = ["agent-import"] + tags
+
+    raw_email_events = raw.get("email_events") or raw.get("emails") or []
+    if not isinstance(raw_email_events, list):
+        raw_email_events = []
+    email_events = [
+        normalize_email_event(event)
+        for event in raw_email_events
+        if isinstance(event, dict)
+    ]
+
+    raw_comments = raw.get("comments") or raw.get("comment_thread") or []
+    if not isinstance(raw_comments, list):
+        raw_comments = []
+    comments = [
+        normalize_comment(comment)
+        for comment in raw_comments
+        if isinstance(comment, dict)
+    ]
+
+    raw_people = raw.get("contact_people") or raw.get("contacts") or []
+    if not isinstance(raw_people, list):
+        raw_people = []
+    contact_people = [
+        normalize_contact_person(person)
+        for person in raw_people
+        if isinstance(person, dict)
+    ]
 
     return {
         "id": raw.get("id") or new_contact_id(),
         "name": (raw.get("name") or raw.get("contact_name") or "").strip(),
         "company": (raw.get("company") or raw.get("company_name") or "").strip(),
+        "industry": (raw.get("industry") or "").strip(),
         "phone": (raw.get("phone") or "").strip(),
-        "email": (raw.get("email") or "").strip(),
+        "email": (raw.get("email") or raw.get("contact_email") or "").strip(),
         "client": (raw.get("client") or "").strip(),
+        "owner": (raw.get("owner") or "").strip(),
+        "value": str(raw.get("value") or raw.get("deal_value") or "").strip(),
         "status": status,
+        "deal_status": deal_status,
         "notes": (raw.get("notes") or "").strip(),
         "next_follow_up": (raw.get("next_follow_up") or "").strip(),
         "source": source,
         "tags": tags,
+        "email_events": email_events,
+        "comments": comments,
+        "contact_people": contact_people,
         "created_at": raw.get("created_at") or now,
         "updated_at": raw.get("updated_at") or now,
         # Kept in storage but hidden from simple UI — agent import extras
@@ -137,9 +273,13 @@ def lead_to_contact(lead: dict[str, Any], *, agent_run_id: str = "") -> dict[str
             "phone": lead.get("phone", ""),
             "email": lead.get("email", ""),
             "client": lead.get("client", ""),
+            "industry": lead.get("industry", ""),
+            "owner": lead.get("owner", ""),
+            "value": lead.get("value", ""),
             "status": "new",
+            "deal_status": "open",
             "notes": "\n".join(note_lines),
-            "source": "agent",
+            "source": lead.get("source", "other"),
             "tags": ["agent-import"],
             "title": lead.get("contact_title", ""),
             "linkedin_url": lead.get("linkedin_url", ""),
@@ -172,15 +312,36 @@ def contact_fingerprint(contact: dict[str, Any]) -> str:
 
 def merge_contacts(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
     merged = normalize_contact({**existing, **incoming, "id": existing["id"]})
-    for key in ("name", "phone", "email", "company", "client"):
-        if not (existing.get(key) or "").strip() and (incoming.get(key) or "").strip():
-            merged[key] = incoming[key]
+    for key in ("name", "phone", "email", "company", "client", "industry", "owner", "value"):
+        existing_value = str(existing.get(key) or "").strip()
+        incoming_value = str(incoming.get(key) or "").strip()
+        if not existing_value and incoming_value:
+            merged[key] = incoming_value
     merged["status"] = normalize_status(existing.get("status") or "new")
+    merged["deal_status"] = normalize_deal_status(
+        existing.get("deal_status") or incoming.get("deal_status") or "",
+        stage=merged["status"],
+    )
     if incoming.get("notes") and not existing.get("notes"):
         merged["notes"] = incoming["notes"]
     merged["created_at"] = existing.get("created_at") or incoming.get("created_at")
     merged["updated_at"] = utc_now_iso()
     merged["tags"] = list(dict.fromkeys((existing.get("tags") or []) + (incoming.get("tags") or [])))
+    merged["email_events"] = [
+        normalize_email_event(event)
+        for event in (existing.get("email_events") or []) + (incoming.get("email_events") or [])
+        if isinstance(event, dict)
+    ]
+    merged["comments"] = [
+        normalize_comment(comment)
+        for comment in (existing.get("comments") or []) + (incoming.get("comments") or [])
+        if isinstance(comment, dict)
+    ]
+    merged["contact_people"] = [
+        normalize_contact_person(person)
+        for person in (existing.get("contact_people") or []) + (incoming.get("contact_people") or [])
+        if isinstance(person, dict)
+    ]
     return merged
 
 
@@ -202,7 +363,5 @@ def display_subtitle(contact: dict[str, Any]) -> str:
 
 
 def source_label(contact: dict[str, Any]) -> str:
-    src = (contact.get("source") or "").lower()
-    if src == "agent" or "agent-import" in (contact.get("tags") or []):
-        return "Agent"
-    return "Manual"
+    src = normalize_source(contact.get("source") or "other")
+    return SOURCE_LABELS.get(src, "Other")
