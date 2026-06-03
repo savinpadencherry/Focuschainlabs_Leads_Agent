@@ -52,6 +52,9 @@ def _normalize_db(raw: Any) -> dict[str, Any]:
     contacts = raw.get("contacts")
     if not isinstance(contacts, list):
         raw["contacts"] = []
+    custom_statuses = raw.get("custom_statuses")
+    if not isinstance(custom_statuses, list):
+        raw["custom_statuses"] = []
     raw.setdefault("version", 1)
     raw.setdefault("updated_at", utc_now_iso())
     return raw

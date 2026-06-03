@@ -16,6 +16,7 @@ from utils.crm_models import (
     merge_contacts,
     new_contact_id,
     normalize_contact,
+    normalize_status,
     source_label,
     utc_now_iso,
 )
@@ -157,7 +158,10 @@ CRM_CSS = """
 }
 .crm-book.new { background: rgba(46,139,77,.14); border-color: rgba(46,139,77,.18); }
 .crm-book.contacted { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.18); }
-.crm-book.interested { background: rgba(168,85,247,.12); border-color: rgba(168,85,247,.20); }
+.crm-book.qualified { background: rgba(168,85,247,.12); border-color: rgba(168,85,247,.20); }
+.crm-book.meeting { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.20); }
+.crm-book.proposal { background: rgba(183,121,31,.12); border-color: rgba(183,121,31,.24); }
+.crm-book.nurture { background: rgba(15,42,51,.06); border-color: rgba(15,42,51,.12); }
 .crm-book.won { background: rgba(46,139,77,.18); border-color: rgba(46,139,77,.22); }
 .crm-book.lost { background: rgba(169,61,61,.12); border-color: rgba(169,61,61,.20); }
 
@@ -209,13 +213,38 @@ CRM_CSS = """
 .crm-pill {
     display: inline-block; padding: 4px 9px; border-radius: 999px;
     font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    background: rgba(15,42,51,.06); color: var(--ink-soft);
 }
 .crm-pill.new { background: rgba(46,139,77,.12); color: var(--green); }
 .crm-pill.contacted { background: rgba(59,130,246,.12); color: #1D4ED8; }
-.crm-pill.interested { background: rgba(168,85,247,.12); color: #7E22CE; }
+.crm-pill.qualified { background: rgba(168,85,247,.12); color: #7E22CE; }
+.crm-pill.meeting { background: rgba(59,130,246,.12); color: #1E40AF; }
+.crm-pill.proposal { background: rgba(183,121,31,.12); color: var(--amber); }
+.crm-pill.nurture { background: rgba(15,42,51,.06); color: var(--ink-mute); }
 .crm-pill.won { background: rgba(46,139,77,.18); color: #166534; }
 .crm-pill.lost { background: rgba(169,61,61,.12); color: var(--red); }
 .crm-pill.due { background: rgba(183,121,31,.12); color: var(--amber); }
+.crm-stage-snap {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 10px 0 2px;
+}
+.crm-stage {
+    background: var(--cream-3);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.crm-stage .n {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px; font-weight: 850; color: var(--ink); line-height: 1;
+}
+.crm-stage .l { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .crm-src {
     font-size: 10px; color: var(--ink-mute); letter-spacing: .04em;
     text-transform: uppercase; font-weight: 600;
@@ -315,6 +344,7 @@ CRM_CSS = """
     .crm-head h2 { font-size: 26px; }
     .crm-sync { width: 100%; justify-content: center; white-space: normal; text-align: center; }
     .crm-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .crm-stage-snap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .crm-stat { padding: 13px 12px; }
     .crm-ledger-head { display: none; }
     .crm-row { grid-template-columns: 44px minmax(0, 1fr); padding: 12px; }
@@ -351,6 +381,23 @@ CRM_CSS = """
 def ensure_crm_loaded(*, force: bool = False) -> None:
     if force or "crm_db" not in st.session_state:
         db, meta = load_crm()
+        contacts = [
+            normalize_contact(c)
+            for c in (db.get("contacts") or [])
+            if isinstance(c, dict)
+        ]
+        db["contacts"] = contacts
+
+        raw_custom = db.get("custom_statuses") or []
+        if not isinstance(raw_custom, list):
+            raw_custom = []
+        custom = []
+        for s in raw_custom:
+            slug = normalize_status(str(s))
+            if slug and slug not in CRM_STATUSES and slug not in custom:
+                custom.append(slug)
+        db["custom_statuses"] = custom
+
         st.session_state.crm_db = db
         st.session_state.crm_meta = meta
         st.session_state.crm_sha = meta.get("sha")
@@ -383,6 +430,86 @@ def _sync_badge(meta: dict) -> str:
         '<span class="crm-sync warn"><span class="dot"></span>'
         'Add GITHUB_TOKEN in Secrets to persist on Cloud</span>'
     )
+
+
+def _status_label(status: str) -> str:
+    return STATUS_LABELS.get(status, (status or "new").replace("_", " ").title())
+
+
+def _available_statuses(db: dict, contacts: list[dict]) -> list[str]:
+    base = list(CRM_STATUSES)
+    extras: list[str] = []
+
+    for s in (db.get("custom_statuses") or []):
+        slug = normalize_status(str(s))
+        if slug and slug not in base and slug not in extras:
+            extras.append(slug)
+
+    for c in contacts:
+        slug = normalize_status(c.get("status") or "new")
+        if slug and slug not in base and slug not in extras:
+            extras.append(slug)
+
+    return base + sorted(extras, key=_status_label)
+
+
+def _stage_snapshot_html(statuses: list[str], contacts: list[dict]) -> str:
+    counts = {s: 0 for s in statuses}
+    for c in contacts:
+        s = normalize_status(c.get("status") or "new")
+        if s in counts:
+            counts[s] += 1
+
+    cards = []
+    for s in statuses:
+        label = _status_label(s)
+        cards.append(
+            '<div class="crm-stage">'
+            f'<div class="n">{counts.get(s, 0)}</div>'
+            f'<div class="l"><span class="crm-pill {html.escape(s)}">{html.escape(label)}</span></div>'
+            "</div>"
+        )
+    return '<div class="crm-stage-snap">' + "".join(cards) + "</div>"
+
+
+def _render_pipeline_stage_controls(statuses: list[str]) -> None:
+    with st.expander("Pipeline stages", expanded=False):
+        st.caption("Use default stages or add your own (saved to the CRM file).")
+
+        new_label = st.text_input(
+            "Add a stage",
+            placeholder="e.g. Demo scheduled",
+            label_visibility="collapsed",
+            key="crm_new_stage",
+        )
+        b1, b2, _ = st.columns([1, 1, 3])
+        with b1:
+            if st.button("Add stage", use_container_width=True):
+                slug = normalize_status(new_label)
+                if not slug or slug == "all":
+                    st.error("Enter a stage name.")
+                elif slug in CRM_STATUSES:
+                    st.info(f"'{_status_label(slug)}' is already a default stage.")
+                else:
+                    db = st.session_state.get("crm_db") or {}
+                    custom = list(db.get("custom_statuses") or [])
+                    if slug not in custom:
+                        custom.append(slug)
+                        db["custom_statuses"] = custom
+                        st.session_state.crm_db = db
+                        if persist_crm(f"CRM: add stage {slug}"):
+                            st.toast("Stage added")
+                            st.rerun()
+                    else:
+                        st.info("That stage already exists.")
+        with b2:
+            if st.button("Reset to defaults", use_container_width=True, help="Removes custom stages"):
+                db = st.session_state.get("crm_db") or {}
+                db["custom_statuses"] = []
+                st.session_state.crm_db = db
+                if persist_crm("CRM: reset custom stages"):
+                    st.toast("Reset")
+                    st.rerun()
 
 
 def _clean_follow_up(raw: str) -> str | None:
@@ -471,6 +598,10 @@ def _render_quick_add() -> None:
         unsafe_allow_html=True,
     )
     with st.form("crm_quick_add", clear_on_submit=True, border=False):
+        statuses = _available_statuses(
+            st.session_state.get("crm_db") or {},
+            list((st.session_state.get("crm_db") or {}).get("contacts") or []),
+        )
         c1, c2, c3 = st.columns([1.1, 1, 1])
         with c1:
             name = st.text_input("Name", placeholder="Rajesh Kumar")
@@ -487,9 +618,9 @@ def _render_quick_add() -> None:
         with c6:
             status = st.selectbox(
                 "Status",
-                CRM_STATUSES,
+                statuses,
                 index=0,
-                format_func=lambda s: STATUS_LABELS[s],
+                format_func=_status_label,
             )
 
         follow_up = st.text_input("Follow-up date", placeholder="YYYY-MM-DD")
@@ -522,12 +653,12 @@ def _render_quick_add() -> None:
                     st.rerun()
 
 
-def _render_contact_card(contact: dict, idx: int) -> None:
+def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
     cid = contact.get("id", f"row-{idx}")
     name = display_name(contact)
     sub = display_subtitle(contact)
-    status = contact.get("status") or "new"
-    pill = STATUS_LABELS.get(status, status.title())
+    status = normalize_status(contact.get("status") or "new")
+    pill = _status_label(status)
     src = source_label(contact)
     title = (contact.get("title") or "").strip()
     is_due = _is_due(contact) and status not in {"won", "lost"}
@@ -590,9 +721,9 @@ def _render_contact_card(contact: dict, idx: int) -> None:
             v_client = st.text_input("For client", contact.get("client", ""), key=f"cl_{cid}")
             v_status = st.selectbox(
                 "Status",
-                CRM_STATUSES,
-                index=CRM_STATUSES.index(status) if status in CRM_STATUSES else 0,
-                format_func=lambda s: STATUS_LABELS[s],
+                statuses,
+                index=statuses.index(status) if status in statuses else 0,
+                format_func=_status_label,
                 key=f"s_{cid}",
             )
 
@@ -658,9 +789,16 @@ def render_crm_page() -> None:
     meta = st.session_state.get("crm_meta") or {}
     contacts = list(db.get("contacts") or [])
 
-    active = sum(1 for c in contacts if (c.get("status") or "new") in ("new", "contacted", "interested"))
-    due = sum(1 for c in contacts if _is_due(c) and (c.get("status") or "new") not in {"won", "lost"})
-    won = sum(1 for c in contacts if c.get("status") == "won")
+    statuses = _available_statuses(db, contacts)
+
+    active = sum(1 for c in contacts if normalize_status(c.get("status") or "new") not in {"won", "lost"})
+    due = sum(
+        1
+        for c in contacts
+        if _is_due(c) and normalize_status(c.get("status") or "new") not in {"won", "lost"}
+    )
+    won = sum(1 for c in contacts if normalize_status(c.get("status") or "new") == "won")
+    snapshot_html = _stage_snapshot_html(statuses, contacts)
 
     st.markdown(
         f"""
@@ -678,11 +816,14 @@ def render_crm_page() -> None:
           <div class="crm-stat"><div class="n">{due}</div><div class="l">Due now</div></div>
           <div class="crm-stat"><div class="n">{won}</div><div class="l">Won</div></div>
         </div>
+        <div class="sec">Stage snapshot <span class="line"></span></div>
+        {snapshot_html}
         </div>
         """,
         unsafe_allow_html=True,
     )
 
+    _render_pipeline_stage_controls(statuses)
     _render_quick_add()
 
     f1, f2, f3, f4, f5 = st.columns([2.1, 1.15, 1, 1.15, 0.7])
@@ -691,8 +832,8 @@ def render_crm_page() -> None:
     with f2:
         status_filter = st.selectbox(
             "Status",
-            ["all"] + CRM_STATUSES,
-            format_func=lambda s: "All" if s == "all" else STATUS_LABELS[s],
+            ["all"] + statuses,
+            format_func=lambda s: "All" if s == "all" else _status_label(s),
             label_visibility="collapsed",
         )
     with f3:
@@ -720,7 +861,10 @@ def render_crm_page() -> None:
 
     filtered = contacts
     if status_filter != "all":
-        filtered = [c for c in filtered if (c.get("status") or "new") == status_filter]
+        filtered = [
+            c for c in filtered
+            if normalize_status(c.get("status") or "new") == status_filter
+        ]
     if q.strip():
         needle = q.lower()
         filtered = [
@@ -776,7 +920,7 @@ def render_crm_page() -> None:
     for contact in filtered:
         idx = id_to_idx.get(contact.get("id"))
         if idx is not None:
-            _render_contact_card(contact, idx)
+            _render_contact_card(contact, idx, statuses)
 
 
 def add_leads_to_crm(leads: list[dict], *, client: str = "") -> dict[str, int]:

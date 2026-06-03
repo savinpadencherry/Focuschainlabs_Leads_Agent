@@ -75,7 +75,7 @@ CRM_DATA_PATH = "data/crm/contacts.json"
 Each CRM record includes:
 
 - **Identity:** name, company, title, email, phone, LinkedIn, website  
-- **Pipeline:** status (new → contacted → qualified → meeting → proposal → won/lost/nurture)  
+- **Pipeline:** status (new → contacted → qualified → meeting → proposal → nurture → won/lost; custom stages supported)  
 - **Sales context:** client/campaign, score, signal, pain point, opening line, call strategy  
 - **Follow-up:** notes, tags, last contacted, next follow-up, reach channel  
 - **Provenance:** source, agent run id, created/updated timestamps  
