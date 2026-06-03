@@ -150,6 +150,15 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
     if original_source == "agent" and "agent-import" not in tags:
         tags = ["agent-import"] + tags
 
+    raw_email_events = raw.get("email_events") or raw.get("emails") or []
+    if not isinstance(raw_email_events, list):
+        raw_email_events = []
+    email_events = [
+        normalize_email_event(event)
+        for event in raw_email_events
+        if isinstance(event, dict)
+    ]
+
     return {
         "id": raw.get("id") or new_contact_id(),
         "name": (raw.get("name") or raw.get("contact_name") or "").strip(),
@@ -166,6 +175,7 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
         "next_follow_up": (raw.get("next_follow_up") or "").strip(),
         "source": source,
         "tags": tags,
+        "email_events": email_events,
         "created_at": raw.get("created_at") or now,
         "updated_at": raw.get("updated_at") or now,
         # Kept in storage but hidden from simple UI — agent import extras
@@ -250,6 +260,11 @@ def merge_contacts(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[s
     merged["created_at"] = existing.get("created_at") or incoming.get("created_at")
     merged["updated_at"] = utc_now_iso()
     merged["tags"] = list(dict.fromkeys((existing.get("tags") or []) + (incoming.get("tags") or [])))
+    merged["email_events"] = [
+        normalize_email_event(event)
+        for event in (existing.get("email_events") or []) + (incoming.get("email_events") or [])
+        if isinstance(event, dict)
+    ]
     return merged
 
 

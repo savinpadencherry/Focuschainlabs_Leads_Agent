@@ -295,6 +295,68 @@ CRM_CSS = """
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
 }
+.crm-snapshot-card {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.86), rgba(255,255,255,.58)),
+      radial-gradient(95% 130% at 100% 0%, rgba(46,139,77,.11), transparent 50%);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rl);
+    padding: 16px;
+    box-shadow: 0 14px 34px rgba(15,42,51,.06);
+}
+.crm-snapshot-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+.crm-snapshot-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px;
+    font-weight: 850;
+    color: var(--ink);
+    line-height: 1.1;
+}
+.crm-snapshot-sub {
+    color: var(--ink-mute);
+    font-size: 12.5px;
+    margin-top: 4px;
+}
+.crm-snapshot-totals {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(72px, 1fr));
+    gap: 8px;
+    min-width: min(100%, 360px);
+}
+.crm-snapshot-total {
+    background: rgba(255,255,255,.66);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--rs);
+    padding: 9px 10px;
+}
+.crm-snapshot-total .n {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px;
+    font-weight: 850;
+    color: var(--ink);
+    line-height: 1;
+}
+.crm-snapshot-total .l {
+    color: var(--ink-mute);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    margin-top: 5px;
+    text-transform: uppercase;
+}
+.crm-stage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+    gap: 8px;
+}
 .crm-stage {
     background: rgba(255,255,255,.62);
     border: 1px solid var(--line-soft);
@@ -704,12 +766,24 @@ def _render_pipeline_stage_controls(statuses: list[str]) -> None:
     )
 
 
-def _clean_follow_up(raw: str) -> str | None:
+def _clean_follow_up(raw) -> str | None:
+    if isinstance(raw, date):
+        return raw.isoformat()
     raw = (raw or "").strip()
     if not raw:
         return ""
     try:
         return date.fromisoformat(raw[:10]).isoformat()
+    except ValueError:
+        return None
+
+
+def _date_value(raw: str) -> date | None:
+    raw = (raw or "").strip()[:10]
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw)
     except ValueError:
         return None
 
@@ -855,6 +929,98 @@ def _render_quick_add() -> None:
                     st.rerun()
 
 
+def _email_events_html(contact: dict) -> str:
+    events = [
+        normalize_email_event(e)
+        for e in (contact.get("email_events") or [])
+        if isinstance(e, dict)
+    ]
+    if not events:
+        return '<div class="crm-stage-note">No emails logged yet. Add sent-email notes below to make this lead LLM-ready.</div>'
+
+    events = sorted(events, key=lambda e: e.get("sent_at", ""), reverse=True)[:5]
+    items = []
+    for event in events:
+        meta = " · ".join(
+            part for part in [
+                event.get("direction", "sent").title(),
+                event.get("sent_at", "")[:10],
+                event.get("source", "manual").title(),
+            ] if part
+        )
+        subject = event.get("subject") or "Untitled email"
+        summary = event.get("summary") or event.get("body", "")[:220]
+        items.append(
+            '<div class="crm-email-item">'
+            f'<div class="meta">{html.escape(meta)}</div>'
+            f'<div class="subject">{html.escape(subject)}</div>'
+            f'<div class="summary">{html.escape(summary)}</div>'
+            '</div>'
+        )
+    return '<div class="crm-email-list">' + "".join(items) + '</div>'
+
+
+def _render_email_insights(contact: dict, idx: int) -> None:
+    cid = contact.get("id", f"row-{idx}")
+    st.markdown(
+        '<div class="crm-email-insights">'
+        '<div class="title">Email insights</div>'
+        '<div class="hint">Free path: log sent emails here manually, or later import Gmail/Outlook exports. '
+        'They are stored as structured <code>email_events</code> under the lead so chat can summarize objections, intent, and next steps.</div>'
+        f'{_email_events_html(contact)}'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("Log sent email / client reply", expanded=False):
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            email_date = st.date_input("Email date", value=date.today(), format="YYYY-MM-DD", key=f"mail_date_{cid}")
+        with c2:
+            direction = st.selectbox("Direction", ["sent", "received"], format_func=str.title, key=f"mail_dir_{cid}")
+        subject = st.text_input("Subject", placeholder="Proposal shared / Follow-up", key=f"mail_sub_{cid}")
+        summary = st.text_area(
+            "Insight summary",
+            placeholder="Client asked for pricing, timeline, decision maker, objections...",
+            height=72,
+            key=f"mail_sum_{cid}",
+        )
+        body = st.text_area(
+            "Email body / notes",
+            placeholder="Paste the sent email or important excerpts. Avoid sensitive data you do not need for CRM insights.",
+            height=110,
+            key=f"mail_body_{cid}",
+        )
+        if st.button("Add email insight", key=f"mail_add_{cid}", use_container_width=True):
+            if not subject.strip() and not summary.strip() and not body.strip():
+                st.error("Add a subject, summary, or email body first.")
+            else:
+                event = normalize_email_event(
+                    {
+                        "direction": direction,
+                        "sent_at": email_date.isoformat(),
+                        "to": contact.get("email", ""),
+                        "subject": subject,
+                        "summary": summary,
+                        "body": body,
+                        "source": "manual",
+                    }
+                )
+                contacts = st.session_state.crm_db.get("contacts", [])
+                updated = normalize_contact(
+                    {
+                        **contact,
+                        "email_events": list(contact.get("email_events") or []) + [event],
+                        "updated_at": utc_now_iso(),
+                    }
+                )
+                contacts[idx] = updated
+                st.session_state.crm_db["contacts"] = contacts
+                if persist_crm(f"CRM: log email for {display_name(updated)}"):
+                    st.toast("Email insight added")
+                    st.rerun()
+
+
 def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
     cid = contact.get("id", f"row-{idx}")
     lead_id = str(cid)[:8]
@@ -978,6 +1144,8 @@ def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
                     st.write(contact["signal"])
                 if contact.get("opening_line"):
                     st.info(contact["opening_line"])
+
+        _render_email_insights(contact, idx)
 
         b1, b2, _ = st.columns([1, 1, 2])
         with b1:
