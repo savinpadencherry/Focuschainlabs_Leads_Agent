@@ -1313,6 +1313,42 @@ h1, h2, h3, h4, p, div, span, label {
 /* Pipeline progress bar breathing */
 .pipe-flow { animation: flow-pulse 2s ease-in-out infinite; }
 
+@media (max-width: 720px) {
+    .block-container {
+        padding-top: 24px !important;
+        padding-left: 18px !important;
+        padding-right: 18px !important;
+        padding-bottom: 64px !important;
+        max-width: 100% !important;
+    }
+    .eyebrow {
+        gap: 8px;
+        font-size: 9px;
+        letter-spacing: .24em;
+        white-space: nowrap;
+    }
+    .eyebrow .dash { width: 18px; }
+    .wordmark {
+        font-size: 42px;
+        line-height: 1;
+        margin-top: 16px;
+    }
+    .tagline {
+        font-size: 11px;
+        line-height: 1.7;
+        margin-bottom: 22px;
+    }
+    .stButton > button,
+    [data-testid="stBaseButton-primary"],
+    [data-testid="stBaseButton-secondary"] {
+        min-height: 46px !important;
+        padding: 11px 14px !important;
+        white-space: nowrap !important;
+        word-break: keep-all !important;
+        overflow-wrap: normal !important;
+    }
+}
+
 /* ── Misc ── */
 .stApp [data-testid="stToolbar"] { display: none !important; }
 footer { display: none !important; }
@@ -1487,10 +1523,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── App navigation ────────────────────────────────────────────────────────────
-nav_agent, nav_crm, _nav_sp = st.columns([1, 1, 6])
+nav_agent, nav_crm, _nav_sp = st.columns([1.3, 1, 2.2])
 with nav_agent:
     if st.button(
-        "Lead Agent",
+        "Agent",
         use_container_width=True,
         type="primary" if st.session_state.get("app_view", "agent") == "agent" else "secondary",
         key="nav_agent",
