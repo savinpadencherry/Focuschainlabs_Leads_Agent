@@ -152,6 +152,9 @@ h1, h2, h3, h4, p, div, span, label {
     font-family: 'Bricolage Grotesque', sans-serif !important;
     color: var(--ink);
 }
+[data-testid="stIconMaterial"] {
+    font-family: "Material Symbols Rounded" !important;
+}
 
 /* ── Eyebrow ── */
 .eyebrow {

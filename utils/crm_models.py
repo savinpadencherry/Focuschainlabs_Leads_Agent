@@ -135,11 +135,15 @@ def normalize_deal_status(raw: str, *, stage: str = "") -> str:
     return s if s in DEAL_STATUSES else "open"
 
 
-def normalize_email_event(raw: dict) -> dict:
+def normalize_email_event(raw: dict[str, Any]) -> dict[str, Any]:
+    """Store client email history as structured, LLM-ready CRM timeline data."""
     now = utc_now_iso()
+    direction = (raw.get("direction") or "sent").strip().lower()
+    if direction not in {"sent", "received"}:
+        direction = "sent"
     return {
         "id": raw.get("id") or new_contact_id(),
-        "direction": (raw.get("direction") or "sent").strip().lower(),
+        "direction": direction,
         "sent_at": str(raw.get("sent_at") or raw.get("date") or now).strip(),
         "from_addr": (raw.get("from_addr") or raw.get("from") or raw.get("sender") or "").strip(),
         "to": (raw.get("to") or raw.get("recipient") or "").strip(),
@@ -151,24 +155,30 @@ def normalize_email_event(raw: dict) -> dict:
     }
 
 
-def normalize_comment(raw: dict) -> dict:
+def normalize_comment(raw: dict[str, Any]) -> dict[str, Any]:
+    """Store CRM comments as timeline entries for account-level context."""
+    now = utc_now_iso()
     return {
         "id": raw.get("id") or new_contact_id(),
-        "created_at": raw.get("created_at") or utc_now_iso(),
+        "created_at": raw.get("created_at") or now,
         "author": (raw.get("author") or raw.get("owner") or "").strip(),
         "body": (raw.get("body") or raw.get("comment") or raw.get("note") or "").strip(),
+        "source": (raw.get("source") or "manual").strip(),
         "type": "comment",
     }
 
 
-def normalize_contact_person(raw: dict) -> dict:
+def normalize_contact_person(raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize additional people attached to the same client/account."""
+    now = utc_now_iso()
     return {
         "id": raw.get("id") or new_contact_id(),
         "name": (raw.get("name") or raw.get("contact_name") or "").strip(),
         "title": (raw.get("title") or raw.get("contact_title") or "").strip(),
         "email": (raw.get("email") or raw.get("contact_email") or "").strip(),
         "phone": (raw.get("phone") or "").strip(),
-        "created_at": raw.get("created_at") or utc_now_iso(),
+        "role": (raw.get("role") or "").strip(),
+        "created_at": raw.get("created_at") or now,
     }
 
 
@@ -177,6 +187,10 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
     now = utc_now_iso()
     status = normalize_status(raw.get("status") or raw.get("stage") or "new")
     deal_status = normalize_deal_status(raw.get("deal_status") or raw.get("deal_state") or "", stage=status)
+    if status in {"won", "lost"}:
+        deal_status = status
+    elif deal_status in {"won", "lost"}:
+        status = deal_status
 
     tags = raw.get("tags") or []
     if isinstance(tags, str):
@@ -196,6 +210,24 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
         if isinstance(event, dict)
     ]
 
+    raw_comments = raw.get("comments") or raw.get("comment_thread") or []
+    if not isinstance(raw_comments, list):
+        raw_comments = []
+    comments = [
+        normalize_comment(comment)
+        for comment in raw_comments
+        if isinstance(comment, dict)
+    ]
+
+    raw_people = raw.get("contact_people") or raw.get("contacts") or []
+    if not isinstance(raw_people, list):
+        raw_people = []
+    contact_people = [
+        normalize_contact_person(person)
+        for person in raw_people
+        if isinstance(person, dict)
+    ]
+
     return {
         "id": raw.get("id") or new_contact_id(),
         "name": (raw.get("name") or raw.get("contact_name") or "").strip(),
@@ -213,6 +245,8 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
         "source": source,
         "tags": tags,
         "email_events": email_events,
+        "comments": comments,
+        "contact_people": contact_people,
         "created_at": raw.get("created_at") or now,
         "updated_at": raw.get("updated_at") or now,
         # Kept in storage but hidden from simple UI — agent import extras
@@ -223,8 +257,6 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
         "signal": (raw.get("signal") or raw.get("primary_signal") or "").strip(),
         "opening_line": (raw.get("opening_line") or "").strip(),
         "agent_run_id": (raw.get("agent_run_id") or "").strip(),
-        "comments": [normalize_comment(c) for c in (raw.get("comments") or []) if isinstance(c, dict)],
-        "contact_people": [normalize_contact_person(p) for p in (raw.get("contact_people") or []) if isinstance(p, dict)],
     }
 
 
@@ -282,6 +314,21 @@ def contact_fingerprint(contact: dict[str, Any]) -> str:
     return f"id:{contact.get('id', '')}"
 
 
+def _merge_nested_records(
+    existing: list[dict[str, Any]],
+    incoming: list[dict[str, Any]],
+    normalizer: Any,
+) -> list[dict[str, Any]]:
+    """Keep existing manual context when an import repeats the same nested record."""
+    merged: dict[str, dict[str, Any]] = {}
+    for raw in existing + incoming:
+        if not isinstance(raw, dict):
+            continue
+        record = normalizer(raw)
+        merged.setdefault(record["id"], record)
+    return list(merged.values())
+
+
 def merge_contacts(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
     merged = normalize_contact({**existing, **incoming, "id": existing["id"]})
     for key in ("name", "phone", "email", "company", "client", "industry", "owner", "value"):
@@ -299,20 +346,22 @@ def merge_contacts(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[s
     merged["created_at"] = existing.get("created_at") or incoming.get("created_at")
     merged["updated_at"] = utc_now_iso()
     merged["tags"] = list(dict.fromkeys((existing.get("tags") or []) + (incoming.get("tags") or [])))
-    merged["email_events"] = [
-        normalize_email_event(event)
-        for event in (existing.get("email_events") or []) + (incoming.get("email_events") or [])
-        if isinstance(event, dict)
-    ]
-    merged["comments"] = (existing.get("comments") or []) + [
-        c for c in (incoming.get("comments") or [])
-        if c.get("id") not in {x.get("id") for x in (existing.get("comments") or [])}
-    ]
-    merged["contact_people"] = (existing.get("contact_people") or []) + [
-        p for p in (incoming.get("contact_people") or [])
-        if p.get("id") not in {x.get("id") for x in (existing.get("contact_people") or [])}
-    ]
-    return merged
+    merged["email_events"] = _merge_nested_records(
+        existing.get("email_events") or [],
+        incoming.get("email_events") or [],
+        normalize_email_event,
+    )
+    merged["comments"] = _merge_nested_records(
+        existing.get("comments") or [],
+        incoming.get("comments") or [],
+        normalize_comment,
+    )
+    merged["contact_people"] = _merge_nested_records(
+        existing.get("contact_people") or [],
+        incoming.get("contact_people") or [],
+        normalize_contact_person,
+    )
+    return normalize_contact(merged)
 
 
 def display_name(contact: dict[str, Any]) -> str:
