@@ -187,16 +187,18 @@ def render_reach_page() -> None:
     .ra-sub  { display: none; }
 
     .cq-card {
-        padding: 11px 13px; border-radius: 8px;
-        border: 1.5px solid var(--line); background: var(--cream-3);
+        padding: 11px 13px; border-radius: var(--r);
+        border: 1.5px solid var(--line-soft); background: var(--cream-3);
         margin-bottom: 6px;
+        transition: border-color .15s, box-shadow .15s, background .15s;
     }
+    .cq-card:hover { border-color: var(--line-mid); background: #fff; }
     .cq-card-sel {
         border-color: var(--green) !important;
         background: var(--green-bg) !important;
-        box-shadow: 0 0 0 2px rgba(46,139,77,.12);
+        box-shadow: 0 0 0 3px rgba(46,139,77,.10);
     }
-    .cq-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+    .cq-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; color: var(--ink); }
     .cq-meta { font-size: 11.5px; color: var(--ink-mute); }
 
     .draft-wrap {
@@ -254,7 +256,7 @@ def render_reach_page() -> None:
 
     # ══════════════════════════════════ LEFT — QUEUE ══════════════════════════
     with col_q:
-        st.markdown("**Contact queue**")
+        st.markdown('<div class="sec">Contact queue <span class="line"></span></div>', unsafe_allow_html=True)
 
         has_email_n  = sum(1 for c in contacts if c.get("email"))
         no_email_n   = len(contacts) - has_email_n

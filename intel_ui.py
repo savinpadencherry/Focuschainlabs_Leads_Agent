@@ -553,7 +553,7 @@ def _render_setup() -> None:
     col_sel, col_cfg = st.columns([1.6, 1], gap="large")
 
     with col_sel:
-        st.markdown('<div class="ia-sec">Select companies to monitor</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sec">Select companies to monitor</div>', unsafe_allow_html=True)
 
         # Select all pipeline button
         scol1, scol2 = st.columns(2)
@@ -627,7 +627,7 @@ def _render_setup() -> None:
                     st.rerun()
 
         # Competitor / custom companies (not in CRM)
-        st.markdown('<div class="ia-sec" style="margin-top:12px;">Add competitors or custom companies</div>',
+        st.markdown('<div class="sec" style="margin-top:12px;">Add competitors or custom companies</div>',
                     unsafe_allow_html=True)
         extra_raw = st.text_area(
             "Company names (one per line)",
@@ -638,7 +638,7 @@ def _render_setup() -> None:
         )
 
     with col_cfg:
-        st.markdown('<div class="ia-sec">Run configuration</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sec">Run configuration</div>', unsafe_allow_html=True)
 
         offering = st.text_area(
             "Your offering (shapes signal relevance)",

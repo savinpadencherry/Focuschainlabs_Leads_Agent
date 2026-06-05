@@ -198,7 +198,7 @@ def _render_setup() -> None:
 
     # ── Left: contact picker ──────────────────────────────────────────────────
     with col_sel:
-        st.markdown('<div class="pa-sec">Select client contact</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sec">Select client contact</div>', unsafe_allow_html=True)
 
         sel_id: str = st.session_state.pa_sel_id
 
@@ -257,12 +257,12 @@ def _render_setup() -> None:
         if sel_contact:
             company = sel_contact.get("company") or sel_contact.get("name") or "Client"
             st.markdown(
-                f'<div class="pa-sec">Configure proposal for '
+                f'<div class="sec">Configure proposal for '
                 f'<span style="color:var(--green);">{_e(company)}</span></div>',
                 unsafe_allow_html=True,
             )
         else:
-            st.markdown('<div class="pa-sec">Configure proposal</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sec">Configure proposal</div>', unsafe_allow_html=True)
             st.info("Select a contact on the left to continue.")
             return
 
@@ -323,7 +323,7 @@ def _render_setup() -> None:
                 key="pa_start_date",
             )
 
-        st.markdown('<div class="pa-sec" style="margin-top:4px;">Sender details</div>',
+        st.markdown('<div class="sec" style="margin-top:4px;">Sender details</div>',
                     unsafe_allow_html=True)
 
         sn1, sn2 = st.columns(2)
@@ -533,7 +533,7 @@ def _render_preview() -> None:
     # ── Email send panel ───────────────────────────────────────────────────────
     if st.session_state.get("pa_show_send"):
         with st.container():
-            st.markdown('<div class="pa-sec">Send Proposal Email</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sec">Send Proposal Email</div>', unsafe_allow_html=True)
 
             to_email = st.text_input(
                 "Recipient email",
@@ -605,7 +605,7 @@ def _render_preview() -> None:
     st.markdown("")
 
     # ── Proposal preview ──────────────────────────────────────────────────────
-    st.markdown('<div class="pa-sec">Preview</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec">Preview</div>', unsafe_allow_html=True)
     components.html(proposal_html, height=920, scrolling=True)
 
     # ── Edit sections (collapsed) ─────────────────────────────────────────────
