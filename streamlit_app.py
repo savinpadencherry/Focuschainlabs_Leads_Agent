@@ -15,6 +15,7 @@ from datetime import datetime
 import streamlit as st
 from utils.reach import best_reach_channel, how_to_reach
 from crm_ui import add_leads_to_crm, render_crm_page
+from reach_ui import render_reach_page
 
 # ── Environment ──────────────────────────────────────────────────────────────
 try:
@@ -1526,7 +1527,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── App navigation ────────────────────────────────────────────────────────────
-nav_agent, nav_crm, _nav_sp = st.columns([1.3, 1, 2.2])
+nav_agent, nav_reach, nav_crm, _nav_sp = st.columns([1.1, 1.1, 1, 1.8])
 with nav_agent:
     if st.button(
         "Agent",
@@ -1535,6 +1536,15 @@ with nav_agent:
         key="nav_agent",
     ):
         st.session_state.app_view = "agent"
+        st.rerun()
+with nav_reach:
+    if st.button(
+        "Reach",
+        use_container_width=True,
+        type="primary" if st.session_state.get("app_view") == "reach" else "secondary",
+        key="nav_reach",
+    ):
+        st.session_state.app_view = "reach"
         st.rerun()
 with nav_crm:
     if st.button(
@@ -1548,6 +1558,10 @@ with nav_crm:
 
 if st.session_state.get("app_view") == "crm":
     render_crm_page()
+    st.stop()
+
+if st.session_state.get("app_view") == "reach":
+    render_reach_page()
     st.stop()
 
 # ── Step rail ─────────────────────────────────────────────────────────────────
