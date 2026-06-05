@@ -22,6 +22,7 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 from agent.searcher import search_serper
+from utils import budget
 
 
 HUNTER_FIND     = "https://api.hunter.io/v2/email-finder"
@@ -47,7 +48,9 @@ def find_decision_maker_via_linkedin(company_name: str, target_titles: list) -> 
     if not company_name or not os.getenv("SERPER_API_KEY"):
         return {}
 
-    for title in target_titles[:5]:
+    # Cap the title fan-out to 3 — each is a Serper call and the first few
+    # decision-maker titles carry almost all of the hit rate.
+    for title in target_titles[:3]:
         query = f'site:linkedin.com/in "{title}" "{company_name}"'
         try:
             results = search_serper(query, num=5)
@@ -199,6 +202,8 @@ def hunter_find_email(domain: str, first_name: str, last_name: str) -> dict:
     api_key = os.getenv("HUNTER_API_KEY")
     if not (api_key and domain and first_name and last_name):
         return {}
+    if not budget.allow("hunter"):
+        return {}
 
     try:
         resp = requests.get(
@@ -230,6 +235,8 @@ def hunter_verify_email(email: str) -> int:
     """Returns 0-100 confidence score, or -1 if Hunter not configured."""
     api_key = os.getenv("HUNTER_API_KEY")
     if not (api_key and email):
+        return -1
+    if not budget.allow("hunter"):
         return -1
     try:
         resp = requests.get(

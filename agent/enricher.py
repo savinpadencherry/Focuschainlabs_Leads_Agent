@@ -26,6 +26,7 @@ import requests
 
 from utils.rate_limiter import apollo_limiter
 from utils.exceptions import RateLimitError
+from utils import budget
 from agent.contact_finder import (
     find_decision_maker_via_linkedin,
     find_public_contact_info,
@@ -140,6 +141,8 @@ def enrich_contact(
 
 def _apollo_search(company_name: str, target_titles: list, location: str) -> dict:
     if not os.getenv("APOLLO_API_KEY"):
+        return {}
+    if not budget.allow("apollo"):
         return {}
 
     apollo_limiter.wait()

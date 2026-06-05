@@ -36,6 +36,8 @@ from agent.planner import plan_search
 from utils.deduplicator import load_exclusion_list, deduplicate
 from utils.excel_writer import write_leads_to_excel
 from utils.exceptions import RateLimitError
+from utils.reach import best_reach_channel, how_to_reach
+from utils import budget
 
 
 def today() -> str:
@@ -57,6 +59,10 @@ def run_pipeline_streaming(
     max_leads = max_leads or int(os.getenv("MAX_LEADS_PER_RUN", 30))
     threshold = int(os.getenv("MIN_SCORE_THRESHOLD", 60))
     pilot     = os.getenv("PILOT_MODE", "true").lower() == "true"
+
+    # Reset the per-run API budget — a hard ceiling that makes overspend
+    # structurally impossible no matter how the run fans out downstream.
+    budget.reset()
 
     # ── Load base ICP ──────────────────────────────────────────────────────
     with open(icp_config_path) as f:

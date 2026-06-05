@@ -214,12 +214,16 @@ def research_company(
     year = datetime.today().year
 
     # ── Recent news (store URL alongside snippet) ──────────────────────────
-    for query in [
-        f"{company_name} news {year}",
-        f"{company_name} expansion launch hiring operations CRM ecommerce automation {year}",
-    ]:
+    # One broad query per company instead of two — a single signal-rich query
+    # surfaces the same top news while halving Serper spend on this step.
+    news_queries = (
+        [f"{company_name} news reviews events community senior {year}"]
+        if is_buyer_intent else
+        [f"{company_name} news expansion launch hiring operations automation {year}"]
+    )
+    for query in news_queries:
         try:
-            for r in search_serper(query)[:2]:
+            for r in search_serper(query)[:4]:
                 bundle["recent_news"].append({
                     "title": r.get("snippet", "")[:200],
                     "url":   r.get("website", ""),

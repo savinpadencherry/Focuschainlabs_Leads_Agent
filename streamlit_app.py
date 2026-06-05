@@ -13,6 +13,12 @@ import pandas as pd
 from datetime import datetime
 
 import streamlit as st
+from utils.reach import best_reach_channel, how_to_reach
+from utils import budget
+from crm_ui import add_leads_to_crm, render_crm_page
+from reach_ui import render_reach_page
+from intel_ui import render_intel_page
+from proposal_ui import render_proposal_page
 
 # ── Environment ──────────────────────────────────────────────────────────────
 try:
@@ -1433,8 +1439,9 @@ elif st.session_state.stage == "running":
     COST_PER_SCORE_CALL = 0.018   # ₹
     COST_PER_PITCH_CALL = 0.019   # ₹ (merged bundle)
 
-    # Serper paid: $50/month ÷ 50K searches = $0.001/search × 196 searches/run × ₹83.5
-    COST_PER_SERPER_RUN = 196 * 0.001 * 83.5 / 100   # ₹ ~16.4 but shown separately
+    # Serper paid: $50/month ÷ 50K searches = $0.001/search × ₹83.5 ≈ ₹0.0835/call.
+    # We bill from the live per-run call counter (utils.budget), not a guess.
+    COST_PER_SERPER_CALL = 0.001 * 83.5   # ₹ per Serper call
     # Apify free credits vary by actor; show this as a low-confidence estimate.
     COST_PER_CONTACT_RUN = 0
 
@@ -1453,12 +1460,18 @@ elif st.session_state.stage == "running":
             + gemini_calls * COST_PER_SCORE_CALL
             + num_leads    * COST_PER_PITCH_CALL
         )
-        total_est = gemini_cost + COST_PER_SERPER_RUN + COST_PER_CONTACT_RUN
+        # Live, real call counts from the per-run budget guard.
+        serper_used = budget.used("serper")
+        serper_cap  = budget.cap("serper")
+        serper_cost = serper_used * COST_PER_SERPER_CALL
+        total_est = gemini_cost + serper_cost + COST_PER_CONTACT_RUN
         cost_html = (
             f'<div class="api-cost">'
-            f'Est. cost this run: <strong>₹{total_est:.0f}</strong> '
+            f'Est. cost this run: <strong>₹{total_est:.1f}</strong> '
             f'<span class="api-cost-note">'
-            f'Gemini ₹{gemini_cost:.2f} · Serper ₹{COST_PER_SERPER_RUN:.0f} · contacts via Apify/public web'
+            f'Gemini ₹{gemini_cost:.2f} · '
+            f'Serper {serper_used}/{serper_cap} calls (₹{serper_cost:.1f}) · '
+            f'contacts via Apify/public web'
             f'</span></div>'
         )
 

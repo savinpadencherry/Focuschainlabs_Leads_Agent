@@ -27,6 +27,7 @@ import time
 import requests
 
 from utils.exceptions import RateLimitError
+from utils import budget
 
 
 APIFY_BASE = "https://api.apify.com/v2"
@@ -59,6 +60,8 @@ def _apify_run(actor_id: str, input_data: dict, timeout: int = 90) -> list:
     """
     api_key = os.getenv("APIFY_API_KEY")
     if not api_key:
+        return []
+    if not budget.allow("apify"):
         return []
 
     actor_path = actor_id.replace("/", "~")
