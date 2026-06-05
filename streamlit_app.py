@@ -17,6 +17,7 @@ from utils.reach import best_reach_channel, how_to_reach
 from crm_ui import add_leads_to_crm, render_crm_page
 from reach_ui import render_reach_page
 from intel_ui import render_intel_page
+from proposal_ui import render_proposal_page
 
 # ── Environment ──────────────────────────────────────────────────────────────
 try:
@@ -1528,7 +1529,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── App navigation ────────────────────────────────────────────────────────────
-nav_agent, nav_reach, nav_intel, nav_crm, _nav_sp = st.columns([1, 1, 1, 1, 0.5])
+nav_agent, nav_reach, nav_intel, nav_proposal, nav_crm = st.columns(5)
 with nav_agent:
     if st.button(
         "Agent",
@@ -1556,6 +1557,15 @@ with nav_intel:
     ):
         st.session_state.app_view = "intel"
         st.rerun()
+with nav_proposal:
+    if st.button(
+        "Proposal",
+        use_container_width=True,
+        type="primary" if st.session_state.get("app_view") == "proposal" else "secondary",
+        key="nav_proposal",
+    ):
+        st.session_state.app_view = "proposal"
+        st.rerun()
 with nav_crm:
     if st.button(
         "CRM",
@@ -1576,6 +1586,10 @@ if st.session_state.get("app_view") == "reach":
 
 if st.session_state.get("app_view") == "intel":
     render_intel_page()
+    st.stop()
+
+if st.session_state.get("app_view") == "proposal":
+    render_proposal_page()
     st.stop()
 
 # ── Step rail ─────────────────────────────────────────────────────────────────
