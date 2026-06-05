@@ -23,7 +23,6 @@ import requests
 
 from utils.gemini import generate_content_text
 from utils.rate_limiter import serper_limiter
-from utils import budget
 
 
 _NEWS_URL   = "https://google.serper.dev/news"
@@ -103,7 +102,6 @@ def run_intel(
     Each company dict must include: name, website (optional), industry (optional),
     contact_id (optional), contact_name (optional), contact_title (optional).
     """
-    budget.reset()
     companies = companies[:MAX_PER_RUN]
     total      = len(companies)
     existing   = existing_briefings or []
@@ -143,10 +141,9 @@ def run_intel(
             serper_used += 1
         except Exception as exc:
             msg = str(exc)
-            low = msg.lower()
-            if "429" in msg or "quota" in low or "budget" in low:
+            if "429" in msg or "quota" in msg.lower():
                 yield {"type": "rate_limit", "company": name,
-                       "error": "Serper limit reached — run paused"}
+                       "error": "Serper daily quota reached — run paused"}
                 break
             yield {"type": "error", "company": name, "error": f"Search error: {msg[:120]}"}
             continue
@@ -212,8 +209,6 @@ def run_intel(
 def _search_news(company: str, num: int = 8) -> list[dict]:
     """One Serper /news call. Returns normalised news items."""
     api_key = os.getenv("SERPER_API_KEY", "")
-    if not budget.allow("serper"):
-        raise RuntimeError("Serper per-run budget reached")
     # Broad signal query — catches most interesting events in one call
     query = (
         f'"{company}" '

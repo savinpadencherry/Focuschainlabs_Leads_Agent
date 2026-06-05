@@ -14,7 +14,6 @@ from datetime import datetime
 
 import streamlit as st
 from utils.reach import best_reach_channel, how_to_reach
-from utils import budget
 from crm_ui import add_leads_to_crm, render_crm_page
 from reach_ui import render_reach_page
 from intel_ui import render_intel_page
@@ -46,6 +45,42 @@ if not os.getenv("GEMINI_API_KEY") and os.getenv("GOOGLE_API_KEY"):
     os.environ["GEMINI_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
 os.makedirs("output", exist_ok=True)
+
+# ── Crash detection across process restarts ──────────────────────────────────
+# Streamlit Cloud (free tier) kills the whole process on OOM / time limits.
+# When that happens, session_state is wiped and the app silently resets to the
+# home screen — no Python exception fires, so the user sees nothing. We persist
+# a tiny marker file at run start (survives the process restart) and clear it on
+# completion/handled-error. If we boot and find a stale marker, we know the last
+# run was killed by the platform and can tell the user exactly what happened.
+_RUN_MARKER = os.path.join("output", ".run_in_progress.json")
+
+
+def _write_run_marker(info: dict) -> None:
+    try:
+        with open(_RUN_MARKER, "w") as f:
+            json.dump({**info, "ts": time.time()}, f)
+    except Exception:
+        pass
+
+
+def _clear_run_marker() -> None:
+    try:
+        if os.path.exists(_RUN_MARKER):
+            os.remove(_RUN_MARKER)
+    except Exception:
+        pass
+
+
+def _read_run_marker() -> dict:
+    try:
+        if os.path.exists(_RUN_MARKER):
+            with open(_RUN_MARKER) as f:
+                return json.load(f) or {}
+    except Exception:
+        pass
+    return {}
+
 
 # ── Page Config ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -96,6 +131,7 @@ html, body { margin: 0; padding: 0; }
     background:
       radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,.55), transparent 60%),
       radial-gradient(130% 110% at 50% 110%, rgba(15,42,51,.06), transparent 55%);
+    animation: ambientDrift 18s ease-in-out infinite alternate;
 }
 .stApp::after {
     content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
@@ -118,6 +154,9 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
 h1, h2, h3, h4, p, div, span, label {
     font-family: 'Bricolage Grotesque', sans-serif !important;
     color: var(--ink);
+}
+[data-testid="stIconMaterial"] {
+    font-family: "Material Symbols Rounded" !important;
 }
 
 /* ── Eyebrow ── */
@@ -142,10 +181,21 @@ h1, h2, h3, h4, p, div, span, label {
     margin: 18px 0 6px;
     font-weight: 800;
     font-size: clamp(36px, 5.5vw, 60px);
-    letter-spacing: -.035em; line-height: .96;
+    letter-spacing: 0; line-height: .96;
     color: var(--ink);
 }
 .wordmark .accent { color: var(--green); }
+.wordmark .accent {
+    position: relative;
+    text-shadow: 0 10px 28px rgba(46,139,77,.10);
+}
+.wordmark .accent::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: -5px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    animation: signalSweep 2.8s ease-in-out 1.1s infinite;
+    opacity: .75;
+}
 .wordmark span { display: inline-block; overflow: hidden; vertical-align: bottom; }
 .wordmark span i {
     font-style: normal; display: inline-block;
@@ -215,7 +265,10 @@ h1, h2, h3, h4, p, div, span, label {
     transition: all .3s;
 }
 .steps .step.active { color: var(--ink); }
-.steps .step.active .num { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+.steps .step.active .num {
+    background: var(--ink); color: var(--cream); border-color: var(--ink);
+    animation: stepPulse 2.2s ease-in-out infinite;
+}
 .steps .step.done { color: var(--green); }
 .steps .step.done .num { background: var(--green); color: #fff; border-color: var(--green); }
 .steps .seg {
@@ -302,6 +355,17 @@ h1, h2, h3, h4, p, div, span, label {
     padding: 13px 26px !important;
     transition: all .2s ease !important;
     box-shadow: 0 2px 8px rgba(46,139,77,.18) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+[data-testid="stBaseButton-primary"]::after,
+.stButton > button[kind="primary"]::after,
+.stButton > button[data-testid="stBaseButton-primary"]::after {
+    content: "";
+    position: absolute; top: 0; bottom: 0; left: -45%; width: 34%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.28), transparent);
+    transform: skewX(-18deg);
+    animation: buttonShine 4.8s ease-in-out infinite;
 }
 [data-testid="stBaseButton-primary"]:hover,
 .stButton > button[kind="primary"]:hover {
@@ -401,10 +465,23 @@ h1, h2, h3, h4, p, div, span, label {
     padding: 0 !important;
     box-shadow: none !important;
     transition: border-color .2s, box-shadow .2s !important;
+    position: relative !important;
+}
+[data-testid="stForm"]::before {
+    content: "";
+    position: absolute; top: 0; bottom: 0; left: -34%; width: 24%;
+    background: linear-gradient(90deg, transparent, rgba(46,139,77,.08), transparent);
+    transform: skewX(-15deg);
+    pointer-events: none;
+    opacity: 0;
 }
 [data-testid="stForm"]:focus-within {
     border-color: rgba(46,139,77,.55) !important;
     box-shadow: 0 0 0 4px rgba(46,139,77,.09) !important;
+}
+[data-testid="stForm"]:focus-within::before {
+    opacity: 1;
+    animation: formSweep 1.5s ease;
 }
 
 /* Collapse outer vertical gap */
@@ -531,36 +608,61 @@ h1, h2, h3, h4, p, div, span, label {
     color: var(--ink-mute);
     padding-left: 12px;
 }
-/* ── Standalone file uploader (upload zone below brief form) ── */
-.stFileUploader [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
-.stFileUploader small { display: none !important; }
-.stFileUploader section { padding: 2px 0 !important; }
-.stFileUploader > label {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 10px !important; font-weight: 600 !important;
-    letter-spacing: .26em !important; text-transform: uppercase !important;
-    color: var(--ink-mute) !important; display: block !important;
-    margin-bottom: 6px !important;
+/* In-form file uploader — render as a single 📎 icon button, hide ALL text */
+[data-testid="stForm"] .stFileUploader { padding-left: 10px !important; }
+[data-testid="stForm"] .stFileUploader > label { display: none !important; }
+[data-testid="stForm"] .stFileUploader section { padding: 0 !important; }
+[data-testid="stForm"] .stFileUploader small,
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzoneInstructions"],
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzoneInstructions"] * {
+    font-size: 0 !important;
+    color: transparent !important;
+    line-height: 0 !important;
 }
-.stFileUploader [data-testid="stFileUploaderDropzone"] {
-    background: transparent !important;
-    border: 1.5px dashed rgba(15,42,51,.14) !important;
-    border-radius: var(--rs) !important;
-    padding: 5px 14px !important;
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"] {
     min-height: 36px !important;
-    display: flex !important; align-items: center !important;
-    transition: border-color .2s, background .2s !important;
+    height: 36px !important;
+    width: 36px !important;
+    padding: 0 !important;
+    border: 1.5px solid var(--line-soft) !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: relative !important;
+    overflow: hidden !important;
     cursor: pointer !important;
+    transition: border-color .2s, background .2s, transform .15s !important;
 }
-.stFileUploader [data-testid="stFileUploaderDropzone"]:hover {
-    border-color: rgba(46,139,77,.40) !important;
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"]:hover {
+    border-color: var(--green) !important;
     background: var(--green-bg) !important;
+    transform: scale(1.05) !important;
 }
-.stFileUploader [data-testid="stFileUploaderFile"] {
-    background: var(--green-bg) !important;
-    border: 1px solid rgba(46,139,77,.22) !important;
-    border-radius: 6px !important;
-    padding: 3px 10px !important;
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"]::after {
+    content: "📎";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px !important;
+    color: var(--ink-soft) !important;
+    line-height: 1 !important;
+    pointer-events: none;
+}
+/* Hide the "Browse files" button entirely — the whole dropzone is clickable */
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"] button {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    opacity: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    background: transparent !important;
 }
 
 /* ── Text area — standalone (outside forms) ── */
@@ -732,6 +834,26 @@ h1, h2, h3, h4, p, div, span, label {
     letter-spacing: .16em; text-transform: uppercase;
     margin-right: 8px;
 }
+.run-signal-strip {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-top: 14px;
+}
+.run-signal-strip span {
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(155,207,158,.16);
+    overflow: hidden;
+    position: relative;
+}
+.run-signal-strip span::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(155,207,158,.95), transparent);
+    animation: scanCell 1.8s ease-in-out infinite;
+    animation-delay: calc(var(--i) * .13s);
+}
 .run-metrics {
     display: grid; grid-template-columns: repeat(4, 1fr);
     gap: 8px; margin-top: 14px;
@@ -855,7 +977,18 @@ h1, h2, h3, h4, p, div, span, label {
     padding: 22px 24px;
     margin-bottom: 14px;
     transition: all .2s;
+    position: relative;
+    overflow: hidden;
+    animation: cardIn .42s cubic-bezier(.16,1,.3,1) both;
 }
+.lc::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(46,139,77,.55), transparent);
+    transform: translateX(-100%);
+    transition: transform .7s ease;
+}
+.lc:hover::before { transform: translateX(100%); }
 .lc:hover { border-color: var(--line); transform: translateY(-1px);
             box-shadow: 0 6px 20px rgba(15,42,51,.05); }
 .lc-hd { display: flex; align-items: flex-start; justify-content: space-between;
@@ -875,6 +1008,34 @@ h1, h2, h3, h4, p, div, span, label {
     margin-top: 12px;
     font-size: 14px; font-style: italic;
     color: var(--ink); line-height: 1.6;
+}
+.lc-reach {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: start;
+    border: 1px solid rgba(46,139,77,.16);
+    background: rgba(46,139,77,.055);
+    border-radius: var(--rs);
+    padding: 11px 13px;
+}
+.lc-channel {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--green);
+    border-radius: 4px;
+    padding: 3px 7px;
+    white-space: nowrap;
+}
+.lc-reach-text {
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.5;
 }
 .lc-chips {
     display: flex; flex-wrap: wrap; gap: 8px;
@@ -915,6 +1076,7 @@ h1, h2, h3, h4, p, div, span, label {
 .ev-news      { background: #DBEAFE; color: #1E40AF; }
 .ev-linkedin  { background: #E0E7FF; color: #3730A3; }
 .ev-community { background: #FCE7F3; color: #9D174D; }
+.ev-management{ background: #ECFCCB; color: #3F6212; }
 /* Outreach strategy note */
 .lc-note {
     margin-top: 14px;
@@ -1015,7 +1177,7 @@ h1, h2, h3, h4, p, div, span, label {
     border-radius: var(--r); padding: 18px 16px; text-align: center;
 }
 .stat-box .num { font-size: 30px; font-weight: 800; color: var(--ink);
-                 letter-spacing: -.02em; line-height: 1; }
+                 letter-spacing: 0; line-height: 1; }
 .stat-box .lbl {
     font-family: 'JetBrains Mono', monospace;
     font-size: 9.5px; font-weight: 600; letter-spacing: .22em;
@@ -1091,6 +1253,10 @@ h1, h2, h3, h4, p, div, span, label {
 }
 
 /* ── Keyframes ── */
+@keyframes ambientDrift {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(0, -10px, 0) scale(1.02); }
+}
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes rise   { to { transform: translateY(0); } }
 @keyframes pulse  { 0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10); }
@@ -1098,6 +1264,29 @@ h1, h2, h3, h4, p, div, span, label {
 @keyframes blink      { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 @keyframes fadeIn     { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scanline   { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }
+@keyframes signalSweep {
+    0%, 20% { transform: translateX(-35%) scaleX(.25); opacity: 0; }
+    45%     { opacity: .8; }
+    75%,100%{ transform: translateX(35%) scaleX(1); opacity: 0; }
+}
+@keyframes stepPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(15,42,51,.14); }
+    50%      { box-shadow: 0 0 0 7px rgba(15,42,51,.04); }
+}
+@keyframes buttonShine {
+    0%, 35% { left: -45%; opacity: 0; }
+    50%     { opacity: 1; }
+    75%,100%{ left: 115%; opacity: 0; }
+}
+@keyframes formSweep {
+    from { left: -34%; }
+    to   { left: 118%; }
+}
+@keyframes scanCell {
+    0%, 35% { transform: translateX(-100%); opacity: 0; }
+    50%     { opacity: 1; }
+    100%    { transform: translateX(100%); opacity: 0; }
+}
 @keyframes orbit-spin { to { transform: rotate(360deg); } }
 @keyframes orbit-glow {
     0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10), 0 0 12px rgba(46,139,77,.12); }
@@ -1120,6 +1309,10 @@ h1, h2, h3, h4, p, div, span, label {
     to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 @keyframes flow-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
 
 /* Shimmer sweep on console background */
 .run-console::before {
@@ -1157,6 +1350,42 @@ h1, h2, h3, h4, p, div, span, label {
 /* Pipeline progress bar breathing */
 .pipe-flow { animation: flow-pulse 2s ease-in-out infinite; }
 
+@media (max-width: 720px) {
+    .block-container {
+        padding-top: 24px !important;
+        padding-left: 18px !important;
+        padding-right: 18px !important;
+        padding-bottom: 64px !important;
+        max-width: 100% !important;
+    }
+    .eyebrow {
+        gap: 8px;
+        font-size: 9px;
+        letter-spacing: .24em;
+        white-space: nowrap;
+    }
+    .eyebrow .dash { width: 18px; }
+    .wordmark {
+        font-size: 42px;
+        line-height: 1;
+        margin-top: 16px;
+    }
+    .tagline {
+        font-size: 11px;
+        line-height: 1.7;
+        margin-bottom: 22px;
+    }
+    .stButton > button,
+    [data-testid="stBaseButton-primary"],
+    [data-testid="stBaseButton-secondary"] {
+        min-height: 46px !important;
+        padding: 11px 14px !important;
+        white-space: nowrap !important;
+        word-break: keep-all !important;
+        overflow-wrap: normal !important;
+    }
+}
+
 /* ── Misc ── */
 .stApp [data-testid="stToolbar"] { display: none !important; }
 footer { display: none !important; }
@@ -1176,6 +1405,7 @@ def _init():
         "locations":      ["Bangalore"],
         "titles":         [],
         "prompt":         "",
+        "prompt_text":    "",
         "max_leads":      30,
         "exclusion_path": None,
         "exclusion_name": "",
@@ -1186,10 +1416,25 @@ def _init():
         "plan":           {},
         "sources":        {},
         "stage_status":   {},
+        "run_error":      "",
+        "run_traceback":  "",
+        "run_warnings":   [],
+        "app_view":       "agent",
     }
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
+
+    # First boot of this session — check for a run that was killed by the platform
+    if "crash_checked" not in st.session_state:
+        st.session_state.crash_checked = True
+        marker = _read_run_marker()
+        # Stale marker + session reset to setup ⇒ the process was killed mid-run
+        if marker and st.session_state.stage == "setup":
+            age = time.time() - marker.get("ts", 0)
+            if age < 3600:  # ignore very old markers
+                st.session_state.interrupted_run = marker
+        _clear_run_marker()
 
 _init()
 
@@ -1235,30 +1480,61 @@ DEFAULT_PROMPTS = {
         "email and phone if available, plus a one-line reason for why this is worth outreach."
     ),
     "Cadabams": (
-        "Find at least 30 real B2B referral or partnership leads for Cadabams WeNest.\n\n"
-        "Cadabams WeNest serves senior living, assisted care, elder care, dementia care, and "
-        "NRI parent-care needs around Bangalore. Search for corporates, hospitals, insurance/"
-        "TPA firms, EAP providers, wealth/private banking teams, NRI employee communities, "
-        "and wellness/benefits companies showing signals around employee parent-care, discharge "
-        "planning, caregiver burnout, elder-care benefits, geriatric referrals, or senior-care "
-        "partnerships.\n\n"
-        "For each lead, find the company, their likely pain point, proof from news/posts/job "
-        "openings, roles they are hiring for, and the senior manager responsible. Prioritise "
-        "Chief People Officers, HR Directors, Heads of Employee Wellness, Benefits Managers, "
-        "Hospital Administrators, Discharge Planning heads, Insurance Partnership heads, and "
-        "Wealth/NRI relationship leaders. Include email and phone if available, plus a one-line "
-        "reason for outreach."
+        "Find as many real leads as possible who would BUY, LEASE or RENT a senior-living "
+        "home at Cadabams WeNest — and the organisations/communities that have direct access "
+        "to those buyers. It's fine to include low-confidence leads.\n\n"
+        "Cadabams WeNest sells senior-friendly 1 & 2 BHK homes (around INR 52-67 lakh) in a "
+        "luxury senior-living community at Kaggalipura / Kanakapura Road, Bangalore — "
+        "barrier-free homes with 24/7 medical and nursing support, assisted living, dining, "
+        "wellness, and an assured buyback option. Buyers are typically seniors (55+) wanting "
+        "independent or assisted living, retirees downsizing, and adult children or NRIs "
+        "arranging a safe home and care for ageing parents in India.\n\n"
+        "Search broadly across Bangalore and India for: senior citizens' associations, "
+        "pensioner and retired-employee forums, geriatric care and home-nursing agencies, "
+        "elder-care NGOs and senior wellness communities, retirement and NRI wealth/financial "
+        "advisors, private-banking and NRI relationship teams, estate-planning advisors, "
+        "rehab and physiotherapy centres for the elderly, diagnostic chains and clinics with "
+        "elderly patients, senior-focused property consultants, and online posts/forums where "
+        "families (especially NRIs) ask about retirement homes, assisted living or parent care "
+        "in Bangalore.\n\n"
+        "For each lead capture: who they are, why they (or their members/clients) would want a "
+        "WeNest home, proof from their site/news/posts, a named person or office-bearer to "
+        "contact, and email/phone if available, plus a one-line reason to reach out. Surface "
+        "even low-confidence buyer leads and flag the uncertainty rather than dropping them."
+    ),
+    "SNRealtors": (
+        "Find real, CONTACTABLE leads for SN Realtors — prioritise leads we can actually "
+        "call or email: named professionals and referral channels with discoverable "
+        "contacts, plus identifiable HNI/NRI buyers looking for premium Bangalore property.\n\n"
+        "SN Realtors is a premium real estate brokerage LLP in Bangalore. They "
+        "channel-partner with top developers (Prestige, Sobha, Brigade, Godrej, etc.) and "
+        "earn commission by placing wealthy buyers into high-value projects — luxury "
+        "apartments, villas, and penthouses typically in the INR 1.5–10 Cr+ range across "
+        "Bangalore. Buyers are typically HNIs, NRIs investing back home, startup founders/"
+        "CXOs upgrading, senior tech professionals, and families relocating to Bangalore.\n\n"
+        "Prioritise REFERRAL CHANNELS that have direct access to these buyers and come with "
+        "a named person + public contact: wealth managers and private/NRI bankers, family "
+        "offices, premium property consultants and channel partners, corporate relocation "
+        "and expat-housing desks, CAs and estate advisors, interior designers and architects "
+        "working on luxury homes, and HNI clubs. Also surface NAMED individuals on LinkedIn "
+        "in these high-earning cohorts. Use forum/Reddit threads mainly to find which firms, "
+        "brokers and advisors are recommended — not anonymous one-off posters.\n\n"
+        "For each lead capture: who they are, why they (or their clients) would buy "
+        "premium Bangalore property, proof from their site/profile/posts, a named person "
+        "to contact, and email/phone if available, plus a one-line reason to reach out. "
+        "Rank leads we can actually reach above un-contactable anonymous signals."
     ),
 }
 
 
 def resolve_client_label(template_key: str) -> str:
-    """Map the two visible templates to whatever labels exist in /config."""
+    """Map visible templates to whatever labels exist in /config."""
     if not ICPS:
         return ""
     needles = {
         "FocusChainLabs": ("focus", "digital"),
         "Cadabams": ("cadabams", "wenest", "senior"),
+        "SNRealtors": ("sn realtors", "sn", "realtor", "premium real estate"),
     }.get(template_key, ())
     for label, payload in ICPS.items():
         haystack = f"{label} {payload['data'].get('client', '')} {payload['data'].get('vertical', '')}".lower()
@@ -1284,13 +1560,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── App navigation ────────────────────────────────────────────────────────────
-st.session_state.setdefault("app_view", "agent")
 nav_agent, nav_reach, nav_intel, nav_proposal, nav_crm = st.columns(5)
 with nav_agent:
     if st.button(
-        "Scout",
+        "Agent",
         use_container_width=True,
-        type="primary" if st.session_state.app_view == "agent" else "secondary",
+        type="primary" if st.session_state.get("app_view", "agent") == "agent" else "secondary",
         key="nav_agent",
     ):
         st.session_state.app_view = "agent"
@@ -1299,7 +1574,7 @@ with nav_reach:
     if st.button(
         "Reach",
         use_container_width=True,
-        type="primary" if st.session_state.app_view == "reach" else "secondary",
+        type="primary" if st.session_state.get("app_view") == "reach" else "secondary",
         key="nav_reach",
     ):
         st.session_state.app_view = "reach"
@@ -1308,7 +1583,7 @@ with nav_intel:
     if st.button(
         "Intel",
         use_container_width=True,
-        type="primary" if st.session_state.app_view == "intel" else "secondary",
+        type="primary" if st.session_state.get("app_view") == "intel" else "secondary",
         key="nav_intel",
     ):
         st.session_state.app_view = "intel"
@@ -1317,7 +1592,7 @@ with nav_proposal:
     if st.button(
         "Proposal",
         use_container_width=True,
-        type="primary" if st.session_state.app_view == "proposal" else "secondary",
+        type="primary" if st.session_state.get("app_view") == "proposal" else "secondary",
         key="nav_proposal",
     ):
         st.session_state.app_view = "proposal"
@@ -1326,29 +1601,27 @@ with nav_crm:
     if st.button(
         "CRM",
         use_container_width=True,
-        type="primary" if st.session_state.app_view == "crm" else "secondary",
+        type="primary" if st.session_state.get("app_view") == "crm" else "secondary",
         key="nav_crm",
     ):
         st.session_state.app_view = "crm"
         st.rerun()
 
-if st.session_state.app_view == "crm":
+if st.session_state.get("app_view") == "crm":
     render_crm_page()
     st.stop()
 
-if st.session_state.app_view == "reach":
+if st.session_state.get("app_view") == "reach":
     render_reach_page()
     st.stop()
 
-if st.session_state.app_view == "intel":
+if st.session_state.get("app_view") == "intel":
     render_intel_page()
     st.stop()
 
-if st.session_state.app_view == "proposal":
+if st.session_state.get("app_view") == "proposal":
     render_proposal_page()
     st.stop()
-
-st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
 
 # ── Step rail ─────────────────────────────────────────────────────────────────
 def render_steps(cur: str):
@@ -1379,19 +1652,36 @@ if st.session_state.stage == "setup":
         st.error("No ICP config files found in /config. Add a JSON file there.")
         st.stop()
 
+    # Surface a run that the hosting platform killed mid-way (OOM / time limit).
+    interrupted = st.session_state.pop("interrupted_run", None)
+    if interrupted:
+        client = interrupted.get("client", "your")
+        n = interrupted.get("max_leads", "")
+        st.error(
+            f"**Your previous {client} run was interrupted before it finished.**\n\n"
+            "This almost always means the hosting platform (Streamlit Cloud free tier) "
+            "hit its **memory or time limit** and restarted the app — which silently "
+            "resets it to this screen. It is not a bug in your brief or keys.\n\n"
+            "**To make the next run reliable:**\n"
+            f"- Lower **Leads per run** to **5–8** (you had {n}) in Advanced settings below\n"
+            "- Run during off-peak hours; the free tier throttles under load\n"
+            "- Each lead does ~10 web lookups, so fewer leads = far less memory & time"
+        )
+
     focus_label = resolve_client_label("FocusChainLabs")
-    if not st.session_state.prompt:
+    if not st.session_state.get("prompt_text"):
         st.session_state.selected_client = focus_label
-        st.session_state.prompt = DEFAULT_PROMPTS["FocusChainLabs"]
+        st.session_state.prompt_text = DEFAULT_PROMPTS["FocusChainLabs"]
 
     # ── TEMPLATE SELECTION ───────────────────────────────────────────────────
     st.markdown('<div class="sec">Template <span class="line"></span></div>',
                 unsafe_allow_html=True)
 
-    t_col1, t_col2 = st.columns(2, gap="medium")
+    t_col1, t_col2, t_col3 = st.columns(3, gap="medium")
     template_options = [
         ("FocusChainLabs", "FocusChainLabs", t_col1),
         ("Cadabams", "Cadabams", t_col2),
+        ("SNRealtors", "SN Realtors", t_col3),
     ]
     for template_key, label, col in template_options:
         target_label = resolve_client_label(template_key)
@@ -1404,7 +1694,9 @@ if st.session_state.stage == "setup":
                 type="primary" if is_sel else "secondary",
             ):
                 st.session_state.selected_client = target_label
-                st.session_state.prompt = DEFAULT_PROMPTS[template_key]
+                st.session_state.prompt_text = DEFAULT_PROMPTS[template_key]
+                # Force the brief box for this client to re-seed with its default
+                st.session_state[f"brief_box::{target_label}"] = DEFAULT_PROMPTS[template_key]
                 st.session_state.industries = []
                 st.session_state.titles = []
                 st.rerun()
@@ -1416,11 +1708,13 @@ if st.session_state.stage == "setup":
     all_titles = base_icp.get("target_titles", [])
     locations = base_icp.get("locations", ["Bangalore"])
     threshold = int(base_icp.get("min_score_threshold", os.getenv("MIN_SCORE_THRESHOLD", 60)))
-    max_leads = 30
+    # Respect the deployment cap (Streamlit secrets / .env). Heavy runs on the free
+    # tier can be killed mid-way and reload to the home screen, so honour the limit.
+    max_leads = int(os.getenv("MAX_LEADS_PER_RUN", 30))
 
     st.markdown(
         f'<div class="template-note"><strong>{base_icp.get("client", client_choice)}</strong> '
-        f'will run a 30-lead search across {", ".join(locations[:2])}. '
+        f'will run a {max_leads}-lead search across {", ".join(locations[:2])}. '
         f'The prompt below is editable; the agent will refine searches, inspect job posts/news/posts, '
         f'find the responsible senior owner, and export a scored Excel sheet.</div>',
         unsafe_allow_html=True,
@@ -1443,6 +1737,13 @@ if st.session_state.stage == "setup":
             unsafe_allow_html=True,
         )
 
+    # The brief box uses a per-client key so switching templates always shows the
+    # right prompt (a single shared widget key would keep the previous template's
+    # text inside the form buffer and submit the wrong brief).
+    brief_key = f"brief_box::{client_choice}"
+    if brief_key not in st.session_state:
+        st.session_state[brief_key] = st.session_state.get("prompt_text", "")
+
     with st.form("run_form", border=False, clear_on_submit=False):
         prompt = st.text_area(
             "brief",
@@ -1452,36 +1753,34 @@ if st.session_state.stage == "setup":
                 "into web searches, company research, job-post proof, management mapping, "
                 "and an Excel sheet."
             ),
-            key="prompt",
+            key=brief_key,
             label_visibility="collapsed",
         )
-        _hint_col, _btn_col = st.columns([11, 1])
-        with _hint_col:
-            _attached = st.session_state.get("previous_list_upload")
-            _fname = (
-                _attached.name if _attached
-                else st.session_state.exclusion_name or ""
+        upload_col, hint_col, _btn = st.columns([0.10, 0.78, 0.12])
+        with upload_col:
+            uploaded_file = st.file_uploader(
+                " ",
+                type=["xlsx", "csv"],
+                key="previous_list_upload",
+                label_visibility="collapsed",
             )
-            if _fname:
-                st.markdown(
-                    f'<div class="composer-hint" style="color:var(--green)">📎 {_fname}</div>',
-                    unsafe_allow_html=True,
-                )
-        with _btn_col:
+        with hint_col:
+            upload_name = (
+                uploaded_file.name if uploaded_file
+                else st.session_state.exclusion_name
+                or "Optional: upload previous list"
+            )
+            st.markdown(f'<div class="composer-hint">{upload_name}</div>',
+                        unsafe_allow_html=True)
+        with _btn:
             run = st.form_submit_button("↑")
-
-    # ── Upload zone (below the form, outside it) ─────────────────────────────
-    uploaded_file = st.file_uploader(
-        "Attach previous leads list · skip duplicates (optional)",
-        type=["xlsx", "csv"],
-        key="previous_list_upload",
-        help="Upload a previous leads Excel or CSV — companies already in that list will be skipped",
-    )
 
     if run:
         if not prompt.strip():
             st.warning("Add a brief — even one sentence — so the planner can build a search plan.")
             st.stop()
+        # Persist exactly what's visible in the box so the run uses the right brief.
+        st.session_state.prompt_text = prompt
         exclusion_path = None
         if uploaded_file:
             safe_name = "".join(
@@ -1504,12 +1803,15 @@ if st.session_state.stage == "setup":
         st.session_state.locations    = locations
         st.session_state.titles       = all_titles
         st.session_state.max_leads    = max_leads
-        st.session_state.events       = []
-        st.session_state.sources      = {}
-        st.session_state.stage_status = {}
-        st.session_state.api_status   = {}   # service → {state, message, ts}
-        st.session_state.gemini_calls = 0
-        st.session_state.stage        = "running"
+        st.session_state.events        = []
+        st.session_state.sources       = {}
+        st.session_state.stage_status  = {}
+        st.session_state.api_status    = {}   # service → {state, message, ts}
+        st.session_state.gemini_calls  = 0
+        st.session_state.run_error     = ""
+        st.session_state.run_traceback = ""
+        st.session_state.run_warnings  = []
+        st.session_state.stage         = "running"
         st.rerun()
 
 
@@ -1744,6 +2046,12 @@ elif st.session_state.stage == "running":
             f'<div class="run-sub">{html.escape(source_text)} · {html.escape(stage_lbl)}</div>'
             '</div></div>'
             f'<div class="run-focus"><span class="k">Agent focus</span>{msg}</div>'
+            '<div class="run-signal-strip">'
+            '<span style="--i:0"></span><span style="--i:1"></span>'
+            '<span style="--i:2"></span><span style="--i:3"></span>'
+            '<span style="--i:4"></span><span style="--i:5"></span>'
+            '<span style="--i:6"></span>'
+            '</div>'
             f'<div class="run-metrics">{metric_html}</div>'
             '</div>'
         )
@@ -1841,13 +2149,15 @@ elif st.session_state.stage == "running":
                     f'</div></div>'
                 )
             elif t == "enrich_result":
-                found = ev.get("status", "") == "found"
+                status = ev.get("status", "")
+                found = status in {"found", "partial"}
+                label = "contact found" if status == "found" else "usable contact path"
                 rows += (
                     f'<div class="act-row">'
                     f'<div class="act-dot {"act-done" if found else "act-skip"}"></div>'
                     f'<div class="act-body">'
                     f'<div class="act-company">{ev.get("company","")}</div>'
-                    f'<div class="act-detail">contact {"found via " + (ev.get("source") or "enrichment") if found else "not found — manual lookup needed"}</div>'
+                    f'<div class="act-detail">{label + " via " + (ev.get("source") or "enrichment") if found else "not found — manual lookup needed"}</div>'
                     f'</div></div>'
                 )
             elif t in {"research_progress", "score_progress", "enrich_progress", "pitch_progress"}:
@@ -1907,6 +2217,12 @@ elif st.session_state.stage == "running":
                                             "count": 0, "reason": "queued"}
     sources_slot.markdown(render_sources(st.session_state.sources), unsafe_allow_html=True)
 
+    # Drop a crash marker — if the platform kills us mid-run, we detect it on reboot.
+    _write_run_marker({
+        "client":    st.session_state.get("selected_client", "your"),
+        "max_leads": st.session_state.get("max_leads", ""),
+    })
+
     try:
         gen = run_pipeline_streaming(
             icp_config_path=st.session_state.icp_path,
@@ -1915,8 +2231,8 @@ elif st.session_state.stage == "running":
             override_industries=st.session_state.industries or None,
             override_locations=st.session_state.locations or None,
             override_titles=st.session_state.titles or None,
-            custom_focus=(st.session_state.prompt or "").strip(),
-            user_prompt=(st.session_state.prompt or "").strip(),
+            custom_focus=(st.session_state.get("prompt_text") or "").strip(),
+            user_prompt=(st.session_state.get("prompt_text") or "").strip(),
         )
 
         if not hasattr(st.session_state, "api_status"):
@@ -2021,10 +2337,11 @@ elif st.session_state.stage == "running":
 
             elif t == "rate_limit":
                 svc = ev.get("service", "unknown")
-                st.session_state.api_status[svc] = {
-                    "state":   "rate_limited",
-                    "message": ev.get("message", "Rate limit reached"),
-                }
+                msg = ev.get("message", "Rate limit reached")
+                st.session_state.api_status[svc] = {"state": "rate_limited", "message": msg}
+                warn = f"{svc.upper()} quota exhausted — {msg}"
+                if warn not in st.session_state.run_warnings:
+                    st.session_state.run_warnings.append(warn)
                 _refresh_all()
 
             elif t in {"plan_ready", "score_result"}:
@@ -2062,18 +2379,27 @@ elif st.session_state.stage == "running":
                 st.session_state.output_path = ev.get("output_path")
                 st.session_state.stats       = ev.get("stats", {})
                 st.session_state.plan        = ev.get("plan", st.session_state.plan)
+                st.session_state.run_error   = ev.get("error", "")
                 for k, _ in PIPE_STAGES:
                     st.session_state.stage_status[k] = "done"
+                _clear_run_marker()  # run finished cleanly
                 _refresh_all()
                 st.session_state.stage = "results"
                 time.sleep(0.35)
                 st.rerun()
 
     except Exception as e:
-        st.error(f"Pipeline error: {e}")
-        if st.button("← Back to brief"):
-            st.session_state.stage = "setup"
-            st.rerun()
+        # Handled Python error — capture full context and route to the error stage.
+        import traceback as _tb
+        _clear_run_marker()
+        st.session_state.run_error     = str(e)
+        st.session_state.run_traceback = _tb.format_exc()
+        st.session_state.run_stage_at_error = next(
+            (ev.get("stage") for ev in reversed(st.session_state.events)
+             if ev.get("type") == "stage_start"), "—"
+        )
+        st.session_state.stage = "error"
+        st.rerun()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2099,17 +2425,81 @@ elif st.session_state.stage == "results":
     """, unsafe_allow_html=True)
 
     if not leads:
-        st.warning(
-            "No leads produced. Common causes: no API keys configured, "
-            "all companies scored below the threshold, or the brief was too narrow. "
-            "Try lowering the score floor or broadening the brief."
+        run_error    = st.session_state.get("run_error", "")
+        run_warnings = st.session_state.get("run_warnings", [])
+        events       = st.session_state.get("events", [])
+
+        # Detect specific failure causes from events
+        serper_rate_limited = any(
+            e.get("type") == "rate_limit" and "serper" in str(e.get("service", "")).lower()
+            for e in events
         )
-        if st.button("← New brief"):
-            for k in ["stage", "events", "sources", "stage_status", "leads", "plan"]:
-                st.session_state[k] = {"stage": "setup", "events": [], "sources": {},
-                                        "stage_status": {}, "leads": [], "plan": {}}.get(k)
-            st.session_state.stage = "setup"
-            st.rerun()
+        no_serper_key = any(
+            e.get("type") == "source_done" and e.get("source") == "serper"
+            and e.get("status") == "skip" and "key" in str(e.get("reason", "")).lower()
+            for e in events
+        )
+        all_skipped = all(
+            e.get("status") in ("skip",)
+            for e in events if e.get("type") == "source_done"
+        ) and any(e.get("type") == "source_done" for e in events)
+
+        if serper_rate_limited or "serper" in run_error.lower():
+            st.error(
+                "**Serper search quota exhausted** — no Google searches could run.\n\n"
+                "To fix: log in at [serper.dev](https://serper.dev), top up your credits, "
+                "then re-run. Your API key and brief are still saved."
+            )
+        elif no_serper_key or "serper_api_key" in run_error.lower():
+            st.error(
+                "**SERPER_API_KEY not configured** — add it in Streamlit Cloud → Settings → Secrets.\n\n"
+                "At minimum, Serper is required to find companies."
+            )
+        elif run_error:
+            st.error(f"**Run stopped with an error:** {run_error}\n\n"
+                     "Check your API keys in Secrets, broaden the brief, or try again.")
+        else:
+            st.warning(
+                "**No leads produced.** Common causes:\n"
+                "- A search source was rate-limited or returned nothing\n"
+                "- All companies scored below the threshold\n"
+                "- The brief was too narrow\n\n"
+                "Try again, broaden the brief, or lower the score floor."
+            )
+
+        # Show any API warnings collected during the run
+        for w in run_warnings:
+            st.warning(f"⚠ {w}")
+
+        # Show scored-but-excluded count if available
+        scored_events = [e for e in events if e.get("type") == "score_result"]
+        if scored_events:
+            n_scored = len(scored_events)
+            n_qual = sum(1 for e in scored_events if e.get("qualify"))
+            st.info(
+                f"{n_scored} companies were researched and scored; "
+                f"{n_qual} met the threshold. "
+                f"{'Lower the Min Score in advanced settings to see more.' if n_scored > n_qual else ''}"
+            )
+
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("↻ Re-run same brief", use_container_width=True, type="primary"):
+                st.session_state.stage         = "running"
+                st.session_state.events        = []
+                st.session_state.sources       = {}
+                st.session_state.stage_status  = {}
+                st.session_state.leads         = []
+                st.session_state.run_error     = ""
+                st.session_state.run_warnings  = []
+                st.rerun()
+        with c2:
+            if st.button("← New brief", use_container_width=True):
+                for k in ["stage", "events", "sources", "stage_status", "leads", "plan"]:
+                    st.session_state[k] = {"stage": "setup", "events": [], "sources": {},
+                                            "stage_status": {}, "leads": [], "plan": {}}.get(k)
+                st.session_state.stage = "setup"
+                st.rerun()
         st.stop()
 
     leads_sorted = sorted(leads, key=lambda x: x.get("total_score", 0), reverse=True)
@@ -2126,6 +2516,19 @@ elif st.session_state.stage == "results":
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                 )
+        if st.button(
+            "Add all to CRM",
+            use_container_width=True,
+            help="Save these leads to your GitHub-backed CRM",
+        ):
+            stats = add_leads_to_crm(
+                leads_sorted,
+                client=st.session_state.get("selected_client", ""),
+            )
+            st.success(
+                f"Added to CRM — {stats.get('added', 0)} new, "
+                f"{stats.get('updated', 0)} updated."
+            )
     with plan_col:
         if st.session_state.plan:
             p = st.session_state.plan
@@ -2145,12 +2548,15 @@ elif st.session_state.stage == "results":
 
     with tab_cards:
         for lead in leads_sorted:
+            esc = html.escape
             score   = lead.get("total_score", 0)
             sc_cls  = "sc-hi" if score >= 80 else ("sc-mid" if score >= 60 else "sc-lo")
             signal  = lead.get("primary_signal", "").strip()
             pain    = lead.get("pain_point", "").strip()
             opening = lead.get("opening_line", "").strip()
             note    = lead.get("outreach_note", "").strip()
+            channel = lead.get("reach_channel", "") or best_reach_channel(lead)
+            reach   = lead.get("how_to_reach", "") or how_to_reach(lead)
             cn      = lead.get("contact_name", "")
             ct      = lead.get("contact_title", "")
             em      = lead.get("email", "")
@@ -2159,51 +2565,63 @@ elif st.session_state.stage == "results":
             owner   = lead.get("responsible_owner", "")
             running_ads = lead.get("running_ads", False)
             evidence    = lead.get("evidence", []) or []
+            selection_note = lead.get("selection_note", "")
 
             chips = []
+            if selection_note or score < 60:
+                chips.append('<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-size:10px;letter-spacing:.08em">VERIFY FIT</span>')
             if running_ads:
                 chips.append('<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-size:10px;letter-spacing:.08em">RUNNING ADS</span>')
+            if channel:
+                chips.append(f'<span><span class="k">channel</span>{esc(channel)}</span>')
             if cn and "Manual" not in cn:
-                chips.append(f'<span><span class="k">contact</span>{cn}{" · " + ct if ct else ""}</span>')
+                chips.append(f'<span><span class="k">contact</span>{esc(cn)}{" · " + esc(ct) if ct else ""}</span>')
             if em and "Manual" not in em and "@" in em:
-                chips.append(f'<span><span class="k">email</span>{em}</span>')
+                chips.append(f'<span><span class="k">email</span>{esc(em)}</span>')
             if ph and "Manual" not in ph:
-                chips.append(f'<span><span class="k">phone</span>{ph}</span>')
+                chips.append(f'<span><span class="k">phone</span>{esc(ph)}</span>')
             if src:
-                chips.append(f'<span><span class="k">via</span>{src}</span>')
+                chips.append(f'<span><span class="k">via</span>{esc(src)}</span>')
 
             # Evidence items HTML
             ev_html = ""
             if evidence:
                 ev_items = ""
                 for ev in evidence[:5]:
-                    cat = ev.get("category", "news")
-                    obs = ev.get("observation", "")[:120]
-                    ev_items += f'<div class="lc-ev-item"><span class="lc-ev-cat ev-{cat}">{cat}</span>{obs}</div>'
+                    cat = str(ev.get("category", "news") or "news")
+                    cat_cls = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in cat.lower())
+                    obs = str(ev.get("observation", "") or "")[:120]
+                    ev_items += f'<div class="lc-ev-item"><span class="lc-ev-cat ev-{cat_cls}">{esc(cat)}</span>{esc(obs)}</div>'
                 ev_html = f'<div class="lc-evidence"><div class="lc-ev-label">Evidence</div>{ev_items}</div>'
 
             note_html = ""
             if note:
-                note_html = f'<div class="lc-note"><div class="lc-note-label">Call Strategy</div><div class="lc-note-body">{note}</div></div>'
+                note_body = esc(note).replace("\n", "<br>")
+                note_html = f'<div class="lc-note"><div class="lc-note-label">Call Strategy</div><div class="lc-note-body">{note_body}</div></div>'
 
-            st.markdown(f"""
-            <div class="lc">
-              <div class="lc-hd">
-                <div>
-                  <div class="lc-name">{lead.get("company_name","")}</div>
-                  <div class="lc-meta">{lead.get("website","") or "—"}</div>
-                </div>
-                <span class="sc {sc_cls}">{score}/100</span>
-              </div>
-              {f'<div class="lc-sig">{signal}</div>' if signal else ""}
-              {f'<div class="lc-meta" style="margin-top:6px;font-size:12.5px">Pain · {pain}</div>' if pain else ""}
-              {f'<div class="lc-meta" style="margin-top:4px;font-size:12.5px">Owner · {owner}</div>' if owner else ""}
-              {f'<div class="lc-opener">{opening}</div>' if opening else ""}
-              {ev_html}
-              {note_html}
-              {f'<div class="lc-chips">{"".join(chips)}</div>' if chips else ""}
-            </div>
-            """, unsafe_allow_html=True)
+            sig_html   = f'<div class="lc-sig">{esc(signal)}</div>' if signal else ""
+            pain_html  = f'<div class="lc-meta" style="margin-top:6px;font-size:12.5px">Pain · {esc(pain)}</div>' if pain else ""
+            owner_html = f'<div class="lc-meta" style="margin-top:4px;font-size:12.5px">Owner · {esc(owner)}</div>' if owner else ""
+            verify_html = f'<div class="lc-meta" style="margin-top:4px;font-size:12.5px;color:#92400E">Verify · {esc(selection_note)}</div>' if selection_note else ""
+            reach_html = f'<div class="lc-reach"><span class="lc-channel">{esc(channel)}</span><div class="lc-reach-text">{esc(reach).replace(chr(10), " ")}</div></div>' if reach else ""
+            opener_html = f'<div class="lc-opener">{esc(opening)}</div>' if opening else ""
+            chips_html = f'<div class="lc-chips">{"".join(chips)}</div>' if chips else ""
+
+            # Single-line HTML — indented multi-line strings make Streamlit's
+            # markdown parser fall back to a code block when a field has newlines.
+            card_html = (
+                '<div class="lc">'
+                '<div class="lc-hd"><div>'
+                f'<div class="lc-name">{esc(lead.get("company_name",""))}</div>'
+                f'<div class="lc-meta">{esc(lead.get("website","") or "—")}</div>'
+                '</div>'
+                f'<span class="sc {sc_cls}">{score}/100</span>'
+                '</div>'
+                f'{sig_html}{pain_html}{owner_html}{verify_html}'
+                f'{reach_html}{opener_html}{ev_html}{note_html}{chips_html}'
+                '</div>'
+            )
+            st.markdown(card_html, unsafe_allow_html=True)
 
     with tab_table:
         df = pd.DataFrame([
@@ -2215,6 +2633,9 @@ elif st.session_state.stage == "results":
                 "Title":   l.get("contact_title", ""),
                 "Email":   l.get("email", ""),
                 "Phone":   l.get("phone", ""),
+                "Channel": l.get("reach_channel", "") or best_reach_channel(l),
+                "How To Reach": l.get("how_to_reach", "") or how_to_reach(l),
+                "Status":  "Verify" if l.get("selection_note") or int(l.get("total_score", 0) or 0) < 60 else "Ready",
                 "Owner":   l.get("responsible_owner", ""),
                 "Signal":  l.get("primary_signal", ""),
                 "Opening": l.get("opening_line", ""),
@@ -2224,7 +2645,7 @@ elif st.session_state.stage == "results":
         st.dataframe(df, use_container_width=True, hide_index=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    b1, b2, _ = st.columns([1, 1, 4])
+    b1, b2, b3, _ = st.columns([1, 1, 1, 3])
     with b1:
         if st.button("New brief", use_container_width=True):
             st.session_state.stage = "setup"
@@ -2236,9 +2657,116 @@ elif st.session_state.stage == "results":
             st.rerun()
     with b2:
         if st.button("Re-run", use_container_width=True):
-            st.session_state.stage = "running"
-            st.session_state.events = []
-            st.session_state.sources = {}
-            st.session_state.stage_status = {}
-            st.session_state.leads = []
+            st.session_state.stage         = "running"
+            st.session_state.events        = []
+            st.session_state.sources       = {}
+            st.session_state.stage_status  = {}
+            st.session_state.leads         = []
+            st.session_state.run_error     = ""
+            st.session_state.run_warnings  = []
+            st.rerun()
+    with b3:
+        if st.button("Open CRM", use_container_width=True):
+            st.session_state.app_view = "crm"
+            st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  STAGE — ERROR  (persistent error display, survives Streamlit reruns)
+# ═══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.stage == "error":
+    import html as _html
+
+    err_msg  = st.session_state.get("run_error", "An unexpected error occurred.")
+    err_tb   = st.session_state.get("run_traceback", "")
+    warnings = st.session_state.get("run_warnings", [])
+    events   = st.session_state.get("events", [])
+
+    # Human-readable diagnosis based on error text
+    err_lower = err_msg.lower()
+    if "serper" in err_lower or "429" in err_lower or "quota" in err_lower or "rate limit" in err_lower:
+        diagnosis = (
+            "**API quota exhausted.** A search or AI service ran out of credits mid-run.\n\n"
+            "- **Serper quota**: top up at serper.dev — your key is already saved.\n"
+            "- **Gemini quota**: free tier resets daily; try again later or upgrade.\n"
+            "Your brief and template are still selected."
+        )
+    elif "gemini" in err_lower or "google" in err_lower:
+        diagnosis = (
+            "**Gemini AI call failed.** The GEMINI_API_KEY may be missing, invalid, or "
+            "the free-tier quota has been reached.\n\n"
+            "Check your key in Streamlit → Settings → Secrets and try again."
+        )
+    elif "serper_api_key" in err_lower or "api key" in err_lower:
+        diagnosis = (
+            "**API key missing or invalid.** Check that all required keys "
+            "(SERPER_API_KEY, GEMINI_API_KEY) are set in Streamlit → Settings → Secrets."
+        )
+    elif "filenotfounderror" in err_lower or "icp" in err_lower or "config" in err_lower:
+        diagnosis = (
+            "**ICP configuration file could not be loaded.** "
+            "Make sure the config JSON file exists in the `/config` directory."
+        )
+    elif "json" in err_lower or "decode" in err_lower:
+        diagnosis = (
+            "**JSON parsing failed** — Gemini returned an unexpected response. "
+            "This is usually transient; try running again."
+        )
+    else:
+        diagnosis = (
+            "**The run stopped unexpectedly.** Your brief and template are still selected. "
+            "Retry the run or go back to edit the brief."
+        )
+
+    st.markdown(
+        f'<div class="api-alert">'
+        f'<strong>⚠ Run failed</strong> — {_html.escape(err_msg)}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"\n\n{diagnosis}")
+
+    # Show any rate-limit or quota warnings collected before the crash
+    for w in warnings:
+        st.warning(f"⚠ {w}")
+
+    # Show events summary (how far the run got)
+    scored_events = [e for e in events if e.get("type") == "score_result"]
+    search_done   = next((e for e in reversed(events) if e.get("type") == "search_done"), None)
+    last_stage    = next(
+        (e.get("stage") for e in reversed(events) if e.get("type") == "stage_start"), "—"
+    )
+    if events:
+        parts = [f"Last active stage: **{last_stage}**"]
+        if search_done:
+            parts.append(f"{search_done.get('unique', 0)} companies found")
+        if scored_events:
+            parts.append(f"{len(scored_events)} scored")
+        st.info("  ·  ".join(parts))
+
+    # Technical traceback in expander
+    if err_tb:
+        with st.expander("Technical details (traceback)"):
+            st.code(err_tb)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("↻ Retry run", use_container_width=True, type="primary"):
+            st.session_state.stage         = "running"
+            st.session_state.events        = []
+            st.session_state.sources       = {}
+            st.session_state.stage_status  = {}
+            st.session_state.api_status    = {}
+            st.session_state.gemini_calls  = 0
+            st.session_state.run_error     = ""
+            st.session_state.run_traceback = ""
+            st.session_state.run_warnings  = []
+            st.rerun()
+    with c2:
+        if st.button("← Back to brief", use_container_width=True):
+            st.session_state.stage         = "setup"
+            st.session_state.run_error     = ""
+            st.session_state.run_traceback = ""
+            st.session_state.run_warnings  = []
             st.rerun()

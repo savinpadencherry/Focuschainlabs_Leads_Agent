@@ -10,6 +10,7 @@ Optional sources skip silently when their API key is missing.
 import os
 import time
 import requests
+import re
 from datetime import datetime
 from bs4 import BeautifulSoup
 
@@ -27,10 +28,62 @@ def today() -> str:
 
 def extract_company_name(title: str) -> str:
     """Best-effort extraction of a company name from a search result title."""
+    raw = (title or "").strip()
+    if not raw:
+        return ""
+
+    # Job result titles often read "Role at Company - LinkedIn".
+    at_match = re.search(r"\bat\s+([^|–—·-]{2,80})", raw, flags=re.I)
+    if at_match:
+        candidate = at_match.group(1).strip(" :,-")
+        if _looks_like_company(candidate):
+            return candidate
+
+    hiring_match = re.search(r"^(.{2,80}?)\s+hiring\b", raw, flags=re.I)
+    if hiring_match:
+        candidate = hiring_match.group(1).strip(" :,-")
+        if _looks_like_company(candidate):
+            return candidate
+
+    title = raw
     for sep in [" - ", " | ", " – ", " · ", " — "]:
         if sep in title:
             title = title.split(sep)[0]
     return title.strip()
+
+
+def _looks_like_company(value: str) -> bool:
+    v = (value or "").strip().lower()
+    if not v:
+        return False
+    if re.match(r"^\d+(\s|$)", v):
+        return False
+    if re.search(r"\b20\d{2}\b", v):
+        return False
+    bad = (
+        "job", "jobs", "career", "careers", "vacancy", "vacancies",
+        "hiring", "opening", "openings", "recruitment", "naukri",
+        "linkedin", "indeed", "glassdoor",
+    )
+    article_markers = (
+        "best ", "top ", "how to", "what is", "guide", "trends",
+        "technology trends", "service providers", "solution providers",
+        "companies in ", "list of", "market size", "report", "blog",
+        "jobs in", " jobs", "expo", "exhibition", "conference",
+        "biggest", "transforming", " sector", "course", "training",
+    )
+    role_markers = (
+        "executive", "executives", "manager", "assistant", "associate",
+        "officer", "intern", "engineer", "developer", "specialist",
+        "coordinator", "consultant", "analyst",
+    )
+    if any(marker in v for marker in article_markers):
+        return False
+    if any(marker in v.split() for marker in role_markers):
+        return False
+    if len(v.split()) > 9:
+        return False
+    return not any(v == b or v.startswith(f"{b} ") for b in bad)
 
 
 # ─── Serper (Google) ─────────────────────────────────────────────────────────
@@ -74,7 +127,7 @@ def search_serper(keyword: str, num: int = 10) -> list:
             raise RateLimitError("serper", "Serper search quota reached")
         response.raise_for_status()
         results = response.json().get("organic", [])
-        return [
+        normalised = [
             {
                 "company_name":   extract_company_name(r.get("title", "")),
                 "website":        r.get("link", ""),
@@ -86,6 +139,7 @@ def search_serper(keyword: str, num: int = 10) -> list:
             }
             for r in results if r.get("title")
         ]
+        return [r for r in normalised if _looks_like_company(r.get("company_name", ""))]
     except RateLimitError:
         raise
     except Exception as e:

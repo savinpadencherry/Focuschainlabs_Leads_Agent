@@ -182,23 +182,24 @@ def render_reach_page() -> None:
 
     st.markdown("""
     <style>
-    /* header kept for backwards compat — real styles come from .pg-hero in streamlit_app.py */
-    .ra-head { display: none; }
-    .ra-sub  { display: none; }
+    .ra-head {
+        font-family: 'Bricolage Grotesque', sans-serif;
+        font-size: 26px; font-weight: 800;
+        letter-spacing: -.02em; margin-bottom: 2px;
+    }
+    .ra-sub { font-size: 13px; color: var(--ink-mute); margin-bottom: 20px; }
 
     .cq-card {
-        padding: 11px 13px; border-radius: var(--r);
-        border: 1.5px solid var(--line-soft); background: var(--cream-3);
+        padding: 11px 13px; border-radius: 8px;
+        border: 1.5px solid var(--line); background: var(--cream-3);
         margin-bottom: 6px;
-        transition: border-color .15s, box-shadow .15s, background .15s;
     }
-    .cq-card:hover { border-color: var(--line-mid); background: #fff; }
     .cq-card-sel {
         border-color: var(--green) !important;
         background: var(--green-bg) !important;
-        box-shadow: 0 0 0 3px rgba(46,139,77,.10);
+        box-shadow: 0 0 0 2px rgba(46,139,77,.12);
     }
-    .cq-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; color: var(--ink); }
+    .cq-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
     .cq-meta { font-size: 11.5px; color: var(--ink-mute); }
 
     .draft-wrap {
@@ -234,14 +235,11 @@ def render_reach_page() -> None:
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
-<div class="pg-eyebrow">
-  <span class="dot"></span><span class="dash"></span>
-  FOCUSCHAIN LABS · OUTREACH
-</div>
-<h2 class="pg-hero">Reach <span class="accent">Agent</span></h2>
-<p class="pg-sub">Pick a contact&nbsp;&nbsp;→&nbsp;&nbsp;AI composes a 3-email sequence&nbsp;&nbsp;→&nbsp;&nbsp;send or copy</p>
-""", unsafe_allow_html=True)
+    st.markdown('<div class="ra-head">Reach Agent</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="ra-sub">Pick a contact → AI composes a personalised 3-email sequence → send or copy.</div>',
+        unsafe_allow_html=True,
+    )
 
     contacts, meta = _load()
 
@@ -256,7 +254,7 @@ def render_reach_page() -> None:
 
     # ══════════════════════════════════ LEFT — QUEUE ══════════════════════════
     with col_q:
-        st.markdown('<div class="sec">Contact queue <span class="line"></span></div>', unsafe_allow_html=True)
+        st.markdown("**Contact queue**")
 
         has_email_n  = sum(1 for c in contacts if c.get("email"))
         no_email_n   = len(contacts) - has_email_n

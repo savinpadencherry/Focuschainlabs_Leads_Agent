@@ -37,7 +37,6 @@ from utils.deduplicator import load_exclusion_list, deduplicate
 from utils.excel_writer import write_leads_to_excel
 from utils.exceptions import RateLimitError
 from utils.reach import best_reach_channel, how_to_reach
-from utils import budget
 
 
 def today() -> str:
@@ -57,7 +56,6 @@ def run_pipeline_streaming(
     """Generator pipeline — yields typed events for live UIs."""
 
     max_leads = max_leads or int(os.getenv("MAX_LEADS_PER_RUN", 30))
-    threshold = int(os.getenv("MIN_SCORE_THRESHOLD", 60))
     pilot     = os.getenv("PILOT_MODE", "true").lower() == "true"
 
     # Reset the per-run API budget — a hard ceiling that makes overspend
@@ -76,6 +74,9 @@ def run_pipeline_streaming(
         icp["target_titles"] = override_titles
     if custom_focus and custom_focus.strip():
         icp["custom_focus"] = custom_focus.strip()
+
+    # ICP-level threshold takes precedence over env var
+    threshold = int(icp.get("min_score_threshold") or os.getenv("MIN_SCORE_THRESHOLD", 60))
 
     yield {"type": "config_loaded", "icp": icp, "pilot": pilot, "threshold": threshold}
 
@@ -167,16 +168,25 @@ def run_pipeline_streaming(
     yield {"type": "source_done", "source": "proxycurl",
            "count": 0, "status": "skip", "reason": "Sunset — replaced by Naukri + Serper"}
 
-    # Naukri
-    yield {"type": "source_start", "source": "naukri", "label": "Naukri Job Board (scraper)"}
-    yield {"type": "keyword_searching", "keyword": "Naukri job board scrape", "source": "naukri"}
-    nk = search_naukri(icp)
-    all_results.extend(nk)
-    yield {
-        "type": "source_done", "source": "naukri", "count": len(nk),
-        "status": "done" if nk else "warn",
-        "reason": None if nk else "Site may block automated access",
-    }
+    # Naukri — skip for buyer-intent / consumer verticals (job board irrelevant)
+    is_buyer_intent = (
+        icp.get("search_type") == "buyer_intent"
+        or bool(icp.get("scoring_guidance"))
+    )
+    if is_buyer_intent:
+        yield {"type": "source_done", "source": "naukri",
+               "count": 0, "status": "skip",
+               "reason": "Buyer-intent vertical — job board not applicable"}
+    else:
+        yield {"type": "source_start", "source": "naukri", "label": "Naukri Job Board (scraper)"}
+        yield {"type": "keyword_searching", "keyword": "Naukri job board scrape", "source": "naukri"}
+        nk = search_naukri(icp)
+        all_results.extend(nk)
+        yield {
+            "type": "source_done", "source": "naukri", "count": len(nk),
+            "status": "done" if nk else "warn",
+            "reason": None if nk else "Site may block automated access",
+        }
 
     # ── Dedupe ─────────────────────────────────────────────────────────────
     seen, unique = set(), []
@@ -188,7 +198,13 @@ def run_pipeline_streaming(
 
     exclusion = load_exclusion_list(exclusion_list_path)
     companies = deduplicate(unique, exclusion)
-    companies = companies[: max_leads * 4]
+    # Cap how many companies we deep-research. Each one triggers ~10 web lookups,
+    # so this is the single biggest driver of runtime and memory. Keeping it tight
+    # protects against the host (e.g. Streamlit Cloud free tier) killing a long run.
+    # Override with RESEARCH_FANOUT (multiplier) and RESEARCH_HARD_CAP (absolute).
+    fanout   = int(os.getenv("RESEARCH_FANOUT", 2))
+    hard_cap = int(os.getenv("RESEARCH_HARD_CAP", 12))
+    companies = companies[: min(max_leads * fanout, hard_cap)]
 
     yield {"type": "search_done",
            "raw": len(all_results), "unique": len(unique),
@@ -217,6 +233,7 @@ def run_pipeline_streaming(
             company.get("website", ""),
             company.get("snippet", ""),
             icp.get("target_titles", []),
+            icp_config=icp,
         )
         researched.append({**company, **bundle})
         yield {"type": "company_researched",
@@ -255,6 +272,34 @@ def run_pipeline_streaming(
 
     selected_for_output = qualified[:max_leads]
     if len(selected_for_output) < max_leads:
+        # Sales reality: a weak but reachable relevant party can still be useful.
+        # Keep a low floor for backfill leads, then label them as verify-needed
+        # in the UI/Excel instead of pretending every row is high-confidence.
+        backfill_floor = int(os.getenv("MIN_BACKFILL_SCORE", 10))
+        selected_names = {
+            (c.get("company_name") or "").lower().strip()
+            for c in selected_for_output
+        }
+        for company in scored_sorted:
+            key = (company.get("company_name") or "").lower().strip()
+            if int(company.get("total_score", 0) or 0) < backfill_floor:
+                continue
+            if int(company.get("total_score", 0) or 0) < threshold:
+                company["selection_note"] = (
+                    "Speculative backfill: included because some signal exists, "
+                    "but verify fit/contact before outreach."
+                )
+            if key not in selected_names:
+                selected_for_output.append(company)
+                selected_names.add(key)
+            if len(selected_for_output) >= max_leads:
+                break
+
+    # Minimum output guarantee — ICP can request a floor (e.g. Cadabams wants 5).
+    # If we're still short, include the remaining scored companies at any score,
+    # clearly flagged as very-low-confidence so the team knows to verify first.
+    min_output = int(icp.get("min_output_leads", 0))
+    if min_output and len(selected_for_output) < min_output:
         selected_names = {
             (c.get("company_name") or "").lower().strip()
             for c in selected_for_output
@@ -262,9 +307,13 @@ def run_pipeline_streaming(
         for company in scored_sorted:
             key = (company.get("company_name") or "").lower().strip()
             if key not in selected_names:
+                company["selection_note"] = (
+                    "Very low confidence — included to meet minimum output target. "
+                    "Verify relevance and contact details before any outreach."
+                )
                 selected_for_output.append(company)
                 selected_names.add(key)
-            if len(selected_for_output) >= max_leads:
+            if len(selected_for_output) >= min_output:
                 break
 
     # ── Stage 4: Enrich ────────────────────────────────────────────────────
@@ -287,7 +336,10 @@ def run_pipeline_streaming(
             icp["locations"][0],
             website=company.get("website", ""),
         )
-        enriched.append({**company, **contact, **icp})
+        merged = {**company, **contact, **icp}
+        merged["reach_channel"] = best_reach_channel(merged)
+        merged["how_to_reach"] = how_to_reach(merged)
+        enriched.append(merged)
         enriched_names.add((company.get("company_name") or "").lower().strip())
         yield {"type": "enrich_result",
                "company": company["company_name"],
@@ -307,6 +359,8 @@ def run_pipeline_streaming(
             "enrichment_status": "not_found",
             **icp,
         })
+        company["reach_channel"] = best_reach_channel(company)
+        company["how_to_reach"] = how_to_reach(company)
         enriched.append(company)
 
     # ── Stage 5: Pitch ─────────────────────────────────────────────────────
@@ -325,6 +379,8 @@ def run_pipeline_streaming(
         lead["opening_line"]    = bundle["opening_line"]
         lead["outreach_note"]   = bundle["outreach_note"]
         lead["reason_to_reach"] = bundle["reason_to_reach"]
+        lead["reach_channel"]   = best_reach_channel(lead)
+        lead["how_to_reach"]    = how_to_reach(lead)
         final_leads.append(lead)
     yield {"type": "stage_done", "stage": "pitch"}
 
