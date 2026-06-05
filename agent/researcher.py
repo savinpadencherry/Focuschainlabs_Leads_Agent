@@ -234,7 +234,7 @@ def research_company(
     )
     for query in news_queries:
         try:
-            for r in search_serper(query)[:2]:
+            for r in search_serper(query)[:4]:
                 bundle["recent_news"].append({
                     "title": r.get("snippet", "")[:200],
                     "url":   r.get("website", ""),

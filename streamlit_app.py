@@ -212,6 +212,37 @@ h1, h2, h3, h4, p, div, span, label {
     margin-bottom: 28px;
 }
 
+/* ── Sub-page hero header (Reach / Intel / Proposal / CRM) ── */
+.pg-eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: .38em; text-transform: uppercase;
+    color: var(--green); margin-bottom: 14px;
+    animation: fadeUp .5s ease both;
+}
+.pg-eyebrow .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 3px rgba(46,139,77,.14);
+}
+.pg-eyebrow .dash { width: 22px; height: 1.5px; background: var(--green); }
+.pg-hero {
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 800; letter-spacing: -.03em; line-height: .97;
+    color: var(--ink); margin: 0 0 8px;
+    animation: fadeUp .6s ease .05s both;
+}
+.pg-hero .accent { color: var(--green); }
+.pg-sub {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 12px; color: var(--ink-mute);
+    letter-spacing: .03em; line-height: 1.7;
+    margin-bottom: 28px;
+    animation: fadeUp .6s ease .12s both;
+}
+
 /* ── Step rail ── */
 .steps {
     display: flex; align-items: center;
@@ -1808,8 +1839,9 @@ elif st.session_state.stage == "running":
     COST_PER_SCORE_CALL = 0.018   # ₹
     COST_PER_PITCH_CALL = 0.019   # ₹ (merged bundle)
 
-    # Serper paid: $50/month ÷ 50K searches = $0.001/search × 196 searches/run × ₹83.5
-    COST_PER_SERPER_RUN = 196 * 0.001 * 83.5 / 100   # ₹ ~16.4 but shown separately
+    # Serper paid: $50/month ÷ 50K searches = $0.001/search × ₹83.5 ≈ ₹0.0835/call.
+    # We bill from the live per-run call counter (utils.budget), not a guess.
+    COST_PER_SERPER_CALL = 0.001 * 83.5   # ₹ per Serper call
     # Apify free credits vary by actor; show this as a low-confidence estimate.
     COST_PER_CONTACT_RUN = 0
 
@@ -1828,12 +1860,18 @@ elif st.session_state.stage == "running":
             + gemini_calls * COST_PER_SCORE_CALL
             + num_leads    * COST_PER_PITCH_CALL
         )
-        total_est = gemini_cost + COST_PER_SERPER_RUN + COST_PER_CONTACT_RUN
+        # Live, real call counts from the per-run budget guard.
+        serper_used = budget.used("serper")
+        serper_cap  = budget.cap("serper")
+        serper_cost = serper_used * COST_PER_SERPER_CALL
+        total_est = gemini_cost + serper_cost + COST_PER_CONTACT_RUN
         cost_html = (
             f'<div class="api-cost">'
-            f'Est. cost this run: <strong>₹{total_est:.0f}</strong> '
+            f'Est. cost this run: <strong>₹{total_est:.1f}</strong> '
             f'<span class="api-cost-note">'
-            f'Gemini ₹{gemini_cost:.2f} · Serper ₹{COST_PER_SERPER_RUN:.0f} · contacts via Apify/public web'
+            f'Gemini ₹{gemini_cost:.2f} · '
+            f'Serper {serper_used}/{serper_cap} calls (₹{serper_cost:.1f}) · '
+            f'contacts via Apify/public web'
             f'</span></div>'
         )
 

@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 
 from utils.rate_limiter import serper_limiter
 from utils.exceptions import RateLimitError
+from utils import budget
 
 
 SERPER_URL = "https://google.serper.dev/search"
@@ -88,10 +89,12 @@ def _looks_like_company(value: str) -> bool:
 # ─── Serper (Google) ─────────────────────────────────────────────────────────
 def search_serper_raw(keyword: str, num: int = 5) -> dict:
     """Returns the full Serper response including ads, knowledgeGraph, etc."""
-    serper_limiter.wait()
     api_key = os.getenv("SERPER_API_KEY")
     if not api_key:
         return {}
+    if not budget.allow("serper"):
+        return {}
+    serper_limiter.wait()
     headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
     body = {"q": keyword, "gl": "in", "hl": "en", "num": num}
     try:
@@ -108,10 +111,12 @@ def search_serper_raw(keyword: str, num: int = 5) -> dict:
 
 
 def search_serper(keyword: str, num: int = 10) -> list:
-    serper_limiter.wait()
     api_key = os.getenv("SERPER_API_KEY")
     if not api_key:
         return []
+    if not budget.allow("serper"):
+        return []
+    serper_limiter.wait()
 
     headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
     body = {"q": keyword, "gl": "in", "hl": "en", "num": num}

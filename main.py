@@ -58,6 +58,10 @@ def run_pipeline_streaming(
     max_leads = max_leads or int(os.getenv("MAX_LEADS_PER_RUN", 30))
     pilot     = os.getenv("PILOT_MODE", "true").lower() == "true"
 
+    # Reset the per-run API budget — a hard ceiling that makes overspend
+    # structurally impossible no matter how the run fans out downstream.
+    budget.reset()
+
     # ── Load base ICP ──────────────────────────────────────────────────────
     with open(icp_config_path) as f:
         icp = json.load(f)
