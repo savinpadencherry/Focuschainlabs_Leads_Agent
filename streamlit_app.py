@@ -16,6 +16,7 @@ import streamlit as st
 from utils.reach import best_reach_channel, how_to_reach
 from crm_ui import add_leads_to_crm, render_crm_page
 from reach_ui import render_reach_page
+from intel_ui import render_intel_page
 
 # ── Environment ──────────────────────────────────────────────────────────────
 try:
@@ -1527,7 +1528,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── App navigation ────────────────────────────────────────────────────────────
-nav_agent, nav_reach, nav_crm, _nav_sp = st.columns([1.1, 1.1, 1, 1.8])
+nav_agent, nav_reach, nav_intel, nav_crm, _nav_sp = st.columns([1, 1, 1, 1, 0.5])
 with nav_agent:
     if st.button(
         "Agent",
@@ -1546,6 +1547,15 @@ with nav_reach:
     ):
         st.session_state.app_view = "reach"
         st.rerun()
+with nav_intel:
+    if st.button(
+        "Intel",
+        use_container_width=True,
+        type="primary" if st.session_state.get("app_view") == "intel" else "secondary",
+        key="nav_intel",
+    ):
+        st.session_state.app_view = "intel"
+        st.rerun()
 with nav_crm:
     if st.button(
         "CRM",
@@ -1562,6 +1572,10 @@ if st.session_state.get("app_view") == "crm":
 
 if st.session_state.get("app_view") == "reach":
     render_reach_page()
+    st.stop()
+
+if st.session_state.get("app_view") == "intel":
+    render_intel_page()
     st.stop()
 
 # ── Step rail ─────────────────────────────────────────────────────────────────

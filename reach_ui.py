@@ -9,6 +9,7 @@ or copy / open in Gmail → email auto-logged to CRM thread, stage → Contacted
 from __future__ import annotations
 
 import os
+import re
 import urllib.parse
 from typing import Any
 
@@ -175,9 +176,6 @@ def _log_sent_email(contact: dict, subject: str, body: str) -> None:
 
 
 # ── Main render ───────────────────────────────────────────────────────────────
-
-import re  # noqa: E402  (imported here so it's available in _try_find_email)
-
 
 def render_reach_page() -> None:
     _init()
