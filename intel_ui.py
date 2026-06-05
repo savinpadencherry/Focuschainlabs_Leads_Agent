@@ -401,13 +401,9 @@ _CSS = """
 <style>
 /* Intel-specific styles — brand vars come from streamlit_app.py global CSS */
 
-.ia-head {
-    font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 26px; font-weight: 800;
-    letter-spacing: -.02em; margin-bottom: 2px;
-    color: var(--ink);
-}
-.ia-sub { font-size: 13px; color: var(--ink-mute); margin-bottom: 20px; }
+/* header replaced by .pg-hero — kept for compat */
+.ia-head { display: none; }
+.ia-sub  { display: none; }
 
 /* Cost pill */
 .ia-cost-pill {
@@ -511,17 +507,15 @@ def render_intel_page() -> None:
     _init()
 
     st.markdown(_CSS, unsafe_allow_html=True)
-    st.markdown('<div class="ia-head">Intel Agent</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="ia-sub">Monitor your pipeline for funding rounds, leadership changes, '
-        'expansion moves and more — AI-distilled to a ready-to-use outreach opener.</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="ia-cost-pill"><div class="dot"></div>'
-        '~$0.0004 per 10-company run &nbsp;·&nbsp; free within Serper 100/day quota</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown("""
+<div class="pg-eyebrow">
+  <span class="dot"></span><span class="dash"></span>
+  FOCUSCHAIN LABS · PIPELINE MONITOR
+</div>
+<h2 class="pg-hero">Intel <span class="accent">Agent</span></h2>
+<p class="pg-sub">Monitor your pipeline for funding, hiring &amp; expansion signals&nbsp;&nbsp;→&nbsp;&nbsp;AI-distilled to a ready-to-use opener</p>
+<div class="ia-cost-pill"><div class="dot"></div>~$0.0004 per 10-company run &nbsp;·&nbsp; free within Serper 100/day quota</div>
+""", unsafe_allow_html=True)
     st.markdown("")
 
     stage = st.session_state.intel_stage

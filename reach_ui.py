@@ -182,12 +182,9 @@ def render_reach_page() -> None:
 
     st.markdown("""
     <style>
-    .ra-head {
-        font-family: 'Bricolage Grotesque', sans-serif;
-        font-size: 26px; font-weight: 800;
-        letter-spacing: -.02em; margin-bottom: 2px;
-    }
-    .ra-sub { font-size: 13px; color: var(--ink-mute); margin-bottom: 20px; }
+    /* header kept for backwards compat — real styles come from .pg-hero in streamlit_app.py */
+    .ra-head { display: none; }
+    .ra-sub  { display: none; }
 
     .cq-card {
         padding: 11px 13px; border-radius: 8px;
@@ -235,11 +232,14 @@ def render_reach_page() -> None:
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="ra-head">Reach Agent</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="ra-sub">Pick a contact → AI composes a personalised 3-email sequence → send or copy.</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown("""
+<div class="pg-eyebrow">
+  <span class="dot"></span><span class="dash"></span>
+  FOCUSCHAIN LABS · OUTREACH
+</div>
+<h2 class="pg-hero">Reach <span class="accent">Agent</span></h2>
+<p class="pg-sub">Pick a contact&nbsp;&nbsp;→&nbsp;&nbsp;AI composes a 3-email sequence&nbsp;&nbsp;→&nbsp;&nbsp;send or copy</p>
+""", unsafe_allow_html=True)
 
     contacts, meta = _load()
 

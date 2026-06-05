@@ -76,15 +76,9 @@ _CSS = """
 <style>
 /* Proposal-specific — brand vars come from streamlit_app.py global CSS */
 
-.pa-head {
-    font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 26px; font-weight: 800;
-    letter-spacing: -.02em; margin-bottom: 2px;
-    color: var(--ink);
-}
-.pa-sub {
-    font-size: 13px; color: var(--ink-mute); margin-bottom: 20px;
-}
+/* header replaced by .pg-hero — kept for compat */
+.pa-head { display: none; }
+.pa-sub  { display: none; }
 
 /* Contact selection card */
 .pa-co-card {
@@ -161,12 +155,14 @@ def render_proposal_page() -> None:
         st.session_state.pa_sel_id = presel
 
     st.markdown(_CSS, unsafe_allow_html=True)
-    st.markdown('<div class="pa-head">Proposal Agent</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="pa-sub">AI-draft a polished B2B proposal — auto-enriched with Intel '
-        'signals, ready to download as PDF or send via email.</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown("""
+<div class="pg-eyebrow">
+  <span class="dot"></span><span class="dash"></span>
+  FOCUSCHAIN LABS · PROPOSALS
+</div>
+<h2 class="pg-hero">Proposal <span class="accent">Agent</span></h2>
+<p class="pg-sub">AI-draft a polished B2B proposal&nbsp;&nbsp;→&nbsp;&nbsp;auto-enriched with Intel signals&nbsp;&nbsp;→&nbsp;&nbsp;download PDF or send via email</p>
+""", unsafe_allow_html=True)
     st.markdown("")
 
     stage = st.session_state.proposal_stage

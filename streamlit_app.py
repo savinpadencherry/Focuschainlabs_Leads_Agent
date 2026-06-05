@@ -162,6 +162,37 @@ h1, h2, h3, h4, p, div, span, label {
     margin-bottom: 28px;
 }
 
+/* ── Sub-page hero header (Reach / Intel / Proposal / CRM) ── */
+.pg-eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: .38em; text-transform: uppercase;
+    color: var(--green); margin-bottom: 14px;
+    animation: fadeUp .5s ease both;
+}
+.pg-eyebrow .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 3px rgba(46,139,77,.14);
+}
+.pg-eyebrow .dash { width: 22px; height: 1.5px; background: var(--green); }
+.pg-hero {
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 800; letter-spacing: -.03em; line-height: .97;
+    color: var(--ink); margin: 0 0 8px;
+    animation: fadeUp .6s ease .05s both;
+}
+.pg-hero .accent { color: var(--green); }
+.pg-sub {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 12px; color: var(--ink-mute);
+    letter-spacing: .03em; line-height: 1.7;
+    margin-bottom: 28px;
+    animation: fadeUp .6s ease .12s both;
+}
+
 /* ── Step rail ── */
 .steps {
     display: flex; align-items: center;
@@ -1251,6 +1282,73 @@ st.markdown("""
 </h1>
 <p class="tagline">prompt.intake()&nbsp;&nbsp;→&nbsp;&nbsp;signals.scan&nbsp;&nbsp;→&nbsp;&nbsp;outreach.deploy</p>
 """, unsafe_allow_html=True)
+
+# ── App navigation ────────────────────────────────────────────────────────────
+st.session_state.setdefault("app_view", "agent")
+nav_agent, nav_reach, nav_intel, nav_proposal, nav_crm = st.columns(5)
+with nav_agent:
+    if st.button(
+        "Scout",
+        use_container_width=True,
+        type="primary" if st.session_state.app_view == "agent" else "secondary",
+        key="nav_agent",
+    ):
+        st.session_state.app_view = "agent"
+        st.rerun()
+with nav_reach:
+    if st.button(
+        "Reach",
+        use_container_width=True,
+        type="primary" if st.session_state.app_view == "reach" else "secondary",
+        key="nav_reach",
+    ):
+        st.session_state.app_view = "reach"
+        st.rerun()
+with nav_intel:
+    if st.button(
+        "Intel",
+        use_container_width=True,
+        type="primary" if st.session_state.app_view == "intel" else "secondary",
+        key="nav_intel",
+    ):
+        st.session_state.app_view = "intel"
+        st.rerun()
+with nav_proposal:
+    if st.button(
+        "Proposal",
+        use_container_width=True,
+        type="primary" if st.session_state.app_view == "proposal" else "secondary",
+        key="nav_proposal",
+    ):
+        st.session_state.app_view = "proposal"
+        st.rerun()
+with nav_crm:
+    if st.button(
+        "CRM",
+        use_container_width=True,
+        type="primary" if st.session_state.app_view == "crm" else "secondary",
+        key="nav_crm",
+    ):
+        st.session_state.app_view = "crm"
+        st.rerun()
+
+if st.session_state.app_view == "crm":
+    render_crm_page()
+    st.stop()
+
+if st.session_state.app_view == "reach":
+    render_reach_page()
+    st.stop()
+
+if st.session_state.app_view == "intel":
+    render_intel_page()
+    st.stop()
+
+if st.session_state.app_view == "proposal":
+    render_proposal_page()
+    st.stop()
+
+st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
 
 # ── Step rail ─────────────────────────────────────────────────────────────────
 def render_steps(cur: str):
