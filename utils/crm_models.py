@@ -53,6 +53,29 @@ DEAL_STATUS_LABELS = {
     "lost": "Lost",
 }
 
+# Invoice lifecycle (Finance Agent). "overdue" is computed dynamically from the
+# due date — it is never stored, so a paid invoice can never be flagged overdue.
+INVOICE_STATUSES = ["draft", "sent", "paid", "cancelled"]
+
+INVOICE_STATUS_LABELS = {
+    "draft": "Draft",
+    "sent": "Sent",
+    "paid": "Paid",
+    "overdue": "Overdue",
+    "cancelled": "Cancelled",
+}
+
+_INVOICE_STATUS_ALIASES = {
+    "issued": "sent",
+    "unpaid": "sent",
+    "pending": "sent",
+    "settled": "paid",
+    "complete": "paid",
+    "completed": "paid",
+    "void": "cancelled",
+    "canceled": "cancelled",
+}
+
 # Map legacy / alternate wording into the default set
 _STATUS_ALIASES = {
     # Legacy from earlier UI versions
@@ -168,6 +191,115 @@ def normalize_comment(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def to_amount(raw: Any) -> float:
+    """Parse a money value that may contain currency symbols, commas, or spaces."""
+    if isinstance(raw, (int, float)):
+        return round(float(raw), 2)
+    s = re.sub(r"[^0-9.\-]", "", str(raw or ""))
+    if not s or s in {"-", ".", "-."}:
+        return 0.0
+    try:
+        return round(float(s), 2)
+    except ValueError:
+        return 0.0
+
+
+def normalize_invoice_status(raw: str) -> str:
+    """Normalize a stored invoice status (never returns the computed 'overdue')."""
+    s = _slugify_status(raw or "draft")
+    s = _INVOICE_STATUS_ALIASES.get(s, s)
+    return s if s in INVOICE_STATUSES else "draft"
+
+
+def normalize_invoice_line(raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize one invoice line item, computing amount = qty × rate when absent."""
+    qty  = to_amount(raw.get("qty") if raw.get("qty") not in (None, "") else 1)
+    rate = to_amount(raw.get("rate") if raw.get("rate") not in (None, "") else raw.get("amount"))
+    if raw.get("amount") not in (None, ""):
+        amount = to_amount(raw.get("amount"))
+    else:
+        amount = round(qty * rate, 2)
+    return {
+        "item": (raw.get("item") or raw.get("description") or "").strip(),
+        "description": (raw.get("description") or raw.get("detail") or "").strip(),
+        "qty": qty,
+        "rate": rate,
+        "amount": amount,
+    }
+
+
+def normalize_invoice(raw: dict[str, Any]) -> dict[str, Any]:
+    """
+    Normalize a stored invoice record. Totals are recomputed from line items so
+    the stored numbers are always internally consistent.
+    """
+    now = utc_now_iso()
+    lines = [
+        normalize_invoice_line(li)
+        for li in (raw.get("line_items") or [])
+        if isinstance(li, dict)
+    ]
+    subtotal = round(sum(li["amount"] for li in lines), 2)
+    tax_rate = to_amount(raw.get("tax_rate"))
+    # Allow an explicit stored total (e.g. legacy import) but prefer recompute.
+    if lines:
+        tax_amount = round(subtotal * tax_rate / 100.0, 2)
+        total = round(subtotal + tax_amount, 2)
+    else:
+        total = to_amount(raw.get("total"))
+        tax_amount = to_amount(raw.get("tax_amount"))
+        subtotal = round(total - tax_amount, 2)
+
+    dunning = [
+        {
+            "level": int(d.get("level") or 1),
+            "sent_at": str(d.get("sent_at") or d.get("date") or now),
+            "to": (d.get("to") or "").strip(),
+        }
+        for d in (raw.get("dunning") or [])
+        if isinstance(d, dict)
+    ]
+
+    return {
+        "id": raw.get("id") or new_contact_id(),
+        "number": (raw.get("number") or raw.get("invoice_number") or "").strip(),
+        "contact_id": (raw.get("contact_id") or "").strip(),
+        "company": (raw.get("company") or "").strip(),
+        "currency": (raw.get("currency") or "INR").strip().upper(),
+        "issue_date": (raw.get("issue_date") or raw.get("date") or now[:10]).strip(),
+        "due_date": (raw.get("due_date") or "").strip(),
+        "line_items": lines,
+        "subtotal": subtotal,
+        "tax_rate": tax_rate,
+        "tax_amount": tax_amount,
+        "total": total,
+        "status": normalize_invoice_status(raw.get("status")),
+        "notes": (raw.get("notes") or "").strip(),
+        "paid_at": (raw.get("paid_at") or "").strip(),
+        "dunning": dunning,
+        "created_at": raw.get("created_at") or now,
+        "updated_at": raw.get("updated_at") or now,
+    }
+
+
+def invoice_is_overdue(invoice: dict[str, Any], *, today: str = "") -> bool:
+    """An invoice is overdue if it's been sent (not paid/cancelled) and past due."""
+    if normalize_invoice_status(invoice.get("status")) != "sent":
+        return False
+    due = (invoice.get("due_date") or "").strip()
+    if not due:
+        return False
+    today = today or utc_now_iso()[:10]
+    return due < today
+
+
+def invoice_display_status(invoice: dict[str, Any], *, today: str = "") -> str:
+    """Stored status, upgraded to 'overdue' when a sent invoice is past due."""
+    if invoice_is_overdue(invoice, today=today):
+        return "overdue"
+    return normalize_invoice_status(invoice.get("status"))
+
+
 def normalize_contact_person(raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize additional people attached to the same client/account."""
     now = utc_now_iso()
@@ -228,6 +360,15 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
         if isinstance(person, dict)
     ]
 
+    raw_invoices = raw.get("invoices") or []
+    if not isinstance(raw_invoices, list):
+        raw_invoices = []
+    invoices = [
+        normalize_invoice(inv)
+        for inv in raw_invoices
+        if isinstance(inv, dict)
+    ]
+
     return {
         "id": raw.get("id") or new_contact_id(),
         "name": (raw.get("name") or raw.get("contact_name") or "").strip(),
@@ -247,6 +388,7 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
         "email_events": email_events,
         "comments": comments,
         "contact_people": contact_people,
+        "invoices": invoices,
         "created_at": raw.get("created_at") or now,
         "updated_at": raw.get("updated_at") or now,
         # Kept in storage but hidden from simple UI — agent import extras
@@ -360,6 +502,11 @@ def merge_contacts(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[s
         existing.get("contact_people") or [],
         incoming.get("contact_people") or [],
         normalize_contact_person,
+    )
+    merged["invoices"] = _merge_nested_records(
+        existing.get("invoices") or [],
+        incoming.get("invoices") or [],
+        normalize_invoice,
     )
     return normalize_contact(merged)
 

@@ -18,6 +18,7 @@ from crm_ui import add_leads_to_crm, render_crm_page
 from reach_ui import render_reach_page
 from intel_ui import render_intel_page
 from proposal_ui import render_proposal_page
+from finance_ui import render_finance_page
 
 # ── Environment ──────────────────────────────────────────────────────────────
 try:
@@ -1596,6 +1597,15 @@ with nav_proposal:
         key="nav_proposal",
     ):
         st.session_state.app_view = "proposal"
+        st.rerun()
+with nav_finance:
+    if st.button(
+        "Finance",
+        use_container_width=True,
+        type="primary" if st.session_state.app_view == "finance" else "secondary",
+        key="nav_finance",
+    ):
+        st.session_state.app_view = "finance"
         st.rerun()
 with nav_crm:
     if st.button(
