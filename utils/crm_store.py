@@ -170,12 +170,30 @@ def save_crm(
         if sha:
             body["sha"] = sha
 
-        resp = requests.put(
-            _github_contents_url(),
-            headers=_headers(),
-            json=body,
-            timeout=30,
-        )
+        try:
+            resp = requests.put(
+                _github_contents_url(),
+                headers=_headers(),
+                json=body,
+                timeout=30,
+            )
+        except requests.RequestException as exc:
+            # Network/timeout — never crash; keep data locally for this session.
+            try:
+                _save_local(payload)
+                saved_locally = True
+            except Exception:
+                saved_locally = False
+            return {
+                "source": "github",
+                "sha": sha,
+                "committed": False,
+                "saved_locally": saved_locally,
+                "error": (
+                    "Couldn't reach GitHub (network issue). "
+                    + ("Saved locally for this session." if saved_locally else "")
+                ).strip(),
+            }
 
         if resp.status_code in (200, 201):
             result = resp.json()
@@ -203,11 +221,39 @@ def save_crm(
                 "error": "Someone else updated CRM — refresh and try again.",
             }
 
+        # Write failed — keep the data safe locally so the user loses nothing,
+        # and surface an actionable message rather than a raw API dump.
+        try:
+            _save_local(payload)
+            saved_locally = True
+        except Exception:
+            saved_locally = False
+
+        if resp.status_code in (401, 403):
+            friendly = (
+                "GitHub rejected the write — your token can't save to this repo. "
+                "Give it 'Contents: Read and write' permission (fine-grained PAT) "
+                "or the 'repo' scope (classic token), then update GITHUB_TOKEN in "
+                "Streamlit secrets."
+            )
+        elif resp.status_code == 404:
+            friendly = (
+                "GitHub couldn't find the repo or path. Check GITHUB_REPO, "
+                "GITHUB_BRANCH and CRM_DATA_PATH in your secrets."
+            )
+        else:
+            friendly = f"GitHub write failed ({resp.status_code}): {resp.text[:200]}"
+
+        if saved_locally:
+            friendly += " (Saved locally for this session.)"
+
         return {
             "source": "github",
             "sha": sha,
             "committed": False,
-            "error": f"GitHub write failed ({resp.status_code}): {resp.text[:240]}",
+            "saved_locally": saved_locally,
+            "status_code": resp.status_code,
+            "error": friendly,
         }
 
     return _save_local(payload)

@@ -797,6 +797,10 @@ def persist_crm(message: str = "Update CRM contacts") -> bool:
     if result.get("conflict"):
         st.warning("Someone else updated the CRM — click Sync, then try again.")
         return False
+    if result.get("saved_locally"):
+        # Data is safe for this session; only GitHub persistence is degraded.
+        st.warning(result.get("error", "Saved locally — GitHub sync unavailable."))
+        return True
     if result.get("error"):
         st.error(result.get("error"))
         return False
