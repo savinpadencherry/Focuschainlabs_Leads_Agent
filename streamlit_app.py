@@ -1561,7 +1561,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── App navigation ────────────────────────────────────────────────────────────
-nav_agent, nav_reach, nav_intel, nav_proposal, nav_crm = st.columns(5)
+nav_agent, nav_reach, nav_intel, nav_proposal, nav_finance, nav_crm = st.columns(6)
 with nav_agent:
     if st.button(
         "Agent",
@@ -1631,6 +1631,10 @@ if st.session_state.get("app_view") == "intel":
 
 if st.session_state.get("app_view") == "proposal":
     render_proposal_page()
+    st.stop()
+
+if st.session_state.get("app_view") == "finance":
+    render_finance_page()
     st.stop()
 
 # ── Step rail ─────────────────────────────────────────────────────────────────
