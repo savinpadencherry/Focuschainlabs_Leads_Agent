@@ -5,8 +5,6 @@ from __future__ import annotations
 import os
 from google import genai
 
-from utils import budget
-
 
 def _models() -> list[str]:
     primary = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
@@ -17,11 +15,6 @@ def _models() -> list[str]:
 
 def generate_content_text(prompt: str) -> str:
     """Return Gemini text, trying lower-demand flash models if primary is busy."""
-    if not budget.allow("gemini"):
-        raise RuntimeError(
-            "Per-run AI call budget reached (GEMINI_BUDGET). "
-            "Start a new run or raise the GEMINI_BUDGET cap to continue."
-        )
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     last_exc = None
     for model in _models():

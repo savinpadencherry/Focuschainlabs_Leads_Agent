@@ -12,10 +12,9 @@ import os
 import json
 import re
 
-from google import genai
-
 from utils.rate_limiter import gemini_limiter
 from utils.exceptions import RateLimitError
+from utils.gemini import generate_content_text
 
 
 PITCH_BUNDLE_PROMPT = """
@@ -101,17 +100,12 @@ def generate_pitch_bundle(lead: dict) -> dict:
         trigger_recency= recency_label,
         ad_activity    = ad_activity,
         evidence_block = evidence_block,
-        offering       = (lead.get("gap_hypothesis") or lead.get("custom_focus")
-                          or lead.get("vertical", "B2B consulting")),
+        offering       = (lead.get("offering") or lead.get("gap_hypothesis")
+                          or lead.get("custom_focus") or lead.get("vertical", "")),
     )
 
     try:
-        client   = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        response = client.models.generate_content(
-            model    = os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-            contents = prompt,
-        )
-        raw  = re.sub(r"```json|```", "", response.text.strip()).strip()
+        raw  = re.sub(r"```json|```", "", generate_content_text(prompt).strip()).strip()
         data = json.loads(raw)
         return {
             "opening_line":    str(data.get("opening_line",    "")).strip().strip('"'),
@@ -121,8 +115,7 @@ def generate_pitch_bundle(lead: dict) -> dict:
 
     except json.JSONDecodeError:
         # Gemini returned text but not valid JSON — extract what we can
-        text = response.text if "response" in dir() else ""
-        return _fallback_bundle(lead, hint=text)
+        return _fallback_bundle(lead)
 
     except Exception as e:
         _raise_if_rate_limit("gemini", e)
@@ -140,7 +133,7 @@ def _fallback_bundle(lead: dict, hint: str = "") -> dict:
     opening = f"Saw {company}'s recent activity around {signal} — wanted to reach out directly."
     note    = (
         f"1. LEAD WITH: Reference {signal}.\n"
-        f"2. AVOID: Generic software pitch.\n"
+        f"2. AVOID: Generic or irrelevant pitch not tied to their specific context.\n"
         f"3. ANGLE: {pain}\n"
         f"4. CONTACT NOTE: Ask for {title or 'the decision maker'} if contact unclear."
     )

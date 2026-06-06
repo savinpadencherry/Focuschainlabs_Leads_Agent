@@ -311,6 +311,8 @@ def _tier_from_score(score: int) -> str:
 def _status(contact: dict) -> str:
     if contact.get("email") and contact.get("contact_name"):
         return "found"
+    if contact.get("email") or contact.get("phone"):
+        return "partial"  # generic/public contact details are still usable
     if contact.get("contact_name"):
         return "partial"  # have name + LinkedIn but no email
     return "not_found"

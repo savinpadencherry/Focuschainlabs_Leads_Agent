@@ -225,10 +225,8 @@ def _find_via_contact_scraper(website: str) -> dict:
     if not website or not website.startswith("http"):
         return {}
 
-    domain = website.replace("https://", "").replace("http://", "").split("/")[0]
-
     items = _apify_run(ACTOR_CONTACT_INFO, {
-        "searchStringsArray": [domain],
+        "startUrls": [{"url": website}],
     }, timeout=60)
 
     for item in items:

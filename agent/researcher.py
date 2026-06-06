@@ -171,7 +171,14 @@ def research_company(
     website: str,
     snippet: str,
     target_titles: list = None,
+    icp_config: dict = None,
 ) -> dict:
+    icp = icp_config or {}
+    is_buyer_intent = (
+        icp.get("search_type") == "buyer_intent"
+        or bool(icp.get("scoring_guidance"))
+    )
+
     bundle = {
         "company_name":     company_name,
         "website":          website,
@@ -214,12 +221,16 @@ def research_company(
     year = datetime.today().year
 
     # ── Recent news (store URL alongside snippet) ──────────────────────────
-    # One broad query per company instead of two — a single signal-rich query
-    # surfaces the same top news while halving Serper spend on this step.
     news_queries = (
-        [f"{company_name} news reviews events community senior {year}"]
+        [
+            f"{company_name} news {year}",
+            f"{company_name} residents reviews events community senior {year}",
+        ]
         if is_buyer_intent else
-        [f"{company_name} news expansion launch hiring operations automation {year}"]
+        [
+            f"{company_name} news {year}",
+            f"{company_name} expansion launch hiring operations CRM ecommerce automation {year}",
+        ]
     )
     for query in news_queries:
         try:
@@ -232,13 +243,21 @@ def research_company(
         except Exception:
             pass
 
-    # ── Tech / hiring signals ──────────────────────────────────────────────
+    # ── Operational / contact signals ─────────────────────────────────────
     try:
-        job_queries = [
-            f'{company_name} hiring technology cloud data IT {year}',
-            f'site:linkedin.com/jobs "{company_name}" hiring {year}',
-            f'site:naukri.com "{company_name}" hiring technology data cloud',
-        ]
+        job_queries = (
+            [
+                f'"{company_name}" contact address phone Bangalore',
+                f'site:linkedin.com/in "{company_name}" founder director owner president',
+                f'"{company_name}" members activities events 2026',
+            ]
+            if is_buyer_intent else
+            [
+                f'{company_name} hiring technology cloud data IT {year}',
+                f'site:linkedin.com/jobs "{company_name}" hiring {year}',
+                f'site:naukri.com "{company_name}" hiring technology data cloud',
+            ]
+        )
         seen_jobs = set()
         for query in job_queries:
             for j in search_serper(query)[:3]:
@@ -288,19 +307,25 @@ def research_company(
         pass
 
     # ── LinkedIn-indexed posts ─────────────────────────────────────────────
-    try:
-        for r in search_serper(f'site:linkedin.com/posts "{company_name}"')[:3]:
-            bundle["linkedin_posts"].append(r.get("snippet", "")[:200])
-    except Exception:
-        pass
+    # Skipped for buyer-intent verticals (consumer/referral leads rarely post on
+    # LinkedIn) to save Serper credits and shorten the run.
+    if not is_buyer_intent:
+        try:
+            for r in search_serper(f'site:linkedin.com/posts "{company_name}"')[:3]:
+                bundle["linkedin_posts"].append(r.get("snippet", "")[:200])
+        except Exception:
+            pass
 
     # ── Ad activity detection ──────────────────────────────────────────────
-    try:
-        ad = _detect_ad_activity(company_name, website)
-        bundle["running_ads"] = ad["running_ads"]
-        bundle["ad_signals"]  = ad["ad_signals"]
-    except Exception:
-        pass
+    # Paid-ad signals matter for B2B intent; for buyer-intent verticals they add
+    # two network calls (brand search + homepage refetch) with little value, so skip.
+    if not is_buyer_intent:
+        try:
+            ad = _detect_ad_activity(company_name, website)
+            bundle["running_ads"] = ad["running_ads"]
+            bundle["ad_signals"]  = ad["ad_signals"]
+        except Exception:
+            pass
 
     # ── Structured evidence ────────────────────────────────────────────────
     bundle["evidence"] = _collect_evidence(bundle, website)

@@ -76,9 +76,15 @@ _CSS = """
 <style>
 /* Proposal-specific — brand vars come from streamlit_app.py global CSS */
 
-/* header replaced by .pg-hero — kept for compat */
-.pa-head { display: none; }
-.pa-sub  { display: none; }
+.pa-head {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 26px; font-weight: 800;
+    letter-spacing: -.02em; margin-bottom: 2px;
+    color: var(--ink);
+}
+.pa-sub {
+    font-size: 13px; color: var(--ink-mute); margin-bottom: 20px;
+}
 
 /* Contact selection card */
 .pa-co-card {
@@ -155,14 +161,12 @@ def render_proposal_page() -> None:
         st.session_state.pa_sel_id = presel
 
     st.markdown(_CSS, unsafe_allow_html=True)
-    st.markdown("""
-<div class="pg-eyebrow">
-  <span class="dot"></span><span class="dash"></span>
-  FOCUSCHAIN LABS · PROPOSALS
-</div>
-<h2 class="pg-hero">Proposal <span class="accent">Agent</span></h2>
-<p class="pg-sub">AI-draft a polished B2B proposal&nbsp;&nbsp;→&nbsp;&nbsp;auto-enriched with Intel signals&nbsp;&nbsp;→&nbsp;&nbsp;download PDF or send via email</p>
-""", unsafe_allow_html=True)
+    st.markdown('<div class="pa-head">Proposal Agent</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="pa-sub">AI-draft a polished B2B proposal — auto-enriched with Intel '
+        'signals, ready to download as PDF or send via email.</div>',
+        unsafe_allow_html=True,
+    )
     st.markdown("")
 
     stage = st.session_state.proposal_stage
@@ -198,7 +202,7 @@ def _render_setup() -> None:
 
     # ── Left: contact picker ──────────────────────────────────────────────────
     with col_sel:
-        st.markdown('<div class="sec">Select client contact</div>', unsafe_allow_html=True)
+        st.markdown('<div class="pa-sec">Select client contact</div>', unsafe_allow_html=True)
 
         sel_id: str = st.session_state.pa_sel_id
 
@@ -257,12 +261,12 @@ def _render_setup() -> None:
         if sel_contact:
             company = sel_contact.get("company") or sel_contact.get("name") or "Client"
             st.markdown(
-                f'<div class="sec">Configure proposal for '
+                f'<div class="pa-sec">Configure proposal for '
                 f'<span style="color:var(--green);">{_e(company)}</span></div>',
                 unsafe_allow_html=True,
             )
         else:
-            st.markdown('<div class="sec">Configure proposal</div>', unsafe_allow_html=True)
+            st.markdown('<div class="pa-sec">Configure proposal</div>', unsafe_allow_html=True)
             st.info("Select a contact on the left to continue.")
             return
 
@@ -323,7 +327,7 @@ def _render_setup() -> None:
                 key="pa_start_date",
             )
 
-        st.markdown('<div class="sec" style="margin-top:4px;">Sender details</div>',
+        st.markdown('<div class="pa-sec" style="margin-top:4px;">Sender details</div>',
                     unsafe_allow_html=True)
 
         sn1, sn2 = st.columns(2)
@@ -533,7 +537,7 @@ def _render_preview() -> None:
     # ── Email send panel ───────────────────────────────────────────────────────
     if st.session_state.get("pa_show_send"):
         with st.container():
-            st.markdown('<div class="sec">Send Proposal Email</div>', unsafe_allow_html=True)
+            st.markdown('<div class="pa-sec">Send Proposal Email</div>', unsafe_allow_html=True)
 
             to_email = st.text_input(
                 "Recipient email",
@@ -605,7 +609,7 @@ def _render_preview() -> None:
     st.markdown("")
 
     # ── Proposal preview ──────────────────────────────────────────────────────
-    st.markdown('<div class="sec">Preview</div>', unsafe_allow_html=True)
+    st.markdown('<div class="pa-sec">Preview</div>', unsafe_allow_html=True)
     components.html(proposal_html, height=920, scrolling=True)
 
     # ── Edit sections (collapsed) ─────────────────────────────────────────────

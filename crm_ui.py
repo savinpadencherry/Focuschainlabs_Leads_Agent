@@ -131,11 +131,10 @@ CRM_CSS = """
 }
 .crm-head h2 {
     font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: clamp(26px, 3.5vw, 36px); font-weight: 800; color: var(--ink);
-    margin: 0 0 4px 0; letter-spacing: -.025em; line-height: .97;
+    font-size: 30px; font-weight: 800; color: var(--ink);
+    margin: 0 0 4px 0; letter-spacing: 0;
 }
-.crm-head h2 .accent { color: var(--green); }
-.crm-head p { margin: 0; color: var(--ink-mute); font-family: 'JetBrains Mono', monospace !important; font-size: 12px; letter-spacing: .03em; max-width: 620px; line-height: 1.7; }
+.crm-head p { margin: 0; color: var(--ink-mute); font-size: 14px; max-width: 620px; line-height: 1.5; }
 .crm-sync {
     display: inline-flex; align-items: center; gap: 7px;
     padding: 6px 11px; border-radius: 999px; font-size: 11px; font-weight: 700;
@@ -253,9 +252,9 @@ CRM_CSS = """
     opacity: .9;
 }
 .crm-book.new { background: rgba(46,139,77,.14); border-color: rgba(46,139,77,.18); }
-.crm-book.contacted { background: rgba(15,101,139,.13); border-color: rgba(15,101,139,.20); }
-.crm-book.qualified { background: rgba(15,118,110,.14); border-color: rgba(15,118,110,.22); }
-.crm-book.meeting { background: rgba(15,101,139,.13); border-color: rgba(15,101,139,.20); }
+.crm-book.contacted { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.18); }
+.crm-book.qualified { background: rgba(168,85,247,.12); border-color: rgba(168,85,247,.20); }
+.crm-book.meeting { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.20); }
 .crm-book.proposal { background: rgba(183,121,31,.12); border-color: rgba(183,121,31,.24); }
 .crm-book.nurture { background: rgba(15,42,51,.06); border-color: rgba(15,42,51,.12); }
 .crm-book.won { background: rgba(46,139,77,.18); border-color: rgba(46,139,77,.22); }
@@ -312,15 +311,15 @@ CRM_CSS = """
     background: rgba(15,42,51,.06); color: var(--ink-soft);
 }
 .crm-pill.new { background: rgba(46,139,77,.12); color: var(--green); }
-.crm-pill.contacted { background: rgba(15,101,139,.12); color: #0D6E8C; }
-.crm-pill.qualified { background: rgba(15,118,110,.14); color: #0F766E; }
-.crm-pill.meeting { background: rgba(15,101,139,.12); color: #0D6E8C; }
+.crm-pill.contacted { background: rgba(59,130,246,.12); color: #1D4ED8; }
+.crm-pill.qualified { background: rgba(168,85,247,.12); color: #7E22CE; }
+.crm-pill.meeting { background: rgba(59,130,246,.12); color: #1E40AF; }
 .crm-pill.proposal { background: rgba(183,121,31,.12); color: var(--amber); }
 .crm-pill.nurture { background: rgba(15,42,51,.06); color: var(--ink-mute); }
 .crm-pill.won { background: rgba(46,139,77,.18); color: #166534; }
 .crm-pill.lost { background: rgba(169,61,61,.12); color: var(--red); }
 .crm-pill.due { background: rgba(183,121,31,.12); color: var(--amber); }
-.crm-pill.open { background: rgba(15,101,139,.10); color: #0D6E8C; }
+.crm-pill.open { background: rgba(59,130,246,.10); color: #1D4ED8; }
 .crm-stage-snap {
     margin: 10px 0 2px;
 }
@@ -1603,9 +1602,8 @@ def render_crm_page() -> None:
         <div class="crm-shell">
         <div class="crm-head">
           <div>
-            <div class="pg-eyebrow"><span class="dot"></span><span class="dash"></span>FOCUSCHAIN LABS · CONTACTS</div>
-            <h2>Contact <span class="accent">CRM</span></h2>
-            <p>contacts.pipeline&nbsp;&nbsp;→&nbsp;&nbsp;follow-ups.tracked&nbsp;&nbsp;→&nbsp;&nbsp;deals.closed</p>
+            <h2>CRM</h2>
+            <p>Contacts, follow-ups, and imported lead-agent prospects in one working list.</p>
           </div>
           {_sync_badge(meta)}
         </div>

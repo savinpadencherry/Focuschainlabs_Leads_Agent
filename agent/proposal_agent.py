@@ -20,7 +20,6 @@ from email.mime.text import MIMEText
 from typing import Any
 
 from utils.gemini import generate_content_text
-from utils import budget
 
 
 # ── Gemini prompt ─────────────────────────────────────────────────────────────
@@ -78,7 +77,6 @@ def generate_proposal(contact: dict[str, Any], config: dict[str, Any]) -> dict[s
     Call Gemini to generate a structured proposal. Returns the parsed JSON dict.
     Raises on Gemini error so the UI can surface it.
     """
-    budget.reset()
     # Pull Intel signals if available
     signals_text = _get_signals_text(contact)
 

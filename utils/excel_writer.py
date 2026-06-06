@@ -9,17 +9,19 @@ when opened in Excel or Google Sheets.
 import os
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from utils.reach import best_reach_channel, how_to_reach
 
 
 COLUMNS = [
     "Rank", "Company", "Website", "Location", "Industry",
     "Contact Name", "Email", "Contact Title", "Phone", "Email Confidence",
+    "Best Channel", "How To Reach",
     "Total Score", "Fit", "Trigger", "Reachability", "Recency",
     "Primary Signal", "Pain Point", "One-Line Reasoning", "Score Reasoning",
     "Job Roles Hiring", "Responsible Senior Owner", "Management Signal",
     "Ad Activity", "Proof / Signal",
     "Why Reach Out", "Opening Line", "Outreach Strategy",
-    "Source", "Date Found", "Status",
+    "Contact Source", "Source", "Date Found", "Status",
 ]
 
 
@@ -46,6 +48,15 @@ def _management_text(lead: dict) -> str:
         line  = f"{label}: {obs[:180]}".strip()
         lines.append(line)
     return "\n".join(lines[:4])
+
+
+def _status_text(lead: dict) -> str:
+    score = int(lead.get("total_score", 0) or 0)
+    if lead.get("selection_note") or score < 60:
+        return "Verify"
+    if lead.get("enrichment_status") in {"found", "partial"}:
+        return "Ready"
+    return "New"
 
 
 def write_leads_to_excel(leads: list, output_path: str) -> str:
@@ -105,6 +116,8 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
             lead.get("contact_title", ""),
             lead.get("phone", ""),
             lead.get("email_confidence", ""),
+            lead.get("reach_channel", "") or best_reach_channel(lead),
+            lead.get("how_to_reach", "") or how_to_reach(lead),
             score,
             lead.get("fit_score", ""),
             lead.get("trigger_score", ""),
@@ -122,9 +135,10 @@ def write_leads_to_excel(leads: list, output_path: str) -> str:
             lead.get("reason_to_reach", ""),
             lead.get("opening_line", ""),
             lead.get("outreach_note", ""),
+            lead.get("contact_source", ""),
             lead.get("source", ""),
             lead.get("date_found", ""),
-            "New",
+            _status_text(lead),
         ]
 
         for col_idx, value in enumerate(values, 1):

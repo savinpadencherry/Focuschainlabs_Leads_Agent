@@ -18,7 +18,6 @@ from email.mime.text import MIMEText
 from typing import Any
 
 from utils.gemini import generate_content_text
-from utils import budget
 
 
 _COMPOSE_PROMPT = """\
@@ -72,7 +71,6 @@ def compose_outreach(
     Return {subject, email_1, email_2, email_3} for a CRM contact.
     Raises on Gemini error so the caller can surface it to the user.
     """
-    budget.reset()
     prompt = _COMPOSE_PROMPT.format(
         contact_name   = (contact.get("name") or contact.get("contact_name") or "there").strip(),
         contact_title  = (contact.get("title") or "").strip(),
