@@ -11,6 +11,7 @@ agent ever runs over it.
 
 from __future__ import annotations
 
+from utils.crm_models import CRM_SOURCE_OPTIONS, CRM_STATUSES, DEAL_STATUSES
 from utils.gemini import generate_json
 
 # Fields the agent is allowed to populate. Mirrors the CRM contact shape so the
@@ -21,9 +22,9 @@ _FIELDS = [
     "next_follow_up",
 ]
 
-_STATUSES = ["new", "contacted", "qualified", "proposal", "won", "lost"]
-_DEAL_STATES = ["open", "won", "lost"]
-_SOURCES = ["linkedin", "referral", "inbound", "whatsapp", "event", "other"]
+_STATUSES = CRM_STATUSES
+_DEAL_STATES = DEAL_STATUSES
+_SOURCES = CRM_SOURCE_OPTIONS
 
 # A record is usable if it has SOMETHING to call it and SOME way to reach it.
 _IDENTITY_FIELDS = ("company", "name")
@@ -94,6 +95,43 @@ def _critical_missing(fields: dict) -> list[str]:
     return missing
 
 
+def intake_completeness(fields: dict) -> tuple[int, int, list[str]]:
+    """Return (filled_count, total_count, human labels for gaps)."""
+    tracked = [
+        ("company", "Company"),
+        ("name", "Contact name"),
+        ("phone", "Phone"),
+        ("email", "Email"),
+        ("title", "Title"),
+        ("industry", "Industry"),
+        ("owner", "Owner"),
+        ("client", "Client"),
+        ("value", "Value"),
+        ("source", "Source"),
+        ("status", "Stage"),
+        ("deal_status", "Deal state"),
+        ("next_follow_up", "Follow-up date"),
+        ("notes", "Notes"),
+    ]
+    filled = sum(1 for key, _ in tracked if fields.get(key))
+    gaps: list[str] = []
+    if not any(fields.get(f) for f in _IDENTITY_FIELDS):
+        gaps.append("company or contact name")
+    if not any(fields.get(f) for f in _CHANNEL_FIELDS):
+        gaps.append("phone or email")
+    return filled, len(tracked), gaps
+
+
+def merge_intake_fields(existing: dict | None, incoming: dict) -> dict:
+    """Merge a new parse into prior confirmed fields without dropping data."""
+    merged = {k: "" for k in _FIELDS}
+    for k in _FIELDS:
+        new_val = str(incoming.get(k) or "").strip()
+        old_val = str((existing or {}).get(k) or "").strip()
+        merged[k] = new_val or old_val
+    return merged
+
+
 def parse_contact(*, text: str = "", today: str = "", existing: dict | None = None) -> dict:
     """Parse a typed (or transcribed) lead description into a structured CRM record.
 
@@ -123,12 +161,7 @@ def parse_contact(*, text: str = "", today: str = "", existing: dict | None = No
             "summary": "",
         }
 
-    fields = _clean_fields(raw)
-    # Merge anything the user already confirmed in a previous round.
-    if existing:
-        for k in _FIELDS:
-            if not fields.get(k) and existing.get(k):
-                fields[k] = str(existing[k]).strip()
+    fields = merge_intake_fields(existing, _clean_fields(raw))
 
     missing = _critical_missing(fields)
     follow_up = str(raw.get("follow_up") or "").strip()
