@@ -17,6 +17,7 @@ import streamlit as st
 
 from utils.crm_models import normalize_email_event, utc_now_iso
 from utils.crm_store import load_crm, save_crm
+from utils.usage_guide import render_usage_guide
 from agent.contact_finder import (
     best_guess_email,
     extract_domain,
@@ -240,6 +241,8 @@ def render_reach_page() -> None:
         '<div class="ra-sub">Pick a contact → AI composes a personalised 3-email sequence → send or copy.</div>',
         unsafe_allow_html=True,
     )
+
+    render_usage_guide("reach")
 
     contacts, meta = _load()
 

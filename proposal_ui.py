@@ -20,6 +20,7 @@ import streamlit.components.v1 as components
 from agent.proposal_agent import build_html, generate_proposal, send_proposal_email
 from utils.crm_models import normalize_comment, normalize_email_event, utc_now_iso
 from utils.crm_store import load_crm, save_crm
+from utils.usage_guide import render_usage_guide
 
 
 # ── Session state ─────────────────────────────────────────────────────────────
@@ -167,6 +168,7 @@ def render_proposal_page() -> None:
         'signals, ready to download as PDF or send via email.</div>',
         unsafe_allow_html=True,
     )
+    render_usage_guide("proposal")
     st.markdown("")
 
     stage = st.session_state.proposal_stage

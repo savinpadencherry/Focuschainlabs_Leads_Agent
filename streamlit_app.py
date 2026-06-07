@@ -19,6 +19,7 @@ from reach_ui import render_reach_page
 from intel_ui import render_intel_page
 from proposal_ui import render_proposal_page
 from finance_ui import render_finance_page
+from utils.usage_guide import render_usage_guide
 
 # ── Environment ──────────────────────────────────────────────────────────────
 try:
@@ -1661,6 +1662,8 @@ render_steps(st.session_state.stage)
 #  STAGE 1 — SETUP
 # ═══════════════════════════════════════════════════════════════════════════════
 if st.session_state.stage == "setup":
+
+    render_usage_guide("scout")
 
     if not ICPS:
         st.error("No ICP config files found in /config. Add a JSON file there.")

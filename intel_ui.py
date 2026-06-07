@@ -23,6 +23,7 @@ from agent.intel_agent import (
 from utils.crm_models import normalize_comment, utc_now_iso
 from utils.crm_store import load_crm, save_crm
 from utils.intel_store import load_briefings, mark_pushed, upsert_briefings
+from utils.usage_guide import render_usage_guide
 
 
 # ── Session state ─────────────────────────────────────────────────────────────
@@ -522,6 +523,7 @@ def render_intel_page() -> None:
         '~$0.0004 per 10-company run &nbsp;·&nbsp; free within Serper 100/day quota</div>',
         unsafe_allow_html=True,
     )
+    render_usage_guide("intel")
     st.markdown("")
 
     stage = st.session_state.intel_stage

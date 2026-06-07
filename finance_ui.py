@@ -45,6 +45,7 @@ from utils.crm_models import (
     utc_now_iso,
 )
 from utils.crm_store import load_crm, save_crm
+from utils.usage_guide import render_usage_guide
 
 
 # ── Session state ─────────────────────────────────────────────────────────────
@@ -232,6 +233,7 @@ def render_finance_page() -> None:
 <p class="pg-sub">Won deal&nbsp;&nbsp;→&nbsp;&nbsp;invoice in one click&nbsp;&nbsp;→&nbsp;&nbsp;track payment&nbsp;&nbsp;→&nbsp;&nbsp;AI chases overdue</p>
 <div class="fin-cost-pill"><div class="dot"></div>Invoicing is free (no API) &nbsp;·&nbsp; AI reminders ~1 Gemini call each</div>
 """, unsafe_allow_html=True)
+    render_usage_guide("finance")
     st.markdown("")
 
     view = st.session_state.fin_view

@@ -1,0 +1,12 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+.env
+.env.*
+.streamlit/secrets.toml
+output/
+data/crm/*.json
+docs/
+tests/
+*.md

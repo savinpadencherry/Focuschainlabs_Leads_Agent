@@ -9,6 +9,7 @@ import streamlit as st
 
 import utils.crm_models as crm_models
 from utils.crm_store import github_configured, import_leads_to_crm, load_crm, save_crm
+from utils.usage_guide import render_usage_guide
 
 
 CRM_STATUSES = getattr(crm_models, "CRM_STATUSES", ["new", "contacted", "qualified", "proposal", "won", "lost"])
@@ -1012,6 +1013,7 @@ def _reset_crm_filters() -> None:
         "crm_deal_filter": "all",
         "crm_work_filter": "all",
         "crm_sort": "recent",
+        "crm_page": 1,
     }
     for key, value in defaults.items():
         st.session_state[key] = value
@@ -1161,6 +1163,162 @@ def _render_quick_add() -> None:
                     if persist_crm(f"CRM: {action} {display_name(saved)}"):
                         st.toast(f"{'Updated' if action == 'updated' else 'Added'} {display_name(saved)}")
                         st.rerun()
+
+
+def _reset_ai_intake() -> None:
+    for k in ("ai_intake", "ai_audio", "ai_text"):
+        st.session_state.pop(k, None)
+
+
+def _ai_fields_to_contact(f: dict) -> dict:
+    """Build a normalized CRM contact from the agent's field dict."""
+    return normalize_contact(
+        {
+            "id": new_contact_id(),
+            "name": f.get("name", ""),
+            "title": f.get("title", ""),
+            "phone": f.get("phone", ""),
+            "email": f.get("email", ""),
+            "company": f.get("company", ""),
+            "industry": f.get("industry", ""),
+            "client": f.get("client", ""),
+            "owner": f.get("owner", ""),
+            "value": f.get("value", ""),
+            "status": f.get("status") or "new",
+            "deal_status": f.get("deal_status") or "open",
+            "notes": f.get("notes", ""),
+            "next_follow_up": _clean_follow_up(f.get("next_follow_up") or "") or "",
+            "source": f.get("source") or "other",
+            "tags": ["ai-intake", "ground"],
+        }
+    )
+
+
+@st.dialog("✨ Add a lead with AI", width="large")
+def _ai_add_dialog() -> None:
+    """Voice-or-type → Gemini structures the record → review/edit → save.
+
+    The user describes a lead in one breath; the agent extracts the fields,
+    asks only for genuinely missing essentials, and writes a clean record.
+    """
+    from agent.crm_intake_agent import parse_contact
+
+    state = st.session_state.setdefault("ai_intake", {"phase": "capture", "result": None})
+
+    # ── Phase 1: capture (voice or text) ──────────────────────────────────────
+    if state["phase"] == "capture":
+        st.caption(
+            "Speak or type the lead in one go — name, company, a phone or email, "
+            "and any context. The AI does the rest."
+        )
+        audio = st.audio_input("🎙️  Speak the details", key="ai_audio")
+        text = st.text_area(
+            "…or type / paste here",
+            key="ai_text",
+            height=110,
+            placeholder=(
+                "e.g. Add Priya Nair, founder of Zenith Interiors, phone 98xxxxxx12, "
+                "met at the Mumbai expo, wants a demo next week."
+            ),
+        )
+        has_input = audio is not None or bool((text or "").strip())
+        b1, b2 = st.columns([2, 1])
+        with b1:
+            review = st.button(
+                "🤖 Review with AI", type="primary",
+                use_container_width=True, disabled=not has_input,
+            )
+        with b2:
+            if st.button("Cancel", use_container_width=True):
+                _reset_ai_intake()
+                st.rerun()
+        if review:
+            with st.spinner("Reading the details…"):
+                audio_bytes = audio.getvalue() if audio is not None else None
+                try:
+                    res = parse_contact(text=text or "", audio_bytes=audio_bytes)
+                except Exception as exc:  # noqa: BLE001 - surface a friendly message
+                    st.error(f"Couldn't reach the AI ({exc}). Type the details and try again, or use the manual form.")
+                    return
+            state["result"] = res
+            state["phase"] = "review"
+            st.rerun()
+        return
+
+    # ── Phase 2: review & edit ────────────────────────────────────────────────
+    res = state.get("result") or {}
+    f = dict(res.get("fields") or {})
+
+    if res.get("transcript"):
+        st.markdown(f"**Heard:** _{html.escape(res['transcript'])}_")
+    if res.get("summary"):
+        st.success("🤖 " + res["summary"])
+    if res.get("follow_up"):
+        st.warning("🤖 " + res["follow_up"])
+    else:
+        st.caption("Looks complete — review the fields below and save.")
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        f["company"] = st.text_input("Company", f.get("company", ""), key="aif_company")
+        f["name"] = st.text_input("Contact name", f.get("name", ""), key="aif_name")
+        f["phone"] = st.text_input("Phone", f.get("phone", ""), key="aif_phone")
+    with c2:
+        f["industry"] = st.text_input("Industry", f.get("industry", ""), key="aif_industry")
+        f["title"] = st.text_input("Title", f.get("title", ""), key="aif_title")
+        f["email"] = st.text_input("Email", f.get("email", ""), key="aif_email")
+    with c3:
+        _src = f.get("source") or "other"
+        f["source"] = st.selectbox(
+            "Source", CRM_SOURCE_OPTIONS,
+            index=CRM_SOURCE_OPTIONS.index(_src) if _src in CRM_SOURCE_OPTIONS else 0,
+            format_func=_source_label, key="aif_source",
+        )
+        _stg = f.get("status") or "new"
+        f["status"] = st.selectbox(
+            "Stage", CRM_STATUSES,
+            index=CRM_STATUSES.index(_stg) if _stg in CRM_STATUSES else 0,
+            format_func=_status_label, key="aif_status",
+        )
+        f["value"] = st.text_input("Value", f.get("value", ""), key="aif_value")
+
+    f["notes"] = st.text_area("Notes", f.get("notes", ""), key="aif_notes", height=70)
+
+    # Keep edits in state so a rerun (e.g. from the voice top-up) doesn't lose them.
+    res["fields"] = f
+    state["result"] = res
+
+    missing = []
+    if not (f.get("company") or f.get("name")):
+        missing.append("a company or contact name")
+    if not (f.get("phone") or f.get("email")):
+        missing.append("a phone or email")
+
+    s1, s2, s3 = st.columns([2, 1, 1])
+    with s1:
+        save = st.button("💾 Save to CRM", type="primary", use_container_width=True)
+    with s2:
+        if st.button("🎙️ Add more", use_container_width=True, help="Speak or type extra details to fill gaps"):
+            state["phase"] = "capture"
+            st.session_state.pop("ai_audio", None)
+            st.session_state.pop("ai_text", None)
+            st.rerun()
+    with s3:
+        if st.button("Start over", use_container_width=True):
+            _reset_ai_intake()
+            st.rerun()
+
+    if save:
+        if missing:
+            st.error("Still need " + " and ".join(missing) + " before saving.")
+            return
+        contact = _ai_fields_to_contact(f)
+        action, saved = _upsert_contact(contact)
+        ok = persist_crm(f"CRM: {action} {display_name(saved)} (AI intake)")
+        _reset_ai_intake()
+        if ok:
+            st.toast(f"{'Updated' if action == 'updated' else 'Added'} {display_name(saved)}")
+        st.rerun()
 
 
 def _render_thread_tab(contact: dict, idx: int) -> None:
@@ -1625,6 +1783,19 @@ def render_crm_page() -> None:
         unsafe_allow_html=True,
     )
 
+    render_usage_guide("crm")
+
+    ai_col, hint_col = st.columns([1.1, 2])
+    with ai_col:
+        if st.button(
+            "✨ Add with AI — speak or type",
+            type="primary", use_container_width=True, key="open_ai_add",
+        ):
+            st.session_state.pop("ai_intake", None)
+            _ai_add_dialog()
+    with hint_col:
+        st.caption("Describe a lead in one sentence by voice or text — the AI fills in the record and only asks for what's missing.")
+
     _render_quick_add()
 
     st.markdown('<div class="sec">Find leads <span class="line"></span></div>', unsafe_allow_html=True)
@@ -1748,11 +1919,41 @@ def render_crm_page() -> None:
         )
         return
 
+    # ── Pagination — never render thousands of cards at once ──────────────────
+    total = len(filtered)
+    page_size = st.session_state.get("crm_page_size", 25)
+    page_count = max(1, (total + page_size - 1) // page_size)
+    page = min(max(1, st.session_state.get("crm_page", 1)), page_count)
+    start = (page - 1) * page_size
+    page_slice = filtered[start:start + page_size]
+    end = start + len(page_slice)
+
     st.markdown(
-        f'<div class="crm-filter-summary">Showing <strong>{len(filtered)}</strong> of '
-        f'<strong>{len(contacts)}</strong> lead{"s" if len(contacts) != 1 else ""}.</div>',
+        f'<div class="crm-filter-summary">Showing <strong>{start + 1 if total else 0}–{end}</strong> of '
+        f'<strong>{total}</strong> match{"es" if total != 1 else ""} '
+        f'(<strong>{len(contacts)}</strong> total).</div>',
         unsafe_allow_html=True,
     )
+
+    if page_count > 1:
+        pv, pn, ps = st.columns([1, 1, 1.4])
+        with pv:
+            st.button(
+                "‹ Prev", use_container_width=True, disabled=page <= 1,
+                key="crm_prev", on_click=lambda: st.session_state.update(crm_page=page - 1),
+            )
+        with pn:
+            st.button(
+                "Next ›", use_container_width=True, disabled=page >= page_count,
+                key="crm_next", on_click=lambda: st.session_state.update(crm_page=page + 1),
+            )
+        with ps:
+            st.selectbox(
+                "Per page", [25, 50, 100], key="crm_page_size",
+                label_visibility="collapsed",
+                on_change=lambda: st.session_state.update(crm_page=1),
+            )
+        st.caption(f"Page {page} of {page_count}")
 
     st.markdown(
         '<div class="crm-ledger-head">'
@@ -1767,7 +1968,7 @@ def render_crm_page() -> None:
     )
 
     id_to_idx = {c.get("id"): i for i, c in enumerate(contacts)}
-    for contact in filtered:
+    for contact in page_slice:
         idx = id_to_idx.get(contact.get("id"))
         if idx is not None:
             _render_contact_card(contact, idx, statuses)
