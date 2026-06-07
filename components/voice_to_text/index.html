@@ -71,8 +71,17 @@ if (!SpeechRecognition) {
   recog.lang = "en-IN";
 
   var listening = false;
-  var stoppedByUser = false;
   var finalText = "";
+
+  function stopListening(message) {
+    listening = false;
+    btn.classList.remove("listening");
+    btn.textContent = "Start dictation";
+    var captured = finalText.trim();
+    status.textContent = message || (captured ? "Captured — it's in the text box below. Edit freely." : defaultStatus);
+    if (captured) { send("streamlit:setComponentValue", { value: captured }); }
+    reportHeight();
+  }
 
   recog.onresult = function (event) {
     var interim = "";
@@ -85,38 +94,33 @@ if (!SpeechRecognition) {
       }
     }
     status.textContent = "Listening… " + (finalText + interim).trim();
-    reportHeight();
   };
   recog.onerror = function (event) {
-    if (event.error === "no-speech") { return; }
-    status.textContent = "Mic error (" + event.error + ") — try again, or type the details below.";
+    if (event.error === "no-speech" || event.error === "aborted") { return; }
+    stopListening("Mic error (" + event.error + ") — try again, or type the details below.");
   };
+  // No auto-restart here — some mobile browsers fire `end` moments after
+  // `start`, and restarting in a loop pegs the CPU and crashes the tab.
+  // Treat any end as the close of this dictation pass; the user can tap
+  // "Start dictation" again to keep going (segments append on the Python side).
   recog.onend = function () {
-    if (listening && !stoppedByUser) {
-      recog.start();
-      return;
-    }
-    listening = false;
-    btn.classList.remove("listening");
-    btn.textContent = "Start dictation";
-    var captured = finalText.trim();
-    status.textContent = captured ? "Captured — it's in the text box below. Edit freely." : defaultStatus;
-    if (captured) { send("streamlit:setComponentValue", { value: captured }); }
-    reportHeight();
+    if (listening) { stopListening(); }
   };
 
   btn.addEventListener("click", function () {
     if (listening) {
-      stoppedByUser = true;
-      recog.stop();
+      try { recog.stop(); } catch (e) { stopListening(); }
     } else {
       finalText = "";
-      stoppedByUser = false;
       listening = true;
       btn.classList.add("listening");
       btn.textContent = "Stop dictation";
       status.textContent = "Listening…";
-      recog.start();
+      try {
+        recog.start();
+      } catch (e) {
+        stopListening("Couldn't start the mic — try again, or type the details below.");
+      }
     }
   });
 }
