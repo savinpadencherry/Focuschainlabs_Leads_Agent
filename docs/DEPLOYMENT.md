@@ -101,21 +101,41 @@ gcloud run deploy focuschain-leads-agent \
 2. Apply the schema: `psql "$DATABASE_URL" -f db/schema.sql`
 3. Store each org's `DATABASE_URL` in Secret Manager.
 
-### C. Flip the backend on
-Set `CRM_BACKEND=postgres` and `DATABASE_URL=...`. `utils/crm_store_pg.py` then
-handles search/filter/pagination in SQL (indexed for 10k+ rows). For SN Realtors'
-10k-record import, use `crm_store_pg.bulk_upsert(contacts)`.
+### C. Add the org and point it at its database
+Set the `CRM_ORGS` secret (see `.streamlit/secrets.example.toml` for the exact
+format) — list each client with `"backend": "github"` or `"backend": "postgres"`.
+A `postgres` org needs its own `database_url_env` secret holding its connection
+string. The CRM page then shows an **org switcher** (only when 2+ orgs are
+configured) and routes every load/save to that tenant's database — automatically,
+with zero code changes per client.
 
-> Requires one extra dependency when you adopt this backend:
+> Requires one extra dependency when ANY org uses the postgres backend:
 > `pip install 'psycopg[binary]>=3.1'` (add it to requirements.txt then).
+
+For SN Realtors' 10k-record import, run once after applying the schema:
+```python
+from utils import crm_store_pg as pg
+pg.bulk_upsert(your_10k_contacts, database_url=os.environ["SN_REALTORS_DATABASE_URL"])
+```
 
 ---
 
-## 6. What's already built for this
+## 6. What's already built and wired
+- `utils/tenancy.py` — org config, switcher UI, per-org backend + database resolution.
+- `utils/crm_store.py` — `load_crm`/`save_crm` dispatch per-org to GitHub or Postgres,
+  with the SAME contract either way (zero changes needed in the rest of the CRM UI).
 - `db/schema.sql` — indexed Postgres schema (trigram + JSONB GIN for fast search).
-- `utils/crm_store_pg.py` — scale store: server-side search/sort/paginate + bulk ingest.
+- `utils/crm_store_pg.py` — full store: upsert/bulk-ingest/replace-all + server-side
+  search/sort/paginate (`search_contacts`) for when a tenant outgrows "load all".
 - `Dockerfile` + `.dockerignore` — Cloud Run-ready container.
-- CRM UI already paginates (25/50/100 per page) so thousands of rows never render at once.
+- CRM UI paginates (25/50/100 per page) so thousands of rows never render at once,
+  and shows a live "{Org} · Postgres/GitHub · N records" badge on the CRM header.
 
-Still to wire when you adopt Postgres: an `org`/login layer to select the tenant
-DB, and a backend switch in the UI's data calls (currently the GitHub-JSON store).
+### How the dispatch keeps things safe at scale
+Today, `load_crm`/`save_crm` load/replace a tenant's *entire* contact list each
+visit/save — identical semantics to the GitHub-JSON store, so the existing CRM UI
+(editing, filters, pagination) needed no rewrite and carries zero regression risk.
+This comfortably handles 10k records (a few MB of JSON). If a tenant grows past
+that, swap the CRM page's data access to `crm_store_pg.search_contacts(...)`
+directly — it pushes filtering to indexed SQL so only one page of rows ever
+reaches Python. The function is already written and ready for that next step.

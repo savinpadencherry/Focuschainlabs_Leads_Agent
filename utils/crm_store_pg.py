@@ -43,23 +43,31 @@ def pg_configured() -> bool:
     return _HAS_PSYCOPG and bool(os.getenv("DATABASE_URL", "").strip())
 
 
-def _require() -> None:
+def _resolve_url(database_url: str | None) -> str:
+    url = (database_url or os.getenv("DATABASE_URL") or "").strip()
     if not _HAS_PSYCOPG:
         raise RuntimeError("psycopg is not installed — run: pip install 'psycopg[binary]>=3.1'")
-    if not os.getenv("DATABASE_URL", "").strip():
-        raise RuntimeError("DATABASE_URL is not set — point it at your tenant's Postgres database.")
+    if not url:
+        raise RuntimeError("No Postgres connection string — pass database_url or set DATABASE_URL.")
+    return url
 
 
-def _conn():
-    _require()
-    return psycopg.connect(os.getenv("DATABASE_URL"), row_factory=dict_row, autocommit=True)
+def _conn(database_url: str | None = None):
+    """Open a connection to the given (or default) tenant database.
+
+    IMPORTANT: always pass `database_url` explicitly in a multi-tenant context.
+    A bare env-var fallback would be unsafe across concurrent Streamlit
+    sessions viewing different orgs in the same process.
+    """
+    return psycopg.connect(_resolve_url(database_url), row_factory=dict_row, autocommit=True)
 
 
-def init_schema() -> None:
+def init_schema(*, database_url: str | None = None) -> None:
     """Create tables/indexes if they don't exist. Safe to run repeatedly."""
     sql = _SCHEMA_PATH.read_text(encoding="utf-8")
-    with _conn() as conn, conn.cursor() as cur:
+    with _conn(database_url) as conn, conn.cursor() as cur:
         cur.execute(sql)
+
 
 
 # ── Mapping between the app's contact dict and table rows ─────────────────────
@@ -82,25 +90,7 @@ def _row_to_contact(row: dict[str, Any]) -> dict[str, Any]:
     return contact
 
 
-def upsert_contact(contact: dict[str, Any]) -> None:
-    hot, data, follow = _split(contact)
-    cols = ["id", *_HOT_COLS, "next_follow_up", "data", "fingerprint"]
-    fingerprint = contact.get("fingerprint") or ""
-    values = [contact["id"], *(hot[c] for c in _HOT_COLS), follow, json.dumps(data), fingerprint]
-    updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in (*_HOT_COLS, "next_follow_up", "data", "fingerprint"))
-    placeholders = ", ".join(["%s"] * len(cols))
-    sql = (
-        f"INSERT INTO contacts ({', '.join(cols)}) VALUES ({placeholders}) "
-        f"ON CONFLICT (id) DO UPDATE SET {updates}"
-    )
-    with _conn() as conn, conn.cursor() as cur:
-        cur.execute(sql, values)
-
-
-def bulk_upsert(contacts: list[dict[str, Any]]) -> int:
-    """Ingest many contacts efficiently (e.g. SN Realtors' 10k import)."""
-    if not contacts:
-        return 0
+def _upsert_rows(cur, contacts: list[dict[str, Any]]) -> None:
     cols = ["id", *_HOT_COLS, "next_follow_up", "data", "fingerprint"]
     placeholders = ", ".join(["%s"] * len(cols))
     updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in (*_HOT_COLS, "next_follow_up", "data", "fingerprint"))
@@ -112,25 +102,63 @@ def bulk_upsert(contacts: list[dict[str, Any]]) -> int:
     for contact in contacts:
         hot, data, follow = _split(contact)
         rows.append([contact["id"], *(hot[c] for c in _HOT_COLS), follow, json.dumps(data), contact.get("fingerprint") or ""])
-    with _conn() as conn, conn.cursor() as cur:
-        cur.executemany(sql, rows)
-    return len(rows)
+    cur.executemany(sql, rows)
 
 
-def get_contact(contact_id: str) -> dict[str, Any] | None:
-    with _conn() as conn, conn.cursor() as cur:
+def upsert_contact(contact: dict[str, Any], *, database_url: str | None = None) -> None:
+    with _conn(database_url) as conn, conn.cursor() as cur:
+        _upsert_rows(cur, [contact])
+
+
+def bulk_upsert(contacts: list[dict[str, Any]], *, database_url: str | None = None) -> int:
+    """Ingest many contacts efficiently (e.g. SN Realtors' 10k import)."""
+    if not contacts:
+        return 0
+    with _conn(database_url) as conn, conn.cursor() as cur:
+        _upsert_rows(cur, contacts)
+    return len(contacts)
+
+
+def replace_all_contacts(contacts: list[dict[str, Any]], *, database_url: str | None = None) -> int:
+    """Make the table mirror exactly this list — upsert all, delete the rest.
+
+    Mirrors the GitHub-JSON store's "overwrite the whole file" semantics, so
+    save_crm() can dispatch here with no behaviour change for callers (edits,
+    deletes, and imports all flow through the same path).
+    """
+    ids = [c["id"] for c in contacts if c.get("id")]
+    with _conn(database_url) as conn, conn.cursor() as cur:
+        with conn.transaction():
+            if contacts:
+                _upsert_rows(cur, contacts)
+            if ids:
+                cur.execute("DELETE FROM contacts WHERE id <> ALL(%s)", (ids,))
+            else:
+                cur.execute("DELETE FROM contacts")
+    return len(contacts)
+
+
+def load_all_contacts(*, database_url: str | None = None) -> list[dict[str, Any]]:
+    with _conn(database_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT * FROM contacts ORDER BY updated_at DESC")
+        rows = cur.fetchall()
+    return [_row_to_contact(r) for r in rows]
+
+
+def get_contact(contact_id: str, *, database_url: str | None = None) -> dict[str, Any] | None:
+    with _conn(database_url) as conn, conn.cursor() as cur:
         cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
         row = cur.fetchone()
     return _row_to_contact(row) if row else None
 
 
-def delete_contact(contact_id: str) -> None:
-    with _conn() as conn, conn.cursor() as cur:
+def delete_contact(contact_id: str, *, database_url: str | None = None) -> None:
+    with _conn(database_url) as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM contacts WHERE id = %s", (contact_id,))
 
 
-def count_contacts() -> int:
-    with _conn() as conn, conn.cursor() as cur:
+def count_contacts(*, database_url: str | None = None) -> int:
+    with _conn(database_url) as conn, conn.cursor() as cur:
         cur.execute("SELECT count(*) AS n FROM contacts")
         return int(cur.fetchone()["n"])
 
@@ -151,8 +179,14 @@ def search_contacts(
     sort: str = "recent",
     limit: int = 25,
     offset: int = 0,
+    database_url: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Server-side search/filter/sort/paginate. Returns (page_rows, total_matches)."""
+    """Server-side search/filter/sort/paginate. Returns (page_rows, total_matches).
+
+    For very large tenants (50k+ rows), wire this directly into the CRM page
+    instead of load_all_contacts() — it pushes filtering to indexed SQL so
+    only one page of rows ever reaches Python.
+    """
     where = ["1=1"]
     params: list[Any] = []
     if query.strip():
@@ -168,7 +202,7 @@ def search_contacts(
     where_sql = " AND ".join(where)
     order = _SORTS.get(sort, _SORTS["recent"])
 
-    with _conn() as conn, conn.cursor() as cur:
+    with _conn(database_url) as conn, conn.cursor() as cur:
         cur.execute(f"SELECT count(*) AS n FROM contacts WHERE {where_sql}", params)
         total = int(cur.fetchone()["n"])
         cur.execute(

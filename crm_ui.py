@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 import streamlit as st
 
 import utils.crm_models as crm_models
+import utils.tenancy as tenancy
 from utils.crm_store import github_configured, import_leads_to_crm, load_crm, save_crm
 from utils.usage_guide import render_usage_guide
 
@@ -764,8 +765,10 @@ CRM_CSS = """
 
 
 def ensure_crm_loaded(*, force: bool = False) -> None:
-    if force or "crm_db" not in st.session_state:
-        db, meta = load_crm()
+    org = tenancy.active_org()
+    if force or "crm_db" not in st.session_state or st.session_state.get("crm_loaded_org") != org["id"]:
+        db, meta = load_crm(org=org)
+        st.session_state["crm_loaded_org"] = org["id"]
         contacts = [
             normalize_contact(c)
             for c in (db.get("contacts") or [])
@@ -790,7 +793,8 @@ def ensure_crm_loaded(*, force: bool = False) -> None:
 
 def persist_crm(message: str = "Update CRM contacts") -> bool:
     db = st.session_state.get("crm_db") or {"contacts": []}
-    result = save_crm(db, sha=st.session_state.get("crm_sha"), message=message)
+    org = tenancy.active_org()
+    result = save_crm(db, sha=st.session_state.get("crm_sha"), message=message, org=org)
     st.session_state.crm_meta = result
     if result.get("committed") or result.get("source") == "local":
         st.session_state.crm_sha = result.get("sha")
@@ -810,7 +814,19 @@ def persist_crm(message: str = "Update CRM contacts") -> bool:
 
 
 def _sync_badge(meta: dict) -> str:
-    if github_configured() and meta.get("source") == "github" and not meta.get("error"):
+    source = meta.get("source")
+    if source == "postgres" and not meta.get("error"):
+        label = meta.get("label", "Postgres")
+        return (
+            f'<span class="crm-sync ok"><span class="dot"></span>'
+            f'{html.escape(label)} · {meta.get("count", 0)} records · own database</span>'
+        )
+    if source == "postgres":
+        return (
+            f'<span class="crm-sync warn"><span class="dot"></span>'
+            f'{html.escape(str(meta.get("error", "Database not reachable")))}</span>'
+        )
+    if github_configured() and source == "github" and not meta.get("error"):
         return (
             '<span class="crm-sync ok"><span class="dot"></span>'
             'Saved in GitHub · loads on every visit</span>'
@@ -1741,6 +1757,8 @@ def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
 
 def render_crm_page() -> None:
     st.markdown(CRM_CSS, unsafe_allow_html=True)
+    tenancy.render_org_switcher()
+    org = tenancy.active_org()
     ensure_crm_loaded()
 
     db = st.session_state.crm_db
@@ -1767,7 +1785,10 @@ def render_crm_page() -> None:
             <h2>CRM</h2>
             <p>Contacts, follow-ups, and imported lead-agent prospects in one working list.</p>
           </div>
-          {_sync_badge(meta)}
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+            {tenancy.backend_badge_html(org)}
+            {_sync_badge(meta)}
+          </div>
         </div>
         {setup_hint_html}
         <div class="crm-stats">

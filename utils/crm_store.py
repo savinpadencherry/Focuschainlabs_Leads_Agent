@@ -89,15 +89,79 @@ def _github_contents_url() -> str:
     return f"{GITHUB_API}/repos/{repo}/contents/{path}"
 
 
-def load_crm(*, force_remote: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
-    """
-    Load CRM database.
+def _org_database_url(org: dict[str, Any] | None) -> str:
+    if not org:
+        return ""
+    env_name = org.get("database_url_env") or "DATABASE_URL"
+    return (os.getenv(env_name) or "").strip()
 
-    Priority:
-      1. GitHub API (when token configured) — always fresh, survives Streamlit reboots
-      2. Local file in cloned repo
-      3. Empty database
+
+def _load_postgres(org: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    from utils import crm_store_pg as pg
+
+    db_url = _org_database_url(org)
+    label = org.get("label", org.get("id", "tenant"))
+    if not db_url:
+        env_name = org.get("database_url_env") or "DATABASE_URL"
+        return empty_crm_db(), {
+            "source": "postgres", "org": org.get("id"), "label": label,
+            "error": f"{env_name} is not set for {label} — add its connection string to secrets.",
+        }
+    try:
+        pg.init_schema(database_url=db_url)
+        contacts = pg.load_all_contacts(database_url=db_url)
+        data = _normalize_db({"contacts": contacts, "custom_statuses": []})
+        return data, {
+            "source": "postgres", "sha": None, "org": org.get("id"),
+            "label": label, "count": len(contacts),
+        }
+    except Exception as exc:  # noqa: BLE001 - never crash the page on a DB hiccup
+        return empty_crm_db(), {
+            "source": "postgres", "org": org.get("id"), "label": label,
+            "error": f"Postgres read failed for {label}: {exc}",
+        }
+
+
+def _save_postgres(data: dict[str, Any], org: dict[str, Any]) -> dict[str, Any]:
+    from utils import crm_store_pg as pg
+
+    db_url = _org_database_url(org)
+    label = org.get("label", org.get("id", "tenant"))
+    if not db_url:
+        env_name = org.get("database_url_env") or "DATABASE_URL"
+        return {
+            "source": "postgres", "committed": False,
+            "error": f"{env_name} is not set for {label} — add its connection string to secrets.",
+        }
+    payload = _normalize_db(data)
+    payload["updated_at"] = utc_now_iso()
+    try:
+        pg.init_schema(database_url=db_url)
+        n = pg.replace_all_contacts(payload.get("contacts") or [], database_url=db_url)
+        return {
+            "source": "postgres", "sha": None, "committed": True,
+            "org": org.get("id"), "label": label, "count": n,
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "source": "postgres", "committed": False,
+            "error": f"Postgres write failed for {label}: {exc}",
+        }
+
+
+def load_crm(
+    *, force_remote: bool = False, org: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """
+    Load CRM database for the active org.
+
+    Backend is chosen per-org:
+      • org["backend"] == "postgres" — that tenant's own Postgres database
+      • otherwise — GitHub-JSON (priority: GitHub API → local file → empty)
+    """
+    if org and org.get("backend") == "postgres":
+        return _load_postgres(org)
+
     if github_configured() or force_remote:
         token = _github_token()
         if token:
@@ -148,13 +212,19 @@ def save_crm(
     *,
     sha: str | None = None,
     message: str = "Update CRM contacts",
+    org: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
-    Persist CRM database.
+    Persist CRM database for the active org.
 
-    When GitHub is configured, commits to the repo via Contents API so data
-    survives Streamlit Cloud restarts. Also writes locally when possible.
+    Backend is chosen per-org:
+      • org["backend"] == "postgres" — write to that tenant's Postgres database
+      • otherwise — commit to GitHub (Contents API) so data survives reboots,
+        with a local-file fallback when the write fails.
     """
+    if org and org.get("backend") == "postgres":
+        return _save_postgres(data, org)
+
     payload = _normalize_db(data)
     payload["updated_at"] = utc_now_iso()
     encoded = base64.b64encode(
