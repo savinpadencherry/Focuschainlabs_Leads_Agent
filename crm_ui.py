@@ -1199,7 +1199,7 @@ def _render_quick_add() -> None:
 
 
 def _reset_ai_intake() -> None:
-    for k in ("ai_intake", "ai_audio", "ai_text", "ai_audio_sig"):
+    for k in ("ai_intake", "ai_text", "ai_voice_last"):
         st.session_state.pop(k, None)
 
 
@@ -1235,46 +1235,23 @@ def _ai_add_dialog() -> None:
     step) — nothing is "interpreted" until the user is happy with the words on
     screen and explicitly asks the agent to structure and save them.
     """
-    import hashlib
-
     from agent.crm_intake_agent import parse_contact
-    from utils.gemini import transcribe_audio
+    from utils.voice_capture import voice_to_text
 
     state = st.session_state.setdefault("ai_intake", {"phase": "capture", "result": None})
 
     # ── Phase 1: capture (speak → text, or type directly) ─────────────────────
     if state["phase"] == "capture":
         st.caption(
-            "Speak the lead's details, then turn it into text below — or just type. "
+            "Dictate the lead's details — your browser turns speech into text, no AI involved. "
             "Edit freely, then ask the agent to structure and save it."
         )
-        audio = st.audio_input("Speak the details", key="ai_audio")
-        audio_bytes = audio.getvalue() if audio is not None else None
-        audio_sig = hashlib.md5(audio_bytes).hexdigest() if audio_bytes else None
-
-        tc1, tc2 = st.columns([1.3, 2.7])
-        with tc1:
-            convert = st.button(
-                "Convert speech to text", use_container_width=True,
-                disabled=audio_bytes is None or audio_sig == st.session_state.get("ai_audio_sig"),
-            )
-        with tc2:
-            st.caption("Turns your recording into plain words below — purely speech-to-text, nothing is stored yet.")
-
-        if convert and audio_bytes:
-            with st.spinner("Listening…"):
-                try:
-                    heard = transcribe_audio(audio_bytes)
-                except Exception as exc:  # noqa: BLE001
-                    heard = None
-                    st.error(f"Couldn't reach the AI to transcribe that ({exc}). Try again, or type the details directly.")
-            if heard:
-                current = (st.session_state.get("ai_text") or "").strip()
-                st.session_state["ai_text"] = f"{current} {heard}".strip() if current else heard
-                st.session_state["ai_audio_sig"] = audio_sig
-                st.rerun()
-            elif heard == "":
-                st.warning("Didn't catch any words in that recording — try again, a little closer to the mic, or just type the details below.")
+        heard = voice_to_text(key="ai_voice")
+        if heard and heard != st.session_state.get("ai_voice_last"):
+            st.session_state["ai_voice_last"] = heard
+            current = (st.session_state.get("ai_text") or "").strip()
+            st.session_state["ai_text"] = f"{current} {heard}".strip() if current else heard
+            st.rerun()
 
         text = st.text_area(
             "Lead details — edit freely before sending to the agent",
@@ -1370,7 +1347,7 @@ def _ai_add_dialog() -> None:
     with s2:
         if st.button("Add more", use_container_width=True, help="Speak or type extra details to fill gaps"):
             state["phase"] = "capture"
-            st.session_state.pop("ai_audio", None)
+            st.session_state.pop("ai_voice_last", None)
             st.session_state.pop("ai_text", None)
             st.rerun()
     with s3:

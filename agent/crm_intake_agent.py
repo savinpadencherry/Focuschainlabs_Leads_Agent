@@ -4,9 +4,9 @@ clean contact.
 The user describes a lead in natural language; Gemini extracts the structured
 CRM fields, flags any critical gaps, and writes a short, friendly follow-up
 question asking only for what's genuinely missing. One Gemini call per review
-(budget-guarded). Voice capture is a separate, visible step (utils.gemini.
-transcribe_audio) — the user always sees and edits plain text before this
-agent ever runs over it.
+(budget-guarded). Voice capture happens entirely in the browser (utils.
+voice_capture — no AI, no quota) — the user always sees and edits plain text
+before this agent ever runs over it.
 """
 
 from __future__ import annotations

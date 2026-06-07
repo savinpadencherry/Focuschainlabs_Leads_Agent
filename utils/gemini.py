@@ -1,8 +1,9 @@
 """Small Gemini wrapper with model fallback for transient capacity spikes.
 
 Everything funnels through here so the per-run budget guard (utils.budget) and
-the model cascade are enforced in exactly one place. Supports plain text,
-strict-JSON, and multimodal (audio) prompts — all on the same free Flash tier.
+the model cascade are enforced in exactly one place. Text and strict-JSON
+prompts only — speech-to-text is handled by the browser (utils.voice_capture),
+not the LLM, so dictation never touches this budget.
 """
 
 from __future__ import annotations
@@ -60,32 +61,6 @@ def generate_content_text(prompt: str) -> str:
     return _generate(prompt)
 
 
-def generate_content_multimodal(prompt: str, audio_bytes: bytes, mime_type: str = "audio/wav") -> str:
-    """Send a prompt plus an audio clip (e.g. a spoken CRM record) to Gemini.
-
-    Uses the same free Flash tier and budget guard as text. Gemini transcribes
-    and reasons over the audio in a single call — no separate STT service.
-    """
-    from google.genai import types
-
-    audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
-    return _generate([prompt, audio_part])
-
-
-def transcribe_audio(audio_bytes: bytes, mime_type: str = "audio/wav") -> str:
-    """Speech-to-text only — verbatim words, nothing structured or interpreted.
-
-    Kept deliberately separate from generate_json()'s field-extraction prompt:
-    the caller shows this plain transcript to the user for editing *before*
-    any "agent" reasoning runs over it (one short, budget-guarded call).
-    """
-    prompt = (
-        "Transcribe the spoken audio verbatim, word for word. "
-        "Return ONLY the transcribed text — no labels, quotes, or commentary."
-    )
-    return generate_content_multimodal(prompt, audio_bytes, mime_type=mime_type).strip()
-
-
 def _extract_json(raw: str) -> str:
     """Pull a JSON object out of a model reply that may be fenced or chatty."""
     text = (raw or "").strip()
@@ -101,16 +76,13 @@ def _extract_json(raw: str) -> str:
     return text
 
 
-def generate_json(prompt: str, audio_bytes: bytes | None = None, mime_type: str = "audio/wav") -> dict:
-    """Return a parsed JSON object from Gemini, with audio optional.
+def generate_json(prompt: str) -> dict:
+    """Return a parsed JSON object from Gemini.
 
     Returns {} if the model produces nothing parseable, so callers can degrade
     gracefully rather than crash.
     """
-    if audio_bytes is not None:
-        raw = generate_content_multimodal(prompt, audio_bytes, mime_type=mime_type)
-    else:
-        raw = generate_content_text(prompt)
+    raw = generate_content_text(prompt)
     if not raw:
         return {}
     try:
