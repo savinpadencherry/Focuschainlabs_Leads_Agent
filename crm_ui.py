@@ -762,6 +762,15 @@ CRM_CSS = """
 }
 
 /* AI intake — quiet, branded notices instead of stock alert boxes */
+.ai-voice-tip {
+    display: flex; align-items: flex-start; gap: 11px;
+    font-size: 13px; line-height: 1.5; color: var(--ink-mute);
+    padding: 11px 14px; border-radius: var(--rs);
+    background: var(--cream-3); border: 1px dashed var(--line-soft);
+    margin: 4px 0 12px;
+}
+.ai-voice-tip .mic { font-size: 16px; line-height: 1.3; flex: none; }
+.ai-voice-tip b { color: var(--ink); font-weight: 700; }
 .ai-note {
     display: flex; align-items: flex-start; gap: 10px;
     font-size: 13.5px; line-height: 1.5; padding: 11px 14px;
@@ -1199,7 +1208,7 @@ def _render_quick_add() -> None:
 
 
 def _reset_ai_intake() -> None:
-    for k in ("ai_intake", "ai_text", "ai_voice_last"):
+    for k in ("ai_intake", "ai_text"):
         st.session_state.pop(k, None)
 
 
@@ -1229,34 +1238,33 @@ def _ai_fields_to_contact(f: dict) -> dict:
 
 @st.dialog("Add a lead with AI", width="large")
 def _ai_add_dialog() -> None:
-    """Speak or type → plain text you can edit → the agent structures it → save.
+    """Type (or dictate via the device keyboard) → edit → agent structures → save.
 
-    Voice is captured and turned into editable text first (a separate, visible
-    step) — nothing is "interpreted" until the user is happy with the words on
-    screen and explicitly asks the agent to structure and save them.
+    Voice uses the user's own keyboard/OS dictation (free, reliable, no AI) so
+    the text is in front of them before anything is "interpreted" — the agent
+    only runs when they explicitly click "Review with AI".
     """
     from agent.crm_intake_agent import parse_contact
-    from utils.voice_capture import voice_to_text
 
     state = st.session_state.setdefault("ai_intake", {"phase": "capture", "result": None})
 
-    # ── Phase 1: capture (speak → text, or type directly) ─────────────────────
+    # ── Phase 1: capture (type, or dictate with the device keyboard) ───────────
     if state["phase"] == "capture":
         st.caption(
-            "Dictate the lead's details — your browser turns speech into text, no AI involved. "
-            "Edit freely, then ask the agent to structure and save it."
+            "Type the lead's details, or tap the box and use your keyboard's "
+            "microphone to dictate — then let the agent structure and save it."
         )
-        heard = voice_to_text(key="ai_voice")
-        if heard and heard != st.session_state.get("ai_voice_last"):
-            st.session_state["ai_voice_last"] = heard
-            current = (st.session_state.get("ai_text") or "").strip()
-            st.session_state["ai_text"] = f"{current} {heard}".strip() if current else heard
-            st.rerun()
-
+        st.markdown(
+            '<div class="ai-voice-tip"><span class="mic">🎙️</span>'
+            '<span><b>Want to speak instead?</b> Tap the box below, then tap the '
+            'microphone on your phone keyboard (or press the dictation key on '
+            'desktop) and just talk — it types as you speak, for free, no AI used.</span></div>',
+            unsafe_allow_html=True,
+        )
         text = st.text_area(
-            "Lead details — edit freely before sending to the agent",
+            "Lead details — type or dictate, edit freely before sending to the agent",
             key="ai_text",
-            height=120,
+            height=140,
             placeholder=(
                 "e.g. Add Priya Nair, founder of Zenith Interiors, phone 98xxxxxx12, "
                 "met at the Mumbai expo, wants a demo next week."
@@ -1345,9 +1353,8 @@ def _ai_add_dialog() -> None:
     with s1:
         save = st.button("Save to CRM", type="primary", use_container_width=True)
     with s2:
-        if st.button("Add more", use_container_width=True, help="Speak or type extra details to fill gaps"):
+        if st.button("Add more", use_container_width=True, help="Type or dictate extra details to fill gaps"):
             state["phase"] = "capture"
-            st.session_state.pop("ai_voice_last", None)
             st.session_state.pop("ai_text", None)
             st.rerun()
     with s3:
@@ -1840,13 +1847,13 @@ def render_crm_page() -> None:
     ai_col, hint_col = st.columns([1.1, 2])
     with ai_col:
         if st.button(
-            "Add with AI — speak or type",
+            "Add with AI — type or dictate",
             type="primary", use_container_width=True, key="open_ai_add",
         ):
             st.session_state.pop("ai_intake", None)
             _ai_add_dialog()
     with hint_col:
-        st.caption("Describe a lead in one sentence by voice or text — the AI fills in the record and only asks for what's missing.")
+        st.caption("Describe a lead in one sentence — type it, or tap the box and use your keyboard's mic to dictate. The AI fills in the record and only asks for what's missing.")
 
     _render_quick_add()
 

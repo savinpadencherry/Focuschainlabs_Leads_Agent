@@ -2,7 +2,7 @@
 
 Everything funnels through here so the per-run budget guard (utils.budget) and
 the model cascade are enforced in exactly one place. Text and strict-JSON
-prompts only — speech-to-text is handled by the browser (utils.voice_capture),
+prompts only — speech-to-text is handled by the device keyboard/OS dictation,
 not the LLM, so dictation never touches this budget.
 """
 
