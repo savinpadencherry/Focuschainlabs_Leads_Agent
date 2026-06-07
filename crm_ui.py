@@ -1266,13 +1266,15 @@ def _ai_add_dialog() -> None:
                 try:
                     heard = transcribe_audio(audio_bytes)
                 except Exception as exc:  # noqa: BLE001
-                    st.error(f"Couldn't hear that clearly ({exc}). Try again, or type the details directly.")
-                    heard = ""
+                    heard = None
+                    st.error(f"Couldn't reach the AI to transcribe that ({exc}). Try again, or type the details directly.")
             if heard:
                 current = (st.session_state.get("ai_text") or "").strip()
                 st.session_state["ai_text"] = f"{current} {heard}".strip() if current else heard
-            st.session_state["ai_audio_sig"] = audio_sig
-            st.rerun()
+                st.session_state["ai_audio_sig"] = audio_sig
+                st.rerun()
+            elif heard == "":
+                st.warning("Didn't catch any words in that recording — try again, a little closer to the mic, or just type the details below.")
 
         text = st.text_area(
             "Lead details — edit freely before sending to the agent",
