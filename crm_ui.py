@@ -760,6 +760,34 @@ CRM_CSS = """
         letter-spacing: .16em !important;
     }
 }
+
+/* AI intake — quiet, branded notices instead of stock alert boxes */
+.ai-transcript {
+    font-size: 13px; color: var(--ink-mute); line-height: 1.5;
+    padding: 10px 14px; border-radius: var(--rs);
+    background: var(--cream-3); border: 1px solid var(--line-soft);
+    margin-bottom: 10px;
+}
+.ai-transcript b {
+    font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink); margin-right: 8px;
+}
+.ai-note {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 13.5px; line-height: 1.5; padding: 11px 14px;
+    border-radius: var(--rs); border: 1px solid var(--line-soft);
+    background: var(--cream-3); margin-bottom: 12px;
+}
+.ai-note .tag {
+    flex: none; font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 999px; margin-top: 1px;
+}
+.ai-note.ok { color: var(--ink); border-color: rgba(46,139,77,.22); background: var(--green-bg); }
+.ai-note.ok .tag { color: var(--green); background: rgba(46,139,77,.14); }
+.ai-note.warn { color: var(--ink); border-color: rgba(183,121,31,.24); background: var(--amber-bg); }
+.ai-note.warn .tag { color: var(--amber); background: rgba(183,121,31,.16); }
 </style>
 """
 
@@ -1210,7 +1238,7 @@ def _ai_fields_to_contact(f: dict) -> dict:
     )
 
 
-@st.dialog("✨ Add a lead with AI", width="large")
+@st.dialog("Add a lead with AI", width="large")
 def _ai_add_dialog() -> None:
     """Voice-or-type → Gemini structures the record → review/edit → save.
 
@@ -1227,7 +1255,7 @@ def _ai_add_dialog() -> None:
             "Speak or type the lead in one go — name, company, a phone or email, "
             "and any context. The AI does the rest."
         )
-        audio = st.audio_input("🎙️  Speak the details", key="ai_audio")
+        audio = st.audio_input("Speak the details", key="ai_audio")
         text = st.text_area(
             "…or type / paste here",
             key="ai_text",
@@ -1241,7 +1269,7 @@ def _ai_add_dialog() -> None:
         b1, b2 = st.columns([2, 1])
         with b1:
             review = st.button(
-                "🤖 Review with AI", type="primary",
+                "Review with AI", type="primary",
                 use_container_width=True, disabled=not has_input,
             )
         with b2:
@@ -1266,11 +1294,22 @@ def _ai_add_dialog() -> None:
     f = dict(res.get("fields") or {})
 
     if res.get("transcript"):
-        st.markdown(f"**Heard:** _{html.escape(res['transcript'])}_")
+        st.markdown(
+            f'<div class="ai-transcript"><b>Heard</b>{html.escape(res["transcript"])}</div>',
+            unsafe_allow_html=True,
+        )
     if res.get("summary"):
-        st.success("🤖 " + res["summary"])
+        st.markdown(
+            f'<div class="ai-note ok"><span class="tag">Read</span>'
+            f'<span>{html.escape(res["summary"])}</span></div>',
+            unsafe_allow_html=True,
+        )
     if res.get("follow_up"):
-        st.warning("🤖 " + res["follow_up"])
+        st.markdown(
+            f'<div class="ai-note warn"><span class="tag">Needs a touch-up</span>'
+            f'<span>{html.escape(res["follow_up"])}</span></div>',
+            unsafe_allow_html=True,
+        )
     else:
         st.caption("Looks complete — review the fields below and save.")
 
@@ -1312,9 +1351,9 @@ def _ai_add_dialog() -> None:
 
     s1, s2, s3 = st.columns([2, 1, 1])
     with s1:
-        save = st.button("💾 Save to CRM", type="primary", use_container_width=True)
+        save = st.button("Save to CRM", type="primary", use_container_width=True)
     with s2:
-        if st.button("🎙️ Add more", use_container_width=True, help="Speak or type extra details to fill gaps"):
+        if st.button("Add more", use_container_width=True, help="Speak or type extra details to fill gaps"):
             state["phase"] = "capture"
             st.session_state.pop("ai_audio", None)
             st.session_state.pop("ai_text", None)
@@ -1809,7 +1848,7 @@ def render_crm_page() -> None:
     ai_col, hint_col = st.columns([1.1, 2])
     with ai_col:
         if st.button(
-            "✨ Add with AI — speak or type",
+            "Add with AI — speak or type",
             type="primary", use_container_width=True, key="open_ai_add",
         ):
             st.session_state.pop("ai_intake", None)
