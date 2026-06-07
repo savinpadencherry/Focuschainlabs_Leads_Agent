@@ -1,10 +1,12 @@
-"""Agentic CRM intake — turn a spoken or typed blurb into a clean contact.
+"""Agentic CRM intake — turn a typed (or transcribed-from-voice) blurb into a
+clean contact.
 
-The user describes a lead in natural language (voice or text); Gemini extracts
-the structured CRM fields, flags any critical gaps, and writes a short, friendly
-follow-up question asking only for what's genuinely missing. One Gemini call per
-review (budget-guarded). Voice uses Streamlit's native audio_input piped straight
-to Gemini — no separate speech-to-text service, no new dependency, no new cost.
+The user describes a lead in natural language; Gemini extracts the structured
+CRM fields, flags any critical gaps, and writes a short, friendly follow-up
+question asking only for what's genuinely missing. One Gemini call per review
+(budget-guarded). Voice capture is a separate, visible step (utils.gemini.
+transcribe_audio) — the user always sees and edits plain text before this
+agent ever runs over it.
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ _IDENTITY_FIELDS = ("company", "name")
 _CHANNEL_FIELDS = ("phone", "email")
 
 
-def _prompt(today: str, existing: dict | None, transcribe: bool) -> str:
+def _prompt(today: str, existing: dict | None) -> str:
     existing_block = ""
     if existing:
         filled = {k: v for k, v in existing.items() if v and k in _FIELDS}
@@ -37,17 +39,11 @@ def _prompt(today: str, existing: dict | None, transcribe: bool) -> str:
                 "\nThe user already provided these fields earlier — keep them unless "
                 f"the new input clearly corrects them:\n{filled}\n"
             )
-    audio_note = (
-        "First transcribe the spoken audio, then extract the fields from your "
-        "transcription. Put the verbatim transcription in \"transcript\".\n"
-        if transcribe else
-        "Extract the fields from the text the user wrote.\n"
-    )
     return f"""You are the intake assistant for a B2B sales CRM. Today is {today}.
-{audio_note}{existing_block}
+Extract the fields from the text the user wrote.
+{existing_block}
 Return ONLY a JSON object (no prose, no markdown fences) with this exact shape:
 {{
-  "transcript": "verbatim text of what the user said (empty if input was already text)",
   "fields": {{
     "company": "", "name": "", "title": "", "email": "", "phone": "",
     "industry": "", "owner": "", "value": "", "client": "",
@@ -98,20 +94,12 @@ def _critical_missing(fields: dict) -> list[str]:
     return missing
 
 
-def parse_contact(
-    *,
-    text: str = "",
-    audio_bytes: bytes | None = None,
-    mime_type: str = "audio/wav",
-    today: str = "",
-    existing: dict | None = None,
-) -> dict:
-    """Parse a spoken/typed lead description into a structured CRM record.
+def parse_contact(*, text: str = "", today: str = "", existing: dict | None = None) -> dict:
+    """Parse a typed (or transcribed) lead description into a structured CRM record.
 
     Returns:
         {
           "ok": bool,                # False only if Gemini gave nothing usable
-          "transcript": str,         # what the user said (for voice)
           "fields": {...},           # CRM-ready field dict
           "missing": [...],          # critical gaps (deterministic)
           "follow_up": str,          # warm question for the missing bits
@@ -121,19 +109,17 @@ def parse_contact(
     from datetime import date
 
     today = today or date.today().isoformat()
-    transcribe = audio_bytes is not None
-    prompt = _prompt(today, existing, transcribe)
-    if not transcribe and text.strip():
+    prompt = _prompt(today, existing)
+    if text.strip():
         prompt += f"\nUser input:\n\"\"\"\n{text.strip()}\n\"\"\"\n"
 
-    raw = generate_json(prompt, audio_bytes=audio_bytes, mime_type=mime_type)
+    raw = generate_json(prompt)
     if not raw:
         return {
             "ok": False,
-            "transcript": text.strip(),
             "fields": {k: "" for k in _FIELDS},
             "missing": ["company or name", "phone or email"],
-            "follow_up": "I couldn't read that clearly — could you type the lead's name, company, and a phone or email?",
+            "follow_up": "I couldn't read that clearly — could you check the details and try again?",
             "summary": "",
         }
 
@@ -153,7 +139,6 @@ def parse_contact(
 
     return {
         "ok": True,
-        "transcript": str(raw.get("transcript") or text or "").strip(),
         "fields": fields,
         "missing": missing,
         "follow_up": follow_up,

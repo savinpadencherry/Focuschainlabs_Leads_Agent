@@ -72,6 +72,20 @@ def generate_content_multimodal(prompt: str, audio_bytes: bytes, mime_type: str 
     return _generate([prompt, audio_part])
 
 
+def transcribe_audio(audio_bytes: bytes, mime_type: str = "audio/wav") -> str:
+    """Speech-to-text only — verbatim words, nothing structured or interpreted.
+
+    Kept deliberately separate from generate_json()'s field-extraction prompt:
+    the caller shows this plain transcript to the user for editing *before*
+    any "agent" reasoning runs over it (one short, budget-guarded call).
+    """
+    prompt = (
+        "Transcribe the spoken audio verbatim, word for word. "
+        "Return ONLY the transcribed text — no labels, quotes, or commentary."
+    )
+    return generate_content_multimodal(prompt, audio_bytes, mime_type=mime_type).strip()
+
+
 def _extract_json(raw: str) -> str:
     """Pull a JSON object out of a model reply that may be fenced or chatty."""
     text = (raw or "").strip()

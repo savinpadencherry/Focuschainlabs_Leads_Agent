@@ -762,17 +762,6 @@ CRM_CSS = """
 }
 
 /* AI intake — quiet, branded notices instead of stock alert boxes */
-.ai-transcript {
-    font-size: 13px; color: var(--ink-mute); line-height: 1.5;
-    padding: 10px 14px; border-radius: var(--rs);
-    background: var(--cream-3); border: 1px solid var(--line-soft);
-    margin-bottom: 10px;
-}
-.ai-transcript b {
-    font-family: 'JetBrains Mono', monospace; font-weight: 700;
-    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
-    color: var(--ink); margin-right: 8px;
-}
 .ai-note {
     display: flex; align-items: flex-start; gap: 10px;
     font-size: 13.5px; line-height: 1.5; padding: 11px 14px;
@@ -1210,7 +1199,7 @@ def _render_quick_add() -> None:
 
 
 def _reset_ai_intake() -> None:
-    for k in ("ai_intake", "ai_audio", "ai_text"):
+    for k in ("ai_intake", "ai_audio", "ai_text", "ai_audio_sig"):
         st.session_state.pop(k, None)
 
 
@@ -1240,37 +1229,67 @@ def _ai_fields_to_contact(f: dict) -> dict:
 
 @st.dialog("Add a lead with AI", width="large")
 def _ai_add_dialog() -> None:
-    """Voice-or-type → Gemini structures the record → review/edit → save.
+    """Speak or type → plain text you can edit → the agent structures it → save.
 
-    The user describes a lead in one breath; the agent extracts the fields,
-    asks only for genuinely missing essentials, and writes a clean record.
+    Voice is captured and turned into editable text first (a separate, visible
+    step) — nothing is "interpreted" until the user is happy with the words on
+    screen and explicitly asks the agent to structure and save them.
     """
+    import hashlib
+
     from agent.crm_intake_agent import parse_contact
+    from utils.gemini import transcribe_audio
 
     state = st.session_state.setdefault("ai_intake", {"phase": "capture", "result": None})
 
-    # ── Phase 1: capture (voice or text) ──────────────────────────────────────
+    # ── Phase 1: capture (speak → text, or type directly) ─────────────────────
     if state["phase"] == "capture":
         st.caption(
-            "Speak or type the lead in one go — name, company, a phone or email, "
-            "and any context. The AI does the rest."
+            "Speak the lead's details, then turn it into text below — or just type. "
+            "Edit freely, then ask the agent to structure and save it."
         )
         audio = st.audio_input("Speak the details", key="ai_audio")
+        audio_bytes = audio.getvalue() if audio is not None else None
+        audio_sig = hashlib.md5(audio_bytes).hexdigest() if audio_bytes else None
+
+        tc1, tc2 = st.columns([1.3, 2.7])
+        with tc1:
+            convert = st.button(
+                "Convert speech to text", use_container_width=True,
+                disabled=audio_bytes is None or audio_sig == st.session_state.get("ai_audio_sig"),
+            )
+        with tc2:
+            st.caption("Turns your recording into plain words below — purely speech-to-text, nothing is stored yet.")
+
+        if convert and audio_bytes:
+            with st.spinner("Listening…"):
+                try:
+                    heard = transcribe_audio(audio_bytes)
+                except Exception as exc:  # noqa: BLE001
+                    st.error(f"Couldn't hear that clearly ({exc}). Try again, or type the details directly.")
+                    heard = ""
+            if heard:
+                current = (st.session_state.get("ai_text") or "").strip()
+                st.session_state["ai_text"] = f"{current} {heard}".strip() if current else heard
+            st.session_state["ai_audio_sig"] = audio_sig
+            st.rerun()
+
         text = st.text_area(
-            "…or type / paste here",
+            "Lead details — edit freely before sending to the agent",
             key="ai_text",
-            height=110,
+            height=120,
             placeholder=(
                 "e.g. Add Priya Nair, founder of Zenith Interiors, phone 98xxxxxx12, "
                 "met at the Mumbai expo, wants a demo next week."
             ),
         )
-        has_input = audio is not None or bool((text or "").strip())
+        has_input = bool((text or "").strip())
         b1, b2 = st.columns([2, 1])
         with b1:
             review = st.button(
                 "Review with AI", type="primary",
                 use_container_width=True, disabled=not has_input,
+                help="Sends the text above to the agent to structure and save",
             )
         with b2:
             if st.button("Cancel", use_container_width=True):
@@ -1278,9 +1297,8 @@ def _ai_add_dialog() -> None:
                 st.rerun()
         if review:
             with st.spinner("Reading the details…"):
-                audio_bytes = audio.getvalue() if audio is not None else None
                 try:
-                    res = parse_contact(text=text or "", audio_bytes=audio_bytes)
+                    res = parse_contact(text=text or "")
                 except Exception as exc:  # noqa: BLE001 - surface a friendly message
                     st.error(f"Couldn't reach the AI ({exc}). Type the details and try again, or use the manual form.")
                     return
@@ -1293,11 +1311,6 @@ def _ai_add_dialog() -> None:
     res = state.get("result") or {}
     f = dict(res.get("fields") or {})
 
-    if res.get("transcript"):
-        st.markdown(
-            f'<div class="ai-transcript"><b>Heard</b>{html.escape(res["transcript"])}</div>',
-            unsafe_allow_html=True,
-        )
     if res.get("summary"):
         st.markdown(
             f'<div class="ai-note ok"><span class="tag">Read</span>'

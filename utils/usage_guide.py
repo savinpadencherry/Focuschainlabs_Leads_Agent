@@ -70,13 +70,13 @@ _GUIDES: dict[str, dict] = {
     "crm": {
         "title": "Contact CRM",
         "tagline": "Your single working list of every lead.",
-        "what": "Every contact, follow-up, invoice, and conversation in one place. Add leads by talking to the AI, importing a Scout run, or quick-typing — then search, filter, and work them.",
+        "what": "Every contact, follow-up, invoice, and conversation in one place. Add leads by speaking or typing a sentence, importing a Scout run, or quick-typing — then search, filter, and work them.",
         "steps": [
-            "Add a lead with <b>✨ Add with AI</b> — just speak or type a sentence.",
+            "Add a lead with <b>Add with AI</b> — speak it, turn it into text, edit if needed, then let the agent structure and save it.",
             "Search and filter to find anyone instantly, even across thousands.",
             "Open a contact to log activity, set follow-ups, and run the other agents.",
         ],
-        "example": "Click ✨ Add with AI → say “Add Priya Nair, founder of Zenith Interiors, 98xxxxxx12, met at the Mumbai expo, wants a demo next week.”",
+        "example": "Click Add with AI → speak “Add Priya Nair, founder of Zenith Interiors, 98xxxxxx12, met at the Mumbai expo, wants a demo next week” → review the text → Review with AI.",
     },
 }
 
