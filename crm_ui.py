@@ -762,6 +762,21 @@ CRM_CSS = """
 }
 
 /* AI intake — quiet, branded notices instead of stock alert boxes */
+.ai-steps {
+    display: flex; gap: 8px; margin: 0 0 14px;
+}
+.ai-step {
+    flex: 1; text-align: center; font-size: 11.5px; letter-spacing: .06em;
+    padding: 8px 10px; border-radius: var(--rs); color: var(--ink-mute);
+    background: var(--cream-3); border: 1px solid var(--line-soft);
+}
+.ai-step.active {
+    color: var(--ink); font-weight: 700;
+    border-color: rgba(46,139,77,.28); background: var(--green-bg);
+}
+.ai-step.done {
+    color: var(--green); border-color: rgba(46,139,77,.18);
+}
 .ai-voice-tip {
     display: flex; align-items: flex-start; gap: 11px;
     font-size: 13px; line-height: 1.5; color: var(--ink-mute);
@@ -769,8 +784,39 @@ CRM_CSS = """
     background: var(--cream-3); border: 1px dashed var(--line-soft);
     margin: 4px 0 12px;
 }
-.ai-voice-tip .mic { font-size: 16px; line-height: 1.3; flex: none; }
+.ai-voice-tip .mic {
+    flex: none; font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+    padding: 4px 7px; border-radius: 999px; margin-top: 1px;
+    color: var(--ink); background: var(--cream-2); border: 1px solid var(--line-soft);
+}
 .ai-voice-tip b { color: var(--ink); font-weight: 700; }
+.ai-captured {
+    font-size: 12.5px; line-height: 1.55; color: var(--ink-mute);
+    padding: 10px 12px; border-radius: var(--rs);
+    background: var(--cream-2); border: 1px solid var(--line-soft);
+    margin-bottom: 12px;
+}
+.ai-captured b { color: var(--ink); font-weight: 600; }
+.ai-captured .chip {
+    display: inline-block; margin: 2px 6px 2px 0; padding: 2px 8px;
+    border-radius: 999px; background: var(--cream-3); border: 1px solid var(--line-soft);
+    font-size: 12px; color: var(--ink);
+}
+.ai-progress {
+    margin-bottom: 14px;
+}
+.ai-progress .bar {
+    height: 5px; border-radius: 999px; background: var(--line-soft); overflow: hidden;
+}
+.ai-progress .fill {
+    height: 100%; border-radius: 999px; background: var(--green);
+    transition: width .2s ease;
+}
+.ai-progress .meta {
+    display: flex; justify-content: space-between; margin-top: 5px;
+    font-size: 11.5px; color: var(--ink-mute);
+}
 .ai-note {
     display: flex; align-items: flex-start; gap: 10px;
     font-size: 13.5px; line-height: 1.5; padding: 11px 14px;
@@ -786,6 +832,13 @@ CRM_CSS = """
 .ai-note.ok .tag { color: var(--green); background: rgba(46,139,77,.14); }
 .ai-note.warn { color: var(--ink); border-color: rgba(183,121,31,.24); background: var(--amber-bg); }
 .ai-note.warn .tag { color: var(--amber); background: rgba(183,121,31,.16); }
+.ai-examples {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px;
+}
+.ai-examples .ex {
+    font-size: 12px; color: var(--ink-mute); padding: 5px 10px;
+    border-radius: 999px; border: 1px solid var(--line-soft); background: var(--cream-2);
+}
 </style>
 """
 
@@ -1212,6 +1265,72 @@ def _reset_ai_intake() -> None:
         st.session_state.pop(k, None)
 
 
+def _render_ai_steps(*, active: str) -> None:
+    steps = [("capture", "1. Describe"), ("review", "2. Review & save")]
+    parts = []
+    for slug, label in steps:
+        cls = "ai-step"
+        if slug == active:
+            cls += " active"
+        elif active == "review" and slug == "capture":
+            cls += " done"
+        parts.append(f'<div class="{cls}">{html.escape(label)}</div>')
+    st.markdown(f'<div class="ai-steps">{"".join(parts)}</div>', unsafe_allow_html=True)
+
+
+def _render_ai_captured_summary(fields: dict) -> None:
+    labels = {
+        "company": "Company",
+        "name": "Contact",
+        "phone": "Phone",
+        "email": "Email",
+        "title": "Title",
+        "industry": "Industry",
+        "owner": "Owner",
+        "client": "Client",
+        "value": "Value",
+        "source": "Source",
+        "status": "Stage",
+        "deal_status": "Deal",
+        "next_follow_up": "Follow-up",
+    }
+    chips = []
+    for key, label in labels.items():
+        val = (fields.get(key) or "").strip()
+        if not val:
+            continue
+        if key == "source":
+            val = _source_label(val)
+        elif key == "status":
+            val = _status_label(val)
+        elif key == "deal_status":
+            val = _deal_status_label(val)
+        chips.append(f'<span class="chip"><b>{html.escape(label)}:</b> {html.escape(val)}</span>')
+    if not chips:
+        return
+    st.markdown(
+        '<div class="ai-captured"><b>Already captured</b> '
+        + " ".join(chips)
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_ai_progress(fields: dict) -> None:
+    from agent.crm_intake_agent import intake_completeness
+
+    filled, total, gaps = intake_completeness(fields)
+    pct = int(round((filled / total) * 100)) if total else 0
+    gap_text = "Ready to save" if not gaps else "Still need " + " and ".join(gaps)
+    st.markdown(
+        f'<div class="ai-progress">'
+        f'<div class="bar"><div class="fill" style="width:{pct}%"></div></div>'
+        f'<div class="meta"><span>{filled} of {total} fields filled</span>'
+        f'<span>{html.escape(gap_text)}</span></div></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def _ai_fields_to_contact(f: dict) -> dict:
     """Build a normalized CRM contact from the agent's field dict."""
     return normalize_contact(
@@ -1246,30 +1365,59 @@ def _ai_add_dialog() -> None:
     """
     from agent.crm_intake_agent import parse_contact
 
-    state = st.session_state.setdefault("ai_intake", {"phase": "capture", "result": None})
+    state = st.session_state.setdefault(
+        "ai_intake",
+        {"phase": "capture", "result": None, "existing": None, "last_error": ""},
+    )
 
     # ── Phase 1: capture (type, or dictate with the device keyboard) ───────────
     if state["phase"] == "capture":
-        st.caption(
-            "Type the lead's details, or tap the box and use your keyboard's "
-            "microphone to dictate — then let the agent structure and save it."
-        )
+        _render_ai_steps(active="capture")
+        existing = dict(state.get("existing") or {})
+        if existing:
+            _render_ai_captured_summary(existing)
+            prior = (state.get("result") or {})
+            if prior.get("follow_up"):
+                st.markdown(
+                    f'<div class="ai-note warn"><span class="tag">Add next</span>'
+                    f'<span>{html.escape(prior["follow_up"])}</span></div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.caption("Add anything still missing — the agent will merge it with what you already have.")
+        else:
+            st.caption(
+                "Describe the lead in plain language. Type it, dictate with your keyboard mic, "
+                "then let the agent structure it before you save."
+            )
         st.markdown(
-            '<div class="ai-voice-tip"><span class="mic">🎙️</span>'
-            '<span><b>Want to speak instead?</b> Tap the box below, then tap the '
-            'microphone on your phone keyboard (or press the dictation key on '
-            'desktop) and just talk — it types as you speak, for free, no AI used.</span></div>',
+            '<div class="ai-voice-tip"><span class="mic">Dictate</span>'
+            '<span><b>Prefer speaking?</b> Tap the box below, then use your phone keyboard mic '
+            'or desktop dictation key. It types as you talk — free, on-device, no AI quota used.</span></div>',
             unsafe_allow_html=True,
         )
+        st.markdown(
+            '<div class="ai-examples">'
+            '<span class="ex">Met at an expo, wants a demo next week</span>'
+            '<span class="ex">Referral from SN Realtors, email raj@company.com</span>'
+            '<span class="ex">LinkedIn inbound, hiring sales, follow up Friday</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        placeholder = (
+            "e.g. Add Priya Nair, founder of Zenith Interiors, phone 98xxxxxx12, "
+            "met at the Mumbai expo, wants a demo next week."
+        )
+        if existing and not any(existing.get(k) for k in ("phone", "email")):
+            placeholder = "e.g. Her email is priya@zenith.in and phone is +91 98xxx xxxxx"
         text = st.text_area(
             "Lead details — type or dictate, edit freely before sending to the agent",
             key="ai_text",
             height=140,
-            placeholder=(
-                "e.g. Add Priya Nair, founder of Zenith Interiors, phone 98xxxxxx12, "
-                "met at the Mumbai expo, wants a demo next week."
-            ),
+            placeholder=placeholder,
         )
+        if state.get("last_error"):
+            st.error(state["last_error"])
         has_input = bool((text or "").strip())
         b1, b2 = st.columns([2, 1])
         with b1:
@@ -1285,16 +1433,22 @@ def _ai_add_dialog() -> None:
         if review:
             with st.spinner("Reading the details…"):
                 try:
-                    res = parse_contact(text=text or "")
+                    res = parse_contact(text=text or "", existing=existing or None)
                 except Exception as exc:  # noqa: BLE001 - surface a friendly message
-                    st.error(f"Couldn't reach the AI ({exc}). Type the details and try again, or use the manual form.")
-                    return
+                    state["last_error"] = (
+                        f"Couldn't reach the AI ({exc}). Check your connection and try again, "
+                        "or use the manual form below the CRM page."
+                    )
+                    st.rerun()
+            state["last_error"] = ""
+            state["existing"] = dict(res.get("fields") or {})
             state["result"] = res
             state["phase"] = "review"
             st.rerun()
         return
 
     # ── Phase 2: review & edit ────────────────────────────────────────────────
+    _render_ai_steps(active="review")
     res = state.get("result") or {}
     f = dict(res.get("fields") or {})
 
@@ -1313,15 +1467,19 @@ def _ai_add_dialog() -> None:
     else:
         st.caption("Looks complete — review the fields below and save.")
 
+    _render_ai_progress(f)
+
     c1, c2, c3 = st.columns(3)
     with c1:
         f["company"] = st.text_input("Company", f.get("company", ""), key="aif_company")
         f["name"] = st.text_input("Contact name", f.get("name", ""), key="aif_name")
         f["phone"] = st.text_input("Phone", f.get("phone", ""), key="aif_phone")
+        f["owner"] = st.text_input("Owner", f.get("owner", ""), key="aif_owner")
     with c2:
         f["industry"] = st.text_input("Industry", f.get("industry", ""), key="aif_industry")
         f["title"] = st.text_input("Title", f.get("title", ""), key="aif_title")
         f["email"] = st.text_input("Email", f.get("email", ""), key="aif_email")
+        f["client"] = st.text_input("For client", f.get("client", ""), key="aif_client")
     with c3:
         _src = f.get("source") or "other"
         f["source"] = st.selectbox(
@@ -1335,13 +1493,31 @@ def _ai_add_dialog() -> None:
             index=CRM_STATUSES.index(_stg) if _stg in CRM_STATUSES else 0,
             format_func=_status_label, key="aif_status",
         )
+        _deal = f.get("deal_status") or "open"
+        f["deal_status"] = st.selectbox(
+            "Deal state", DEAL_STATUSES,
+            index=DEAL_STATUSES.index(_deal) if _deal in DEAL_STATUSES else 0,
+            format_func=_deal_status_label, key="aif_deal",
+        )
         f["value"] = st.text_input("Value", f.get("value", ""), key="aif_value")
 
-    f["notes"] = st.text_area("Notes", f.get("notes", ""), key="aif_notes", height=70)
+    c11, c12 = st.columns([1, 2])
+    with c11:
+        follow_raw = _date_value(f.get("next_follow_up") or "")
+        picked = st.date_input(
+            "Follow-up date",
+            value=follow_raw,
+            format="YYYY-MM-DD",
+            key="aif_follow_up",
+        )
+        f["next_follow_up"] = picked.isoformat() if picked else ""
+    with c12:
+        f["notes"] = st.text_area("Notes", f.get("notes", ""), key="aif_notes", height=70)
 
-    # Keep edits in state so a rerun (e.g. from the voice top-up) doesn't lose them.
+    # Keep edits in state so a rerun (e.g. from add-more) doesn't lose them.
     res["fields"] = f
     state["result"] = res
+    state["existing"] = f
 
     missing = []
     if not (f.get("company") or f.get("name")):
@@ -1351,10 +1527,19 @@ def _ai_add_dialog() -> None:
 
     s1, s2, s3 = st.columns([2, 1, 1])
     with s1:
-        save = st.button("Save to CRM", type="primary", use_container_width=True)
+        save = st.button(
+            "Save to CRM", type="primary", use_container_width=True,
+            disabled=bool(missing),
+            help="Fill company or name plus phone or email to enable save",
+        )
     with s2:
-        if st.button("Add more", use_container_width=True, help="Type or dictate extra details to fill gaps"):
+        if st.button(
+            "Add more details",
+            use_container_width=True,
+            help="Describe missing info — the agent merges it with the fields above",
+        ):
             state["phase"] = "capture"
+            state["last_error"] = ""
             st.session_state.pop("ai_text", None)
             st.rerun()
     with s3:
@@ -1362,10 +1547,15 @@ def _ai_add_dialog() -> None:
             _reset_ai_intake()
             st.rerun()
 
+    if missing:
+        st.caption("Still need " + " and ".join(missing) + " — edit above or use Add more details.")
+
     if save:
-        if missing:
-            st.error("Still need " + " and ".join(missing) + " before saving.")
+        clean_follow_up = _clean_follow_up(f.get("next_follow_up") or "")
+        if clean_follow_up is None:
+            st.error("Use YYYY-MM-DD for follow-up date.")
             return
+        f["next_follow_up"] = clean_follow_up
         contact = _ai_fields_to_contact(f)
         action, saved = _upsert_contact(contact)
         ok = persist_crm(f"CRM: {action} {display_name(saved)} (AI intake)")
