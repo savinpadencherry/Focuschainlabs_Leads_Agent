@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-07T03:09:28+00:00",
+  "updated_at": "2026-06-08T05:27:01+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -28,6 +28,39 @@
       "created_at": "2026-06-06T17:07:14+00:00",
       "updated_at": "2026-06-07T03:09:28+00:00",
       "title": "",
+      "linkedin_url": "",
+      "website": "",
+      "score": 0,
+      "signal": "",
+      "opening_line": "",
+      "agent_run_id": ""
+    },
+    {
+      "id": "c62da77a-383c-47d3-996e-5a78a16a1000",
+      "name": "Aditya Patel",
+      "company": "MMA design",
+      "industry": "interior design and furniture design for corporate offices",
+      "phone": "+919158394714",
+      "email": "aditya.patil@mmadesign.in",
+      "client": "FocusChainLabs",
+      "owner": "Aditya",
+      "value": "",
+      "status": "new",
+      "deal_status": "open",
+      "notes": "MMA design's address is Plot No. 2, 150/7, jaideep bungalow prathamesh park, baner, Pune 411045. They are looking for a complete website revamp with a 3D engine.",
+      "next_follow_up": "",
+      "source": "referral",
+      "tags": [
+        "ai-intake",
+        "ground"
+      ],
+      "email_events": [],
+      "comments": [],
+      "contact_people": [],
+      "invoices": [],
+      "created_at": "2026-06-08T05:27:00+00:00",
+      "updated_at": "2026-06-08T05:27:00+00:00",
+      "title": "MMA design",
       "linkedin_url": "",
       "website": "",
       "score": 0,

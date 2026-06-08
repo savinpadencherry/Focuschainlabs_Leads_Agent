@@ -11,6 +11,8 @@ agent ever runs over it.
 
 from __future__ import annotations
 
+import re
+
 from utils.crm_models import CRM_SOURCE_OPTIONS, CRM_STATUSES, DEAL_STATUSES
 from utils.gemini import generate_json
 
@@ -130,6 +132,72 @@ def merge_intake_fields(existing: dict | None, incoming: dict) -> dict:
         old_val = str((existing or {}).get(k) or "").strip()
         merged[k] = new_val or old_val
     return merged
+
+
+def friendly_ai_error(exc: Exception) -> str:
+    msg = str(exc).lower()
+    if "429" in msg or "resource_exhausted" in msg or "depleted" in msg or "quota" in msg:
+        return (
+            "Gemini credits are used up. Top up at aistudio.google.com, "
+            "or click Continue without AI to fill the form yourself from your text."
+        )
+    if "budget" in msg and "exhausted" in msg:
+        return "Gemini call budget for this session is exhausted. Use **Continue without AI** or try again later."
+    return f"AI unavailable ({exc}). Use **Continue without AI** or the manual **Add a lead** form below."
+
+
+def basic_parse_from_text(*, text: str = "", existing: dict | None = None) -> dict:
+    """Regex fallback when Gemini is unavailable — pulls email/phone and keeps the rest in notes."""
+    raw = (text or "").strip()
+    fields = merge_intake_fields(existing, {k: "" for k in _FIELDS})
+    fields["notes"] = raw
+    fields["status"] = fields["status"] or "new"
+    fields["deal_status"] = fields["deal_status"] or "open"
+    fields["source"] = fields["source"] or "other"
+
+    email = re.search(r"[\w.+-]+@[\w.-]+\.\w+", raw)
+    if email:
+        fields["email"] = email.group(0)
+
+    phone = re.search(r"(?:\+91[\s-]?)?[6-9]\d{9}", raw.replace(" ", "")) or re.search(
+        r"\+?\d[\d\s\-()]{8,16}\d", raw
+    )
+    if phone:
+        fields["phone"] = re.sub(r"[\s()-]", "", phone.group(0))
+
+    # "Add Priya Nair, founder of Zenith Interiors" → name + company hints
+    name_match = re.search(
+        r"(?:add|met)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)",
+        raw,
+        re.IGNORECASE,
+    )
+    if name_match:
+        fields["name"] = name_match.group(1).strip()
+
+    company_match = re.search(
+        r"(?:founder of|from|at|company)\s+([A-Z][A-Za-z0-9 &.-]{2,40})",
+        raw,
+        re.IGNORECASE,
+    )
+    if company_match:
+        fields["company"] = company_match.group(1).strip().rstrip(",.")
+
+    for client_hint in ("SN Realtors", "Cadabams", "FocusChain"):
+        if client_hint.lower() in raw.lower():
+            fields["client"] = client_hint
+
+    missing = _critical_missing(fields)
+    follow_up = ""
+    if missing:
+        follow_up = f"Fill in the {', and '.join(missing)} below — AI was skipped."
+
+    return {
+        "ok": True,
+        "fields": fields,
+        "missing": missing,
+        "follow_up": follow_up,
+        "summary": "Parsed without AI — please review the fields below.",
+    }
 
 
 def parse_contact(*, text: str = "", today: str = "", existing: dict | None = None) -> dict:

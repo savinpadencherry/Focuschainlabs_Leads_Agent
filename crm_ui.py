@@ -761,39 +761,214 @@ CRM_CSS = """
     }
 }
 
-/* AI intake — quiet, branded notices instead of stock alert boxes */
-.ai-steps {
-    display: flex; gap: 8px; margin: 0 0 14px;
+/* AI intake dialog — polished modal */
+[data-testid="stDialog"] {
+    background: rgba(15, 42, 51, 0.42) !important;
+    backdrop-filter: blur(3px);
 }
-.ai-step {
-    flex: 1; text-align: center; font-size: 11.5px; letter-spacing: .06em;
-    padding: 8px 10px; border-radius: var(--rs); color: var(--ink-mute);
-    background: var(--cream-3); border: 1px solid var(--line-soft);
+[data-testid="stDialog"] [data-testid="stModal"] > div:first-child {
+    background: linear-gradient(180deg, #FDFCF9 0%, #F4F0E7 100%) !important;
+    border: 1px solid rgba(15, 42, 51, 0.12) !important;
+    border-radius: 22px !important;
+    box-shadow: 0 28px 90px rgba(15, 42, 51, 0.18) !important;
+    padding: 6px 4px 8px !important;
 }
-.ai-step.active {
-    color: var(--ink); font-weight: 700;
-    border-color: rgba(46,139,77,.28); background: var(--green-bg);
+[data-testid="stDialog"] h2 {
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    font-size: 24px !important;
+    font-weight: 800 !important;
+    color: var(--ink) !important;
+    letter-spacing: -0.02em !important;
+    padding-bottom: 2px !important;
 }
-.ai-step.done {
-    color: var(--green); border-color: rgba(46,139,77,.18);
+[data-testid="stDialog"] [data-testid="stVerticalBlock"] {
+    gap: 0.55rem !important;
 }
-.ai-voice-tip {
-    display: flex; align-items: flex-start; gap: 11px;
-    font-size: 13px; line-height: 1.5; color: var(--ink-mute);
-    padding: 11px 14px; border-radius: var(--rs);
-    background: var(--cream-3); border: 1px dashed var(--line-soft);
-    margin: 4px 0 12px;
+.ai-dialog-wrap { margin-top: -2px; }
+
+.ai-step-rail {
+    display: flex; align-items: center; gap: 0;
+    margin: 0 0 18px; padding: 0 2px;
 }
-.ai-voice-tip .mic {
+.ai-step-node {
+    display: flex; align-items: center; gap: 8px;
+    flex: 1; min-width: 0;
+}
+.ai-step-dot {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    border: 1px solid var(--line-soft);
+    background: var(--cream-3); color: var(--ink-mute);
+    flex-shrink: 0;
+}
+.ai-step-label {
+    font-size: 12px; font-weight: 600; color: var(--ink-mute);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ai-step-node.active .ai-step-dot {
+    background: var(--green); border-color: var(--green); color: #fff;
+    box-shadow: 0 0 0 4px rgba(46, 139, 77, 0.14);
+}
+.ai-step-node.active .ai-step-label { color: var(--ink); font-weight: 700; }
+.ai-step-node.done .ai-step-dot {
+    background: rgba(46, 139, 77, 0.12); border-color: rgba(46, 139, 77, 0.28);
+    color: var(--green);
+}
+.ai-step-node.done .ai-step-label { color: var(--green); }
+.ai-step-line {
+    flex: 0 0 28px; height: 1px; background: var(--line-soft); margin: 0 6px;
+}
+.ai-step-line.done { background: rgba(46, 139, 77, 0.35); }
+
+.ai-hero {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 16px 18px; margin-bottom: 14px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(46,139,77,.09) 0%, rgba(255,255,255,.55) 100%);
+    border: 1px solid rgba(46, 139, 77, 0.14);
+}
+.ai-hero-icon {
+    width: 42px; height: 42px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--green); color: #fff;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 22px; font-weight: 800; line-height: 1;
+    flex-shrink: 0;
+    box-shadow: 0 8px 20px rgba(46, 139, 77, 0.22);
+}
+.ai-hero-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px; font-weight: 800; color: var(--ink);
+    margin: 0 0 3px 0; letter-spacing: -0.01em;
+}
+.ai-hero-sub {
+    font-size: 13px; color: var(--ink-mute); line-height: 1.45; margin: 0;
+}
+
+.ai-template-section {
+    margin: 8px 0 16px 0;
+    padding: 0;
+}
+.ai-template-label {
+    display: block;
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700;
+    margin: 0 0 10px 0;
+    padding: 0;
+    line-height: 1.4;
+}
+[data-testid="stDialog"] .ai-template-section + div {
+    margin-top: 0 !important;
+}
+[data-testid="stDialog"] .ai-template-section + div [data-testid="stHorizontalBlock"] {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+[data-testid="stDialog"] [data-testid="stCaptionContainer"] {
+    margin: 6px 0 10px 0 !important;
+    padding: 0 !important;
+}
+[data-testid="stDialog"] [data-testid="stCaptionContainer"] p {
+    font-size: 10px !important;
+    letter-spacing: .14em !important;
+    text-transform: uppercase !important;
+    font-weight: 700 !important;
+    color: var(--ink-mute) !important;
+    margin: 0 !important;
+    line-height: 1.4 !important;
+}
+[data-testid="stDialog"] .ai-hero {
+    margin-bottom: 18px !important;
+}
+
+.ai-input-card {
+    background: #fff;
+    border: 1px solid var(--line-soft);
+    border-radius: 16px;
+    padding: 14px 14px 10px;
+    margin-bottom: 8px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+}
+.ai-input-card .hint {
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700; margin-bottom: 8px;
+}
+.ai-input-card textarea {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    min-height: 96px !important;
+    font-size: 15px !important;
+    line-height: 1.5 !important;
+}
+
+.ai-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-top: 6px; padding-top: 12px;
+    border-top: 1px solid var(--line-soft);
+}
+.ai-footer-note {
+    font-size: 11.5px; color: var(--ink-mute); line-height: 1.4;
+}
+
+.ai-preview-card {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px; margin-bottom: 14px;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid var(--line-soft);
+    box-shadow: 0 10px 30px rgba(15, 42, 51, 0.05);
+}
+.ai-preview-avatar {
+    width: 48px; height: 48px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--green-bg); color: var(--green);
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px; font-weight: 800;
+    flex-shrink: 0;
+}
+.ai-preview-name {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 18px; font-weight: 800; color: var(--ink);
+    margin: 0 0 2px 0;
+}
+.ai-preview-meta {
+    font-size: 12.5px; color: var(--ink-mute); margin: 0;
+}
+
+.ai-field-section {
+    background: #fff;
+    border: 1px solid var(--line-soft);
+    border-radius: 16px;
+    padding: 14px 14px 6px;
+    margin-bottom: 10px;
+}
+.ai-field-section .sec-label {
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700; margin-bottom: 8px;
+}
+
+.ai-note {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 13px; line-height: 1.5; padding: 11px 14px;
+    border-radius: 12px; border: 1px solid var(--line-soft);
+    background: var(--cream-3); margin-bottom: 12px;
+}
+.ai-note .tag {
     flex: none; font-family: 'JetBrains Mono', monospace; font-weight: 700;
-    font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
-    padding: 4px 7px; border-radius: 999px; margin-top: 1px;
-    color: var(--ink); background: var(--cream-2); border: 1px solid var(--line-soft);
+    font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 999px; margin-top: 1px;
 }
-.ai-voice-tip b { color: var(--ink); font-weight: 700; }
+.ai-note.ok { border-color: rgba(46,139,77,.22); background: var(--green-bg); }
+.ai-note.ok .tag { color: var(--green); background: rgba(46,139,77,.14); }
+.ai-note.warn { border-color: rgba(183,121,31,.24); background: var(--amber-bg); }
+.ai-note.warn .tag { color: var(--amber); background: rgba(183,121,31,.16); }
+
 .ai-captured {
     font-size: 12.5px; line-height: 1.55; color: var(--ink-mute);
-    padding: 10px 12px; border-radius: var(--rs);
+    padding: 10px 12px; border-radius: 12px;
     background: var(--cream-2); border: 1px solid var(--line-soft);
     margin-bottom: 12px;
 }
@@ -803,41 +978,234 @@ CRM_CSS = """
     border-radius: 999px; background: var(--cream-3); border: 1px solid var(--line-soft);
     font-size: 12px; color: var(--ink);
 }
-.ai-progress {
-    margin-bottom: 14px;
+
+.ai-review-grid label {
+    font-size: 11px !important;
+    letter-spacing: .06em !important;
+    text-transform: uppercase !important;
+    color: var(--ink-mute) !important;
+    font-weight: 700 !important;
 }
-.ai-progress .bar {
-    height: 5px; border-radius: 999px; background: var(--line-soft); overflow: hidden;
+
+/* Tighten dialog form controls */
+[data-testid="stDialog"] [data-testid="stForm"] {
+    border: none !important;
+    padding: 0 !important;
 }
-.ai-progress .fill {
-    height: 100%; border-radius: 999px; background: var(--green);
-    transition: width .2s ease;
+[data-testid="stDialog"] .stTextArea textarea {
+    border-radius: 12px !important;
+    border-color: rgba(46, 139, 77, 0.22) !important;
+    background: #fff !important;
+    font-size: 15px !important;
+    line-height: 1.5 !important;
+    margin-top: 4px !important;
 }
-.ai-progress .meta {
-    display: flex; justify-content: space-between; margin-top: 5px;
-    font-size: 11.5px; color: var(--ink-mute);
+[data-testid="stDialog"] [data-testid="stForm"] [data-testid="stCaptionContainer"] {
+    margin-bottom: 6px !important;
 }
-.ai-note {
-    display: flex; align-items: flex-start; gap: 10px;
-    font-size: 13.5px; line-height: 1.5; padding: 11px 14px;
-    border-radius: var(--rs); border: 1px solid var(--line-soft);
-    background: var(--cream-3); margin-bottom: 12px;
+[data-testid="stDialog"] .stTextArea textarea:focus {
+    border-color: var(--green) !important;
+    box-shadow: 0 0 0 3px rgba(46, 139, 77, 0.12) !important;
 }
-.ai-note .tag {
-    flex: none; font-family: 'JetBrains Mono', monospace; font-weight: 700;
-    font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase;
-    padding: 3px 8px; border-radius: 999px; margin-top: 1px;
+[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button {
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    min-height: 44px !important;
 }
-.ai-note.ok { color: var(--ink); border-color: rgba(46,139,77,.22); background: var(--green-bg); }
-.ai-note.ok .tag { color: var(--green); background: rgba(46,139,77,.14); }
-.ai-note.warn { color: var(--ink); border-color: rgba(183,121,31,.24); background: var(--amber-bg); }
-.ai-note.warn .tag { color: var(--amber); background: rgba(183,121,31,.16); }
-.ai-examples {
-    display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px;
+[data-testid="stDialog"] [data-testid="baseButton-secondary"] button {
+    border-radius: 12px !important;
+    min-height: 40px !important;
 }
-.ai-examples .ex {
-    font-size: 12px; color: var(--ink-mute); padding: 5px 10px;
-    border-radius: 999px; border: 1px solid var(--line-soft); background: var(--cream-2);
+
+/* ── AI dialog motion (matches agent console) ── */
+@keyframes aiFadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes aiCardIn {
+    from { opacity: 0; transform: translateY(8px) scale(.985); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes aiModalIn {
+    from { opacity: 0; transform: translateY(18px) scale(.975); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes aiOrbitSpin { to { transform: rotate(360deg); } }
+@keyframes aiOrbitGlow {
+    0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10), 0 0 12px rgba(46,139,77,.12); }
+    50%       { box-shadow: 0 0 0 14px rgba(46,139,77,.04), 0 0 28px rgba(46,139,77,.28); }
+}
+@keyframes aiScanline { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }
+@keyframes aiScanCell {
+    0%, 35% { transform: translateX(-100%); opacity: 0; }
+    50%     { opacity: 1; }
+    100%    { transform: translateX(100%); opacity: 0; }
+}
+@keyframes aiShimmerSweep {
+    0%   { left: -80%; }
+    100% { left: 160%; }
+}
+@keyframes aiStepPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(46,139,77,.22); }
+    50%      { box-shadow: 0 0 0 8px rgba(46,139,77,.06); }
+}
+@keyframes aiButtonShine {
+    0%, 35% { left: -45%; opacity: 0; }
+    50%     { opacity: 1; }
+    75%,100%{ left: 115%; opacity: 0; }
+}
+@keyframes aiChipPulse {
+    0%, 100% { opacity: .55; transform: translateY(0); }
+    50%      { opacity: 1; transform: translateY(-1px); }
+}
+
+[data-testid="stDialog"] [data-testid="stModal"] > div:first-child {
+    animation: aiModalIn .48s cubic-bezier(.16,1,.3,1) both !important;
+}
+[data-testid="stDialog"] [data-testid="stSpinner"] { display: none !important; }
+
+.ai-dialog-wrap .ai-step-rail { animation: aiFadeUp .42s ease both; }
+.ai-dialog-wrap .ai-hero { animation: aiFadeUp .52s cubic-bezier(.16,1,.3,1) .06s both; }
+.ai-dialog-wrap .ai-captured { animation: aiFadeUp .45s ease both; }
+
+.ai-step-node.processing .ai-step-dot {
+    background: var(--green); border-color: var(--green); color: #fff;
+    animation: aiStepPulse 2s ease-in-out infinite;
+}
+.ai-step-node.processing .ai-step-label { color: var(--green); font-weight: 700; }
+
+[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button {
+    position: relative !important;
+    overflow: hidden !important;
+    transition: transform .18s ease, box-shadow .18s ease !important;
+}
+[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button::after {
+    content: "";
+    position: absolute; top: 0; left: -45%; width: 38%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.32), transparent);
+    animation: aiButtonShine 4.8s ease-in-out infinite;
+    pointer-events: none;
+}
+[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button:active {
+    transform: scale(.985) !important;
+}
+
+/* Gemini / parsing console */
+.ai-thinking-panel {
+    position: relative;
+    background: linear-gradient(165deg, #0F2A33 0%, #153942 100%);
+    border-radius: 18px;
+    padding: 22px 20px 18px;
+    margin: 6px 0 8px;
+    border: 1px solid rgba(155,207,158,.18);
+    box-shadow: 0 18px 42px rgba(15,42,51,.16);
+    overflow: hidden;
+    animation: aiCardIn .45s cubic-bezier(.16,1,.3,1) both;
+}
+.ai-thinking-panel::before {
+    content: "";
+    position: absolute; top: 0; left: -80%; width: 40%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.025), transparent);
+    animation: aiShimmerSweep 5s ease-in-out infinite;
+    pointer-events: none; z-index: 0;
+}
+.ai-thinking-panel::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+    background: linear-gradient(90deg, var(--green), #9BCF9E, var(--green));
+    background-size: 220% 100%;
+    animation: aiScanline 2.4s linear infinite;
+}
+.ai-thinking-top {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 14px; position: relative; z-index: 1;
+}
+.ai-orbit {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 1.5px solid rgba(155,207,158,.65);
+    display: flex; align-items: center; justify-content: center;
+    color: #DFF0D8; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    box-shadow: 0 0 0 7px rgba(46,139,77,.13);
+    animation: aiOrbitGlow 2s ease-in-out infinite;
+    flex-shrink: 0; position: relative;
+}
+.ai-orbit::after {
+    content: "";
+    position: absolute; inset: -5px; border-radius: 50%;
+    border: 1.5px solid transparent;
+    border-top-color: rgba(155,207,158,.80);
+    border-right-color: rgba(155,207,158,.22);
+    animation: aiOrbitSpin 2.2s linear infinite;
+    pointer-events: none;
+}
+.ai-thinking-title {
+    color: var(--cream) !important;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 19px; font-weight: 800; line-height: 1.15;
+    margin: 0 0 4px 0;
+}
+.ai-thinking-sub {
+    color: #CBD5C0 !important;
+    font-size: 13px; line-height: 1.45; margin: 0;
+}
+.ai-signal-strip {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+    margin-top: 14px; position: relative; z-index: 1;
+}
+.ai-signal-strip span {
+    height: 3px; border-radius: 999px;
+    background: rgba(155,207,158,.16);
+    overflow: hidden; position: relative;
+}
+.ai-signal-strip span::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(155,207,158,.95), transparent);
+    animation: aiScanCell 1.8s ease-in-out infinite;
+    animation-delay: calc(var(--i) * .13s);
+}
+.ai-thinking-chips {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 14px; position: relative; z-index: 1;
+}
+.ai-thinking-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+    color: #9BCF9E; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid rgba(155,207,158,.22);
+    background: rgba(244,240,231,.06);
+    animation: aiChipPulse 2.4s ease-in-out infinite;
+    animation-delay: calc(var(--d) * .35s);
+}
+
+/* Staggered review reveal */
+.ai-review-reveal .ai-preview-card {
+    animation: aiCardIn .58s cubic-bezier(.16,1,.3,1) both;
+}
+.ai-review-reveal .ai-preview-avatar {
+    animation: aiOrbitGlow 2.4s ease-in-out .2s 2;
+}
+.ai-review-reveal .ai-note:nth-of-type(1) { animation: aiFadeUp .48s ease .1s both; }
+.ai-review-reveal .ai-note:nth-of-type(2) { animation: aiFadeUp .48s ease .18s both; }
+.ai-review-reveal .ai-field-section:nth-of-type(1) { animation: aiFadeUp .52s cubic-bezier(.16,1,.3,1) .14s both; }
+.ai-review-reveal .ai-field-section:nth-of-type(2) { animation: aiFadeUp .52s cubic-bezier(.16,1,.3,1) .24s both; }
+.ai-review-reveal .ai-preview-card {
+    position: relative; overflow: hidden;
+}
+.ai-review-reveal .ai-preview-card::before {
+    content: "";
+    position: absolute; top: 0; left: -80%; width: 45%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(46,139,77,.08), transparent);
+    animation: aiShimmerSweep 1.8s ease-in-out .15s 1;
+    pointer-events: none;
+}
+
+.ai-preview-card { transition: box-shadow .35s ease, transform .35s ease; }
+.ai-field-section { transition: border-color .25s ease, box-shadow .25s ease; }
+.ai-field-section:focus-within {
+    border-color: rgba(46,139,77,.28) !important;
+    box-shadow: 0 0 0 3px rgba(46,139,77,.08);
 }
 </style>
 """
@@ -1260,22 +1628,379 @@ def _render_quick_add() -> None:
                         st.rerun()
 
 
-def _reset_ai_intake() -> None:
+def _open_ai_dialog() -> None:
+    """Open the AI intake dialog with a fresh capture state."""
+    st.session_state.crm_ai_dialog_open = True
+    st.session_state.ai_intake = {
+        "phase": "capture",
+        "result": None,
+        "existing": None,
+        "last_error": "",
+        "capture_text": "",
+    }
+    for k in ("ai_text",):
+        st.session_state.pop(k, None)
+
+
+def _close_ai_dialog() -> None:
+    st.session_state.crm_ai_dialog_open = False
     for k in ("ai_intake", "ai_text"):
         st.session_state.pop(k, None)
 
 
+def _reset_ai_intake() -> None:
+    _close_ai_dialog()
+
+
 def _render_ai_steps(*, active: str) -> None:
-    steps = [("capture", "1. Describe"), ("review", "2. Review & save")]
-    parts = []
-    for slug, label in steps:
-        cls = "ai-step"
+    steps = [("capture", "1", "Describe"), ("review", "2", "Review & save")]
+    parts = ['<div class="ai-step-rail">']
+    for i, (slug, num, label) in enumerate(steps):
+        cls = "ai-step-node"
+        step_label = label
         if slug == active:
             cls += " active"
-        elif active == "review" and slug == "capture":
+        elif active == "processing" and slug == "capture":
+            cls += " processing"
+            step_label = "Structuring…"
+        elif active in ("review", "processing") and slug == "capture":
             cls += " done"
-        parts.append(f'<div class="{cls}">{html.escape(label)}</div>')
-    st.markdown(f'<div class="ai-steps">{"".join(parts)}</div>', unsafe_allow_html=True)
+        parts.append(
+            f'<div class="{cls}">'
+            f'<div class="ai-step-dot">{html.escape(num)}</div>'
+            f'<div class="ai-step-label">{html.escape(step_label)}</div>'
+            f"</div>"
+        )
+        if i == 0:
+            line_cls = "ai-step-line done" if active in ("review", "processing") else "ai-step-line"
+            parts.append(f'<div class="{line_cls}"></div>')
+    parts.append("</div>")
+    st.markdown("".join(parts), unsafe_allow_html=True)
+
+
+def _render_ai_thinking(*, mode: str = "ai") -> None:
+    """Premium loader while Gemini (or basic parser) structures the lead."""
+    if mode == "basic":
+        title = "Parsing your notes"
+        sub = "Filling contact fields without AI — quick and local."
+        chips = ["Reading text", "Extracting phone", "Matching fields"]
+        badge = "LOCAL"
+    else:
+        title = "Gemini is structuring your lead"
+        sub = "Extracting name, phone, company, and meeting notes…"
+        chips = ["Reading notes", "Identifying contact", "Mapping fields", "Drafting summary"]
+        badge = "GEMINI"
+    signal = "".join(f'<span style="--i:{i}"></span>' for i in range(7))
+    chip_html = "".join(
+        f'<span class="ai-thinking-chip" style="--d:{i}">{html.escape(c)}</span>'
+        for i, c in enumerate(chips)
+    )
+    st.markdown(
+        f'<div class="ai-thinking-panel">'
+        f'<div class="ai-thinking-top">'
+        f'<div class="ai-orbit">{html.escape(badge)}</div>'
+        f'<div><p class="ai-thinking-title">{html.escape(title)}</p>'
+        f'<p class="ai-thinking-sub">{html.escape(sub)}</p></div>'
+        f"</div>"
+        f'<div class="ai-signal-strip">{signal}</div>'
+        f'<div class="ai-thinking-chips">{chip_html}</div>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _ai_preview_initials(name: str, company: str) -> str:
+    src = (name or company or "?").strip()
+    bits = src.split()
+    if len(bits) >= 2:
+        return (bits[0][0] + bits[1][0]).upper()
+    return src[:2].upper()
+
+
+@st.dialog("New lead", width="large")
+def _ai_add_dialog() -> None:
+    """Type or dictate → AI structures → save. Dialog stays open across reruns."""
+    from agent.crm_intake_agent import basic_parse_from_text, friendly_ai_error, parse_contact
+
+    state = st.session_state.setdefault(
+        "ai_intake",
+        {"phase": "capture", "result": None, "existing": None, "last_error": "", "capture_text": ""},
+    )
+
+    phase = state.get("phase") or "capture"
+    wrap_cls = "ai-dialog-wrap"
+    if phase == "review" and state.pop("review_reveal", False):
+        wrap_cls += " ai-review-reveal"
+    if phase == "processing":
+        wrap_cls += " ai-dialog-processing"
+
+    st.markdown(f'<div class="{wrap_cls}">', unsafe_allow_html=True)
+    step_active = "review" if phase == "review" else ("processing" if phase == "processing" else "capture")
+    _render_ai_steps(active=step_active)
+
+    # ── Phase 1b: processing (animated loader, then parse) ────────────────────
+    if phase == "processing":
+        mode = state.get("processing_mode") or "ai"
+        _render_ai_thinking(mode=mode)
+
+        if not state.get("_processing_visible"):
+            state["_processing_visible"] = True
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.rerun()
+
+        text_value = (state.get("processing_text") or "").strip()
+        existing = dict(state.get("existing") or {})
+        try:
+            if mode == "basic":
+                res = basic_parse_from_text(text=text_value, existing=existing or None)
+            else:
+                res = parse_contact(text=text_value, existing=existing or None)
+        except Exception as exc:  # noqa: BLE001
+            state["last_error"] = friendly_ai_error(exc)
+            state["capture_text"] = text_value
+            state["phase"] = "capture"
+            for k in ("processing_text", "processing_mode", "_processing_visible"):
+                state.pop(k, None)
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.rerun()
+
+        state["existing"] = dict(res.get("fields") or {})
+        state["result"] = res
+        state["phase"] = "review"
+        state["review_reveal"] = True
+        for k in ("processing_text", "processing_mode", "_processing_visible"):
+            state.pop(k, None)
+        st.session_state.pop("ai_text", None)
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.rerun()
+
+    # ── Phase 1: describe ─────────────────────────────────────────────────────
+    if phase == "capture":
+        existing = dict(state.get("existing") or {})
+        if existing:
+            _render_ai_captured_summary(existing)
+            prior = state.get("result") or {}
+            if prior.get("follow_up"):
+                st.markdown(
+                    f'<div class="ai-note warn"><span class="tag">Add next</span>'
+                    f'<span>{html.escape(prior["follow_up"])}</span></div>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.markdown(
+                '<div class="ai-hero">'
+                '<div class="ai-hero-icon">+</div>'
+                '<div>'
+                '<p class="ai-hero-title">Tell us about the lead</p>'
+                '<p class="ai-hero-sub">One sentence works — name, phone, company, '
+                'where you met. Use your keyboard mic to dictate if you prefer.</p>'
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
+
+        st.caption("Quick templates")
+        examples = [
+            ("Expo meet", "Met at expo — Rajesh, Prestige Group, 9876543210, wants 3BHK Whitefield demo"),
+            ("Referral", "SN Realtors referral — priya@zenith.in, founder Zenith Interiors, follow up Friday"),
+            ("LinkedIn", "LinkedIn inbound — hiring sales head, Bangalore, budget 2Cr+"),
+        ]
+        ex_cols = st.columns(3)
+        for i, (label, sample) in enumerate(examples):
+            if ex_cols[i].button(label, key=f"ai_ex_{i}", use_container_width=True):
+                st.session_state["ai_text"] = sample
+                st.rerun()
+
+        if state.get("capture_text") and "ai_text" not in st.session_state:
+            st.session_state["ai_text"] = state["capture_text"]
+
+        if state.get("last_error"):
+            if "Gemini credits" in state["last_error"] or "Continue without AI" in state["last_error"]:
+                st.warning(state["last_error"])
+            else:
+                st.error(state["last_error"])
+
+        with st.form("ai_capture_form", clear_on_submit=False, border=False):
+            st.caption("Your notes")
+            st.text_area(
+                "Lead details",
+                key="ai_text",
+                height=110,
+                placeholder="e.g. Priya Nair, Zenith Interiors, 9876543210 — met at Mumbai expo, wants demo next week",
+                label_visibility="collapsed",
+            )
+            review = st.form_submit_button("Structure with AI →", type="primary", use_container_width=True)
+
+        foot1, foot2, foot3 = st.columns([1, 1.3, 1.7])
+        with foot1:
+            if st.button("Cancel", key="ai_capture_cancel", use_container_width=True):
+                _close_ai_dialog()
+                st.rerun()
+        with foot2:
+            if st.button("Skip AI →", use_container_width=True, key="ai_skip_ai"):
+                text_value = (st.session_state.get("ai_text") or "").strip()
+                if not text_value:
+                    state["last_error"] = "Add a few details in the box first."
+                    st.rerun()
+                state["last_error"] = ""
+                state["phase"] = "processing"
+                state["processing_mode"] = "basic"
+                state["processing_text"] = text_value
+                state.pop("_processing_visible", None)
+                st.rerun()
+        with foot3:
+            st.markdown(
+                '<div class="ai-footer-note">Tip: Ctrl+Enter submits the form. '
+                "Skip AI if credits are out — you can still save manually.</div>",
+                unsafe_allow_html=True,
+            )
+
+        if review:
+            text_value = (st.session_state.get("ai_text") or "").strip()
+            if not text_value:
+                state["last_error"] = "Add a few details in the box first."
+                st.rerun()
+            state["last_error"] = ""
+            state["phase"] = "processing"
+            state["processing_mode"] = "ai"
+            state["processing_text"] = text_value
+            state.pop("_processing_visible", None)
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    # ── Phase 2: review & save ────────────────────────────────────────────────
+    res = state.get("result") or {}
+    f = dict(res.get("fields") or {})
+    preview_name = f.get("name") or f.get("company") or "New lead"
+    meta_parts = [p for p in (f.get("phone"), f.get("email")) if p]
+    if f.get("name") and f.get("company"):
+        meta_parts.append(f["company"])
+    preview_meta = " · ".join(meta_parts) or "Fill in phone or email to save"
+
+    st.markdown(
+        f'<div class="ai-preview-card">'
+        f'<div class="ai-preview-avatar">{html.escape(_ai_preview_initials(f.get("name",""), f.get("company","")))}</div>'
+        f'<div><p class="ai-preview-name">{html.escape(preview_name)}</p>'
+        f'<p class="ai-preview-meta">{html.escape(preview_meta)}</p></div></div>',
+        unsafe_allow_html=True,
+    )
+
+    if res.get("summary"):
+        st.markdown(
+            f'<div class="ai-note ok"><span class="tag">Summary</span>'
+            f'<span>{html.escape(res["summary"])}</span></div>',
+            unsafe_allow_html=True,
+        )
+    if res.get("follow_up"):
+        st.markdown(
+            f'<div class="ai-note warn"><span class="tag">Missing</span>'
+            f'<span>{html.escape(res["follow_up"])}</span></div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('<div class="ai-field-section"><div class="sec-label">Contact</div>', unsafe_allow_html=True)
+    r1a, r1b, r1c = st.columns(3)
+    with r1a:
+        f["name"] = st.text_input("Name", f.get("name", ""), key="aif_name")
+    with r1b:
+        f["phone"] = st.text_input("Phone", f.get("phone", ""), key="aif_phone")
+    with r1c:
+        f["email"] = st.text_input("Email", f.get("email", ""), key="aif_email")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="ai-field-section"><div class="sec-label">Deal</div>', unsafe_allow_html=True)
+    r2a, r2b, r2c = st.columns(3)
+    with r2a:
+        f["company"] = st.text_input("Company", f.get("company", ""), key="aif_company")
+    with r2b:
+        f["client"] = st.text_input("For client", f.get("client", ""), key="aif_client")
+    with r2c:
+        _stg = f.get("status") or "new"
+        f["status"] = st.selectbox(
+            "Stage",
+            CRM_STATUSES,
+            index=CRM_STATUSES.index(_stg) if _stg in CRM_STATUSES else 0,
+            format_func=_status_label,
+            key="aif_status",
+        )
+    f["notes"] = st.text_area("Notes", f.get("notes", ""), key="aif_notes", height=72)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    with st.expander("More details (optional)"):
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            f["title"] = st.text_input("Title", f.get("title", ""), key="aif_title")
+            f["owner"] = st.text_input("Owner", f.get("owner", ""), key="aif_owner")
+        with m2:
+            f["industry"] = st.text_input("Industry", f.get("industry", ""), key="aif_industry")
+            f["value"] = st.text_input("Value", f.get("value", ""), key="aif_value")
+        with m3:
+            _src = f.get("source") or "other"
+            f["source"] = st.selectbox(
+                "Source", CRM_SOURCE_OPTIONS,
+                index=CRM_SOURCE_OPTIONS.index(_src) if _src in CRM_SOURCE_OPTIONS else 0,
+                format_func=_source_label, key="aif_source",
+            )
+            _deal = f.get("deal_status") or "open"
+            f["deal_status"] = st.selectbox(
+                "Deal state", DEAL_STATUSES,
+                index=DEAL_STATUSES.index(_deal) if _deal in DEAL_STATUSES else 0,
+                format_func=_deal_status_label, key="aif_deal",
+            )
+            follow_raw = _date_value(f.get("next_follow_up") or "")
+            picked = st.date_input("Follow-up", value=follow_raw, format="YYYY-MM-DD", key="aif_follow_up")
+            f["next_follow_up"] = picked.isoformat() if picked else ""
+
+    res["fields"] = f
+    state["result"] = res
+    state["existing"] = f
+
+    missing = []
+    if not (f.get("company") or f.get("name")):
+        missing.append("name or company")
+    if not (f.get("phone") or f.get("email")):
+        missing.append("phone or email")
+
+    s1, s2, s3 = st.columns([2, 1, 1])
+    with s1:
+        save = st.button(
+            "Save to CRM",
+            type="primary",
+            use_container_width=True,
+            disabled=bool(missing),
+        )
+    with s2:
+        if st.button("← Back", use_container_width=True):
+            state["phase"] = "capture"
+            state["capture_text"] = ""
+            state["last_error"] = ""
+            state.pop("review_reveal", None)
+            state.pop("_processing_visible", None)
+            st.rerun()
+    with s3:
+        if st.button("Cancel", key="ai_review_cancel", use_container_width=True):
+            _close_ai_dialog()
+            st.rerun()
+
+    if missing:
+        st.caption("Need " + " and ".join(missing) + " before saving.")
+
+    if save:
+        clean_follow_up = _clean_follow_up(f.get("next_follow_up") or "")
+        if clean_follow_up is None:
+            st.error("Use YYYY-MM-DD for follow-up date.")
+            return
+        f["next_follow_up"] = clean_follow_up
+        contact = _ai_fields_to_contact(f)
+        action, saved = _upsert_contact(contact)
+        ok = persist_crm(f"CRM: {action} {display_name(saved)} (AI intake)")
+        label = display_name(saved)
+        _close_ai_dialog()
+        if ok:
+            st.session_state.crm_save_toast = f"{'Updated' if action == 'updated' else 'Added'} {label}"
+        st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _render_ai_captured_summary(fields: dict) -> None:
@@ -1353,237 +2078,6 @@ def _ai_fields_to_contact(f: dict) -> dict:
             "tags": ["ai-intake", "ground"],
         }
     )
-
-
-@st.dialog("Add a lead with AI", width="large")
-def _ai_add_dialog() -> None:
-    """Type (or dictate via the device keyboard) → edit → agent structures → save.
-
-    Voice uses the user's own keyboard/OS dictation (free, reliable, no AI) so
-    the text is in front of them before anything is "interpreted" — the agent
-    only runs when they explicitly click "Review with AI".
-    """
-    from agent.crm_intake_agent import parse_contact
-
-    state = st.session_state.setdefault(
-        "ai_intake",
-        {"phase": "capture", "result": None, "existing": None, "last_error": ""},
-    )
-
-    # ── Phase 1: capture (type, or dictate with the device keyboard) ───────────
-    if state["phase"] == "capture":
-        _render_ai_steps(active="capture")
-        existing = dict(state.get("existing") or {})
-        if existing:
-            _render_ai_captured_summary(existing)
-            prior = (state.get("result") or {})
-            if prior.get("follow_up"):
-                st.markdown(
-                    f'<div class="ai-note warn"><span class="tag">Add next</span>'
-                    f'<span>{html.escape(prior["follow_up"])}</span></div>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.caption("Add anything still missing — the agent will merge it with what you already have.")
-        else:
-            st.caption(
-                "Describe the lead in plain language. Type it, dictate with your keyboard mic, "
-                "then let the agent structure it before you save."
-            )
-        st.markdown(
-            '<div class="ai-voice-tip"><span class="mic">Dictate</span>'
-            '<span><b>Prefer speaking?</b> Tap the box below, then use your phone keyboard mic '
-            'or desktop dictation key. It types as you talk — free, on-device, no AI quota used.</span></div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div class="ai-examples">'
-            '<span class="ex">Met at an expo, wants a demo next week</span>'
-            '<span class="ex">Referral from SN Realtors, email raj@company.com</span>'
-            '<span class="ex">LinkedIn inbound, hiring sales, follow up Friday</span>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        placeholder = (
-            "e.g. Add Priya Nair, founder of Zenith Interiors, phone 98xxxxxx12, "
-            "met at the Mumbai expo, wants a demo next week."
-        )
-        if existing and not any(existing.get(k) for k in ("phone", "email")):
-            placeholder = "e.g. Her email is priya@zenith.in and phone is +91 98xxx xxxxx"
-
-        if state.get("capture_text") and "ai_text" not in st.session_state:
-            st.session_state["ai_text"] = state["capture_text"]
-
-        if state.get("last_error"):
-            st.error(state["last_error"])
-
-        # Form batches widget values on submit — fixes text/dictation not captured
-        # when the user clicks Review before the text area blurs (common on mobile).
-        with st.form("ai_capture_form", clear_on_submit=False, border=False):
-            st.text_area(
-                "Lead details — type or dictate, edit freely before sending to the agent",
-                key="ai_text",
-                height=140,
-                placeholder=placeholder,
-            )
-            b1, _ = st.columns([2, 1])
-            with b1:
-                review = st.form_submit_button(
-                    "Review with AI",
-                    type="primary",
-                    use_container_width=True,
-                )
-
-        b2, _ = st.columns([2, 1])
-        with b2:
-            if st.button("Cancel", use_container_width=True, key="ai_capture_cancel"):
-                _reset_ai_intake()
-                st.rerun()
-
-        if review:
-            text_value = (st.session_state.get("ai_text") or "").strip()
-            if not text_value:
-                state["last_error"] = (
-                    "Nothing was captured — type or dictate in the box above, "
-                    "then click Review with AI again."
-                )
-                st.rerun()
-            state["capture_text"] = text_value
-            state["last_error"] = ""
-            with st.spinner("Reading the details…"):
-                try:
-                    res = parse_contact(text=text_value, existing=existing or None)
-                except Exception as exc:  # noqa: BLE001 - surface a friendly message
-                    state["last_error"] = (
-                        f"Couldn't reach the AI ({exc}). Check your connection and try again, "
-                        "or use the manual form below the CRM page."
-                    )
-                    st.rerun()
-            state["last_error"] = ""
-            state["existing"] = dict(res.get("fields") or {})
-            state["result"] = res
-            state["phase"] = "review"
-            state.pop("capture_text", None)
-            st.session_state.pop("ai_text", None)
-            st.rerun()
-        return
-
-    # ── Phase 2: review & edit ────────────────────────────────────────────────
-    _render_ai_steps(active="review")
-    res = state.get("result") or {}
-    f = dict(res.get("fields") or {})
-
-    if res.get("summary"):
-        st.markdown(
-            f'<div class="ai-note ok"><span class="tag">Read</span>'
-            f'<span>{html.escape(res["summary"])}</span></div>',
-            unsafe_allow_html=True,
-        )
-    if res.get("follow_up"):
-        st.markdown(
-            f'<div class="ai-note warn"><span class="tag">Needs a touch-up</span>'
-            f'<span>{html.escape(res["follow_up"])}</span></div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.caption("Looks complete — review the fields below and save.")
-
-    _render_ai_progress(f)
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        f["company"] = st.text_input("Company", f.get("company", ""), key="aif_company")
-        f["name"] = st.text_input("Contact name", f.get("name", ""), key="aif_name")
-        f["phone"] = st.text_input("Phone", f.get("phone", ""), key="aif_phone")
-        f["owner"] = st.text_input("Owner", f.get("owner", ""), key="aif_owner")
-    with c2:
-        f["industry"] = st.text_input("Industry", f.get("industry", ""), key="aif_industry")
-        f["title"] = st.text_input("Title", f.get("title", ""), key="aif_title")
-        f["email"] = st.text_input("Email", f.get("email", ""), key="aif_email")
-        f["client"] = st.text_input("For client", f.get("client", ""), key="aif_client")
-    with c3:
-        _src = f.get("source") or "other"
-        f["source"] = st.selectbox(
-            "Source", CRM_SOURCE_OPTIONS,
-            index=CRM_SOURCE_OPTIONS.index(_src) if _src in CRM_SOURCE_OPTIONS else 0,
-            format_func=_source_label, key="aif_source",
-        )
-        _stg = f.get("status") or "new"
-        f["status"] = st.selectbox(
-            "Stage", CRM_STATUSES,
-            index=CRM_STATUSES.index(_stg) if _stg in CRM_STATUSES else 0,
-            format_func=_status_label, key="aif_status",
-        )
-        _deal = f.get("deal_status") or "open"
-        f["deal_status"] = st.selectbox(
-            "Deal state", DEAL_STATUSES,
-            index=DEAL_STATUSES.index(_deal) if _deal in DEAL_STATUSES else 0,
-            format_func=_deal_status_label, key="aif_deal",
-        )
-        f["value"] = st.text_input("Value", f.get("value", ""), key="aif_value")
-
-    c11, c12 = st.columns([1, 2])
-    with c11:
-        follow_raw = _date_value(f.get("next_follow_up") or "")
-        picked = st.date_input(
-            "Follow-up date",
-            value=follow_raw,
-            format="YYYY-MM-DD",
-            key="aif_follow_up",
-        )
-        f["next_follow_up"] = picked.isoformat() if picked else ""
-    with c12:
-        f["notes"] = st.text_area("Notes", f.get("notes", ""), key="aif_notes", height=70)
-
-    # Keep edits in state so a rerun (e.g. from add-more) doesn't lose them.
-    res["fields"] = f
-    state["result"] = res
-    state["existing"] = f
-
-    missing = []
-    if not (f.get("company") or f.get("name")):
-        missing.append("a company or contact name")
-    if not (f.get("phone") or f.get("email")):
-        missing.append("a phone or email")
-
-    s1, s2, s3 = st.columns([2, 1, 1])
-    with s1:
-        save = st.button(
-            "Save to CRM", type="primary", use_container_width=True,
-            disabled=bool(missing),
-            help="Fill company or name plus phone or email to enable save",
-        )
-    with s2:
-        if st.button(
-            "Add more details",
-            use_container_width=True,
-            help="Describe missing info — the agent merges it with the fields above",
-        ):
-            state["phase"] = "capture"
-            state["last_error"] = ""
-            st.session_state.pop("ai_text", None)
-            st.rerun()
-    with s3:
-        if st.button("Start over", use_container_width=True):
-            _reset_ai_intake()
-            st.rerun()
-
-    if missing:
-        st.caption("Still need " + " and ".join(missing) + " — edit above or use Add more details.")
-
-    if save:
-        clean_follow_up = _clean_follow_up(f.get("next_follow_up") or "")
-        if clean_follow_up is None:
-            st.error("Use YYYY-MM-DD for follow-up date.")
-            return
-        f["next_follow_up"] = clean_follow_up
-        contact = _ai_fields_to_contact(f)
-        action, saved = _upsert_contact(contact)
-        ok = persist_crm(f"CRM: {action} {display_name(saved)} (AI intake)")
-        _reset_ai_intake()
-        if ok:
-            st.toast(f"{'Updated' if action == 'updated' else 'Added'} {display_name(saved)}")
-        st.rerun()
 
 
 def _render_thread_tab(contact: dict, idx: int) -> None:
@@ -2058,12 +2552,11 @@ def render_crm_page() -> None:
     ai_col, hint_col = st.columns([1.1, 2])
     with ai_col:
         if st.button(
-            "Add with AI — type or dictate",
+            "+ Add lead",
             type="primary", use_container_width=True, key="open_ai_add",
         ):
-            st.session_state.pop("ai_intake", None)
-            st.session_state.pop("ai_text", None)
-            _ai_add_dialog()
+            _open_ai_dialog()
+            st.rerun()
     with hint_col:
         st.caption("Describe a lead in one sentence — type it, or tap the box and use your keyboard's mic to dictate. The AI fills in the record and only asks for what's missing.")
 
@@ -2243,6 +2736,13 @@ def render_crm_page() -> None:
         idx = id_to_idx.get(contact.get("id"))
         if idx is not None:
             _render_contact_card(contact, idx, statuses)
+
+    toast = st.session_state.pop("crm_save_toast", None)
+    if toast:
+        st.toast(toast)
+
+    if st.session_state.get("crm_ai_dialog_open"):
+        _ai_add_dialog()
 
 
 def add_leads_to_crm(leads: list[dict], *, client: str = "") -> dict[str, int]:
