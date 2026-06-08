@@ -1410,30 +1410,49 @@ def _ai_add_dialog() -> None:
         )
         if existing and not any(existing.get(k) for k in ("phone", "email")):
             placeholder = "e.g. Her email is priya@zenith.in and phone is +91 98xxx xxxxx"
-        text = st.text_area(
-            "Lead details — type or dictate, edit freely before sending to the agent",
-            key="ai_text",
-            height=140,
-            placeholder=placeholder,
-        )
+
+        if state.get("capture_text") and "ai_text" not in st.session_state:
+            st.session_state["ai_text"] = state["capture_text"]
+
         if state.get("last_error"):
             st.error(state["last_error"])
-        has_input = bool((text or "").strip())
-        b1, b2 = st.columns([2, 1])
-        with b1:
-            review = st.button(
-                "Review with AI", type="primary",
-                use_container_width=True, disabled=not has_input,
-                help="Sends the text above to the agent to structure and save",
+
+        # Form batches widget values on submit — fixes text/dictation not captured
+        # when the user clicks Review before the text area blurs (common on mobile).
+        with st.form("ai_capture_form", clear_on_submit=False, border=False):
+            st.text_area(
+                "Lead details — type or dictate, edit freely before sending to the agent",
+                key="ai_text",
+                height=140,
+                placeholder=placeholder,
             )
+            b1, _ = st.columns([2, 1])
+            with b1:
+                review = st.form_submit_button(
+                    "Review with AI",
+                    type="primary",
+                    use_container_width=True,
+                )
+
+        b2, _ = st.columns([2, 1])
         with b2:
-            if st.button("Cancel", use_container_width=True):
+            if st.button("Cancel", use_container_width=True, key="ai_capture_cancel"):
                 _reset_ai_intake()
                 st.rerun()
+
         if review:
+            text_value = (st.session_state.get("ai_text") or "").strip()
+            if not text_value:
+                state["last_error"] = (
+                    "Nothing was captured — type or dictate in the box above, "
+                    "then click Review with AI again."
+                )
+                st.rerun()
+            state["capture_text"] = text_value
+            state["last_error"] = ""
             with st.spinner("Reading the details…"):
                 try:
-                    res = parse_contact(text=text or "", existing=existing or None)
+                    res = parse_contact(text=text_value, existing=existing or None)
                 except Exception as exc:  # noqa: BLE001 - surface a friendly message
                     state["last_error"] = (
                         f"Couldn't reach the AI ({exc}). Check your connection and try again, "
@@ -1444,6 +1463,8 @@ def _ai_add_dialog() -> None:
             state["existing"] = dict(res.get("fields") or {})
             state["result"] = res
             state["phase"] = "review"
+            state.pop("capture_text", None)
+            st.session_state.pop("ai_text", None)
             st.rerun()
         return
 
@@ -2041,6 +2062,7 @@ def render_crm_page() -> None:
             type="primary", use_container_width=True, key="open_ai_add",
         ):
             st.session_state.pop("ai_intake", None)
+            st.session_state.pop("ai_text", None)
             _ai_add_dialog()
     with hint_col:
         st.caption("Describe a lead in one sentence — type it, or tap the box and use your keyboard's mic to dictate. The AI fills in the record and only asks for what's missing.")
