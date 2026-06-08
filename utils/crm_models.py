@@ -181,14 +181,17 @@ def normalize_email_event(raw: dict[str, Any]) -> dict[str, Any]:
 def normalize_comment(raw: dict[str, Any]) -> dict[str, Any]:
     """Store CRM comments as timeline entries for account-level context."""
     now = utc_now_iso()
-    return {
+    comment = {
         "id": raw.get("id") or new_contact_id(),
         "created_at": raw.get("created_at") or now,
         "author": (raw.get("author") or raw.get("owner") or "").strip(),
         "body": (raw.get("body") or raw.get("comment") or raw.get("note") or "").strip(),
+        "subject": (raw.get("subject") or "").strip(),
+        "meeting_link": (raw.get("meeting_link") or "").strip(),
         "source": (raw.get("source") or "manual").strip(),
         "type": "comment",
     }
+    return comment
 
 
 def to_amount(raw: Any) -> float:
@@ -360,6 +363,15 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
         if isinstance(person, dict)
     ]
 
+    raw_meetings = raw.get("meetings") or []
+    if not isinstance(raw_meetings, list):
+        raw_meetings = []
+    meetings = [
+        normalize_comment(m)
+        for m in raw_meetings
+        if isinstance(m, dict)
+    ]
+
     raw_invoices = raw.get("invoices") or []
     if not isinstance(raw_invoices, list):
         raw_invoices = []
@@ -389,6 +401,7 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
         "comments": comments,
         "contact_people": contact_people,
         "invoices": invoices,
+        "meetings": meetings,
         "created_at": raw.get("created_at") or now,
         "updated_at": raw.get("updated_at") or now,
         # Kept in storage but hidden from simple UI — agent import extras
@@ -507,6 +520,11 @@ def merge_contacts(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[s
         existing.get("invoices") or [],
         incoming.get("invoices") or [],
         normalize_invoice,
+    )
+    merged["meetings"] = _merge_nested_records(
+        existing.get("meetings") or [],
+        incoming.get("meetings") or [],
+        normalize_comment,
     )
     return normalize_contact(merged)
 

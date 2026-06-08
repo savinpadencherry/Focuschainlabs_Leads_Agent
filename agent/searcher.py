@@ -207,6 +207,194 @@ def search_proxycurl_jobs(icp: dict) -> list:  # noqa: ARG001
     return []
 
 
+# ─── Yahoo Search (unblocked alternative to Google/DuckDuckGo) ───────────────
+def search_yahoo(keyword: str, num: int = 8) -> list:
+    """Search Yahoo and return normalised results. Yahoo is not blocked like
+    Google/DuckDuckGo for automated fetches and returns richer snippets,
+    including LinkedIn profile pages with names, titles, and locations.
+
+    Each result:
+      { company_name, website, result_title, snippet, signal_keyword, source, date_found }
+    """
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+    }
+    params = {"p": keyword, "n": num, "ei": "UTF-8"}
+    try:
+        response = requests.get(
+            "https://search.yahoo.com/search",
+            params=params,
+            headers=headers,
+            timeout=15,
+        )
+        if response.status_code != 200:
+            print(f"  [WARN] Yahoo returned {response.status_code} for '{keyword[:60]}'")
+            return []
+        soup = BeautifulSoup(response.text, "html.parser")
+        results = []
+        for item in soup.select("div.dd.algo, div.algo, article.algo"):
+            title_el = item.select_one("h3 a, h3 a[href], a")
+            snippet_el = item.select_one("div.compText, p, span")
+            if not title_el:
+                continue
+            link = title_el.get("href", "")
+            title = title_el.get_text(strip=True)
+            snippet = snippet_el.get_text(strip=True) if snippet_el else ""
+            if not title or not link:
+                continue
+            results.append({
+                "company_name":   extract_company_name(title),
+                "website":        link,
+                "result_title":   title,
+                "snippet":        snippet,
+                "signal_keyword": keyword,
+                "source":         "yahoo",
+                "date_found":     today(),
+            })
+        return [r for r in results if r.get("result_title")][:num]
+    except Exception as e:
+        print(f"  [WARN] Yahoo search failed for '{keyword[:60]}': {e}")
+        return []
+
+
+def _company_from_job_result(title: str, snippet: str = "") -> str:
+    """Extract employer name from LinkedIn job / hiring search titles."""
+    raw = (title or "").strip()
+    if not raw:
+        return ""
+
+    hiring_match = re.search(r"^(.{2,70}?)\s+hiring\b", raw, flags=re.I)
+    if hiring_match:
+        candidate = hiring_match.group(1).strip(" :,-·|")
+        if _looks_like_company(candidate):
+            return candidate
+
+    at_match = re.search(r"\bat\s+([^|–—·-]{2,80})", raw, flags=re.I)
+    if at_match:
+        candidate = at_match.group(1).strip(" :,-")
+        if _looks_like_company(candidate):
+            return candidate
+
+    combined = f"{raw} {snippet}"
+    jobs_match = re.search(r"([\w&.\s]{2,60}?)\s+(?:is\s+)?hiring\s+", combined, flags=re.I)
+    if jobs_match:
+        candidate = jobs_match.group(1).strip(" :,-")
+        if _looks_like_company(candidate):
+            return candidate
+
+    return extract_company_name(raw)
+
+
+def search_linkedin_jobs_yahoo(
+    keywords: list,
+    city: str = "Bengaluru",
+    *,
+    num: int = 8,
+) -> list:
+    """Find companies actively hiring via Yahoo → LinkedIn job signals.
+
+    Yahoo Search is used instead of Google/DuckDuckGo because automated fetches
+    to those engines are often blocked. Live job postings imply budget + need.
+    """
+    results: list[dict] = []
+    seen: set[str] = set()
+    city = (city or "Bengaluru").strip()
+
+    for kw in keywords[:8]:
+        kw = (kw or "").strip()
+        if not kw:
+            continue
+        queries = [
+            f"site:linkedin.com/jobs {kw} {city}",
+            f"linkedin {kw} hiring {city}",
+            f"{kw} hiring {city} linkedin jobs",
+        ]
+        for query in queries:
+            hits = search_yahoo(query, num=num)
+            for hit in hits:
+                title = hit.get("result_title", "")
+                snippet = hit.get("snippet", "")
+                company = _company_from_job_result(title, snippet)
+                if not company:
+                    continue
+                key = company.lower().strip()
+                if key in seen:
+                    continue
+                seen.add(key)
+                results.append({
+                    "company_name":   company,
+                    "website":        hit.get("website", ""),
+                    "result_title":   title,
+                    "snippet":        snippet or f"Active hiring signal: {kw}",
+                    "signal_keyword": f"hiring:{kw[:50]}",
+                    "source":         "linkedin_jobs",
+                    "date_found":     today(),
+                })
+            time.sleep(0.2)
+    return results
+
+
+def search_yahoo_linkedin_profiles(company: str, role: str, city: str = "Bengaluru") -> list:
+    """Search Yahoo specifically for LinkedIn profile pages using the format:
+    'linkedin [company] [role] [city]'. Yahoo returns actual LinkedIn profile
+    pages in search results with names, titles, and locations — unlike Google
+    which often blocks these fetches.
+
+    Returns list of {name, title, linkedin_url, snippet, source}
+    """
+    query = f'linkedin {company} {role} {city}'
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        ),
+        "Accept-Language": "en-US,en;q=0.5",
+    }
+    params = {"p": query, "n": 10, "ei": "UTF-8"}
+    profiles = []
+    try:
+        response = requests.get(
+            "https://search.yahoo.com/search",
+            params=params,
+            headers=headers,
+            timeout=15,
+        )
+        if response.status_code != 200:
+            return []
+        soup = BeautifulSoup(response.text, "html.parser")
+        for item in soup.select("div.dd.algo, div.algo, article.algo"):
+            link_el = item.select_one("h3 a, a")
+            if not link_el:
+                continue
+            url = link_el.get("href", "")
+            if "linkedin.com/in/" not in url:
+                continue
+            title = link_el.get_text(strip=True)
+            snippet_el = item.select_one("div.compText, p, span")
+            snippet = snippet_el.get_text(strip=True) if snippet_el else ""
+            name_match = re.match(r"^([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)", title)
+            name = name_match.group(1).strip() if name_match else ""
+            if not name:
+                continue
+            profiles.append({
+                "name": name,
+                "title": role,
+                "linkedin_url": url.split("?")[0],
+                "snippet": snippet,
+                "source": "yahoo_linkedin",
+                "company": company,
+            })
+        return profiles
+    except Exception as e:
+        print(f"  [WARN] Yahoo LinkedIn search failed for '{query[:60]}': {e}")
+        return []
+
+
 # ─── Naukri (HTML scrape) ────────────────────────────────────────────────────
 def search_naukri(icp: dict) -> list:
     results = []

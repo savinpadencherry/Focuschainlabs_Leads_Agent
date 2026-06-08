@@ -50,6 +50,10 @@ Return ONLY valid JSON. No markdown. No prose. This exact shape:
                         the vertical context above>],
   "reddit_queries":    [<2 to 4 site:reddit.com queries that surface real
                         demand signals relevant to the vertical>],
+  "yahoo_queries":     [<4 to 8 Yahoo-ready queries in the form
+                        "linkedin [company or industry keyword] [role] [city]"
+                        to surface real LinkedIn /in/ profile pages with names
+                        and titles in snippets — no site: prefix>],
   "pain_hypothesis":   "<one sentence: the primary need or pain these targets
                        are most likely experiencing right now>",
   "gap_hypothesis":    "<one sentence: the specific gap the user's offering
@@ -68,6 +72,9 @@ marketing, and process signals. Prefer individual company/job/news results.
 Avoid CTO/CIO-led searches unless the user explicitly asks.
 For linkedin_queries: use site:linkedin.com/jobs queries to surface active
 hiring at target companies — infer role gaps and operational pains.
+For yahoo_queries: use "linkedin [company or vertical] [decision-maker title]
+[city]" strings (e.g. "linkedin Deloitte India analytics director Bengaluru")
+to find real LinkedIn profile URLs and names via Yahoo Search.
 """
 
 _BUYER_INTENT_VERTICAL_CONTEXT = """
@@ -163,6 +170,7 @@ def _normalise(plan: dict, base_icp: dict, user_prompt: str) -> dict:
                               or base_icp.get("trigger_keywords", []),
         "linkedin_queries":  _as_list(plan.get("linkedin_queries")),
         "reddit_queries":    _as_list(plan.get("reddit_queries")),
+        "yahoo_queries":     _as_list(plan.get("yahoo_queries")),
         "pain_hypothesis":   plan.get("pain_hypothesis", "") or "",
         "gap_hypothesis":    plan.get("gap_hypothesis", "") or "",
         "custom_focus":      plan.get("custom_focus", user_prompt[:300]),
@@ -224,6 +232,9 @@ def _fallback_plan(base_icp: dict, user_prompt: str = "") -> dict:
         linkedin_queries = [
             f'site:linkedin.com/in "{t}" "{city}"' for t in titles[:5]
         ]
+        yahoo_queries = [
+            f"linkedin {t} {city}" for t in titles[:4]
+        ]
         reddit_queries = [
             f'site:reddit.com {city} senior living parents care',
             f'site:reddit.com NRI parents India elder care',
@@ -240,12 +251,19 @@ def _fallback_plan(base_icp: dict, user_prompt: str = "") -> dict:
         linkedin_queries = [
             f'site:linkedin.com/jobs "{t}" "{city}" {year}' for t in titles
         ][:5]
+        yahoo_queries = [
+            f"linkedin {industries[0] if industries else brief} {t} {city}"
+            for t in titles[:4]
+        ]
         reddit_queries = [f'site:reddit.com {brief or base_icp.get("vertical", "B2B")} pain']
     else:
         trigger_keywords = base_icp.get("trigger_keywords", [])
         linkedin_queries = [
             f'site:linkedin.com/jobs "{t}" "{city}" {year}' for t in titles
         ][:5]
+        yahoo_queries = [
+            f"linkedin {t} {city}" for t in titles[:4]
+        ]
         reddit_queries = [f'site:reddit.com {base_icp.get("vertical", "B2B")} pain']
 
     return {
@@ -254,6 +272,7 @@ def _fallback_plan(base_icp: dict, user_prompt: str = "") -> dict:
         "target_titles":    titles,
         "trigger_keywords": trigger_keywords,
         "linkedin_queries": linkedin_queries,
+        "yahoo_queries":    yahoo_queries,
         "reddit_queries":   reddit_queries,
         "pain_hypothesis":  "",
         "gap_hypothesis":   "",
