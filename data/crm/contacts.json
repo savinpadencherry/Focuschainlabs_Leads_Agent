@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-07T03:09:28+00:00",
+  "updated_at": "2026-06-08T04:37:29+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -27,6 +27,38 @@
       "invoices": [],
       "created_at": "2026-06-06T17:07:14+00:00",
       "updated_at": "2026-06-07T03:09:28+00:00",
+      "title": "",
+      "linkedin_url": "",
+      "website": "",
+      "score": 0,
+      "signal": "",
+      "opening_line": "",
+      "agent_run_id": ""
+    },
+    {
+      "id": "aa1c9962-b04e-4939-a575-8efd59ace169",
+      "name": "GitHub Smoke Test",
+      "company": "Test Co",
+      "industry": "",
+      "phone": "9000000001",
+      "email": "",
+      "client": "",
+      "owner": "",
+      "value": "",
+      "status": "new",
+      "deal_status": "open",
+      "notes": "Safe to delete — automated github smoke test",
+      "next_follow_up": "",
+      "source": "other",
+      "tags": [
+        "test-script"
+      ],
+      "email_events": [],
+      "comments": [],
+      "contact_people": [],
+      "invoices": [],
+      "created_at": "2026-06-08T04:37:29+00:00",
+      "updated_at": "2026-06-08T04:37:29+00:00",
       "title": "",
       "linkedin_url": "",
       "website": "",
