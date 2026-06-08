@@ -19,7 +19,7 @@ from utils import budget
 
 def _models() -> list[str]:
     primary = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    fallbacks = ["gemini-2.0-flash", "gemini-1.5-flash"]
+    fallbacks = ["gemini-2.5-flash", "gemini-1.5-flash"]
     ordered = [primary] + fallbacks
     return list(dict.fromkeys(m for m in ordered if m))
 

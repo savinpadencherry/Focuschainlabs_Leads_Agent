@@ -26,8 +26,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from agent.searcher import (
-    search_serper, search_tracxn, search_proxycurl_jobs, search_naukri, search_reddit
+    search_serper, search_tracxn, search_proxycurl_jobs, search_naukri,
+    search_reddit, search_yahoo, search_yahoo_linkedin_profiles,
 )
+from agent.contact_finder import find_decision_maker_via_yahoo
 from agent.researcher import research_company
 from agent.scorer import score_company
 from agent.enricher import enrich_contact
@@ -153,6 +155,51 @@ def run_pipeline_streaming(
     else:
         yield {"type": "source_done", "source": "reddit",
                "count": 0, "status": "skip", "reason": "Needs Serper key"}
+
+    # Yahoo Search — uncovers LinkedIn profiles, job postings, and company
+    # pages that Google/Serper may block. Yahoo returns richer snippets
+    # with names, titles, and locations directly in search results.
+    yield {"type": "source_start", "source": "yahoo",
+           "label": "Yahoo Search (LinkedIn profiles)"}
+    yahoo_results = []
+    for title in icp.get("target_titles", [])[:3]:
+        city = (icp.get("locations") or ["Bengaluru"])[0]
+        query = f"linkedin {title} {city}"
+        yield {"type": "keyword_searching", "keyword": query[:80], "source": "yahoo"}
+        yr = search_yahoo(query, num=6)
+        yahoo_results.extend(yr)
+        yield {"type": "keyword_done", "keyword": query[:80], "count": len(yr), "source": "yahoo"}
+        time.sleep(0.3)
+    all_results.extend(yahoo_results)
+    yield {"type": "source_done", "source": "yahoo",
+           "count": len(yahoo_results), "status": "done" if yahoo_results else "warn",
+           "reason": None if yahoo_results else "No LinkedIn profiles found via Yahoo"}
+
+    # Yahoo LinkedIn Profile Discovery — cross-reference companies with
+    # decision-maker titles and extract names, URLs from Yahoo snippets
+    yield {"type": "source_start", "source": "yahoo_linkedin",
+           "label": "Yahoo → LinkedIn Profiles"}
+    yahoo_profile_results = []
+    for company in all_results[:10]:
+        cname = company.get("company_name", "")
+        if not cname:
+            continue
+        yield {"type": "keyword_searching", "keyword": f"linkedin {cname}", "source": "yahoo_linkedin"}
+        profile = find_decision_maker_via_yahoo(
+            cname,
+            icp.get("target_titles", []),
+            (icp.get("locations") or ["Bengaluru"])[0],
+        )
+        if profile:
+            yahoo_profile_results.append({**company, **profile})
+            yield {"type": "keyword_done", "keyword": f"linkedin {cname}",
+                   "count": 1, "source": "yahoo_linkedin"}
+        else:
+            yield {"type": "keyword_done", "keyword": f"linkedin {cname}",
+                   "count": 0, "source": "yahoo_linkedin"}
+        time.sleep(0.3)
+    yield {"type": "source_done", "source": "yahoo_linkedin",
+           "count": len(yahoo_profile_results), "status": "done"}
 
     # Tracxn
     yield {"type": "source_start", "source": "tracxn", "label": "Tracxn — Funded Startups"}

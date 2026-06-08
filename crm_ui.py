@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import html
+import random
+import string
 from datetime import date, datetime, timedelta
 
 import streamlit as st
@@ -49,6 +51,12 @@ new_contact_id = crm_models.new_contact_id
 normalize_contact = crm_models.normalize_contact
 normalize_status = crm_models.normalize_status
 utc_now_iso = crm_models.utc_now_iso
+
+
+def generate_meet_link() -> str:
+    """Generate a unique Google Meet link using random meeting code."""
+    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=12))
+    return f"https://meet.google.com/{suffix}"
 
 
 def normalize_source(raw: str) -> str:
@@ -101,6 +109,8 @@ def normalize_comment(raw: dict) -> dict:
         "created_at": raw.get("created_at") or utc_now_iso(),
         "author": (raw.get("author") or raw.get("owner") or "").strip(),
         "body": (raw.get("body") or raw.get("comment") or raw.get("note") or "").strip(),
+        "subject": (raw.get("subject") or "").strip(),
+        "meeting_link": (raw.get("meeting_link") or "").strip(),
         "source": (raw.get("source") or "manual").strip(),
     }
 
@@ -318,6 +328,7 @@ CRM_CSS = """
 .crm-pill.meeting { background: rgba(59,130,246,.12); color: #1E40AF; }
 .crm-pill.proposal { background: rgba(183,121,31,.12); color: var(--amber); }
 .crm-pill.nurture { background: rgba(15,42,51,.06); color: var(--ink-mute); }
+.crm-pill.meeting { background: rgba(59,130,246,.12); color: #1E40AF; }
 .crm-pill.won { background: rgba(46,139,77,.18); color: #166534; }
 .crm-pill.lost { background: rgba(169,61,61,.12); color: var(--red); }
 .crm-pill.due { background: rgba(183,121,31,.12); color: var(--amber); }
@@ -604,6 +615,7 @@ CRM_CSS = """
 }
 .crm-thread-item.email { border-left-color: rgba(59,130,246,.48); }
 .crm-thread-item.comment { border-left-color: rgba(46,139,77,.48); }
+.crm-thread-item.meeting { border-left-color: rgba(46,139,77,.55); background: rgba(46,139,77,.04); }
 .crm-thread-meta {
     color: var(--ink-mute);
     font-family: 'JetBrains Mono', monospace;
@@ -1640,10 +1652,12 @@ def _open_ai_dialog() -> None:
     }
     for k in ("ai_text",):
         st.session_state.pop(k, None)
+    st.session_state["_ai_active_template"] = -1
 
 
 def _close_ai_dialog() -> None:
     st.session_state.crm_ai_dialog_open = False
+    st.session_state["_ai_active_template"] = -1
     for k in ("ai_intake", "ai_text"):
         st.session_state.pop(k, None)
 
@@ -1798,17 +1812,24 @@ def _ai_add_dialog() -> None:
                 unsafe_allow_html=True,
             )
 
-        st.caption("Quick templates")
+        st.caption("Quick templates — click to fill, then edit freely")
         examples = [
             ("Expo meet", "Met at expo — Rajesh, Prestige Group, 9876543210, wants 3BHK Whitefield demo"),
             ("Referral", "SN Realtors referral — priya@zenith.in, founder Zenith Interiors, follow up Friday"),
             ("LinkedIn", "LinkedIn inbound — hiring sales head, Bangalore, budget 2Cr+"),
         ]
+        active_template = st.session_state.get("_ai_active_template", -1)
         ex_cols = st.columns(3)
         for i, (label, sample) in enumerate(examples):
-            if ex_cols[i].button(label, key=f"ai_ex_{i}", use_container_width=True):
+            btn_type = "primary" if i == active_template else "secondary"
+            if ex_cols[i].button(label, key=f"ai_ex_{i}", use_container_width=True, type=btn_type):
                 st.session_state["ai_text"] = sample
+                st.session_state["_ai_active_template"] = i
                 st.rerun()
+
+        current_text = st.session_state.get("ai_text", "")
+        if active_template >= 0 and current_text != examples[active_template][1]:
+            st.session_state["_ai_active_template"] = -1
 
         if state.get("capture_text") and "ai_text" not in st.session_state:
             st.session_state["ai_text"] = state["capture_text"]
@@ -2097,12 +2118,19 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
         for c in (contact.get("comments") or [])
         if isinstance(c, dict)
     ]
+    meetings = [
+        normalize_comment(m)
+        for m in (contact.get("meetings") or [])
+        if isinstance(m, dict)
+    ]
 
     thread: list[dict] = []
     for e in email_events:
         thread.append({**e, "_type": "email"})
     for c in comments:
         thread.append({**c, "_type": "comment"})
+    for m in meetings:
+        thread.append({**m, "_type": "meeting"})
 
     def _sort_key(item: dict) -> str:
         return item.get("sent_at") or item.get("created_at") or ""
@@ -2127,6 +2155,23 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
                     f'<div class="crm-thread-body">{html.escape(body or "No summary saved.")}</div>'
                     '</div>'
                 )
+            elif item["_type"] == "meeting":
+                date_str = (item.get("created_at") or "")[:10]
+                body = item.get("body") or ""
+                link = item.get("meeting_link", "")
+                subject = item.get("subject") or "Google Meet"
+                meta = " / ".join(p for p in ["Meeting", date_str] if p)
+                link_html = ""
+                if link:
+                    link_html = f'<div style="margin-top:6px"><a href="{html.escape(link)}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;border:1px solid rgba(46,139,77,.25);background:rgba(46,139,77,.08);color:var(--green);text-decoration:none;font-size:12px;font-weight:600;">▶ Join Google Meet</a></div>'
+                items.append(
+                    '<div class="crm-thread-item comment" style="border-left-color:rgba(46,139,77,.55);background:rgba(46,139,77,.04);">'
+                    f'<div class="crm-thread-meta">{html.escape(meta)}</div>'
+                    f'<div class="crm-thread-title">{html.escape(subject)}</div>'
+                    f'<div class="crm-thread-body">{html.escape(body or "No meeting notes.")}</div>'
+                    f'{link_html}'
+                    '</div>'
+                )
             else:
                 author = item.get("author") or "Team"
                 date_str = (item.get("created_at") or "")[:10]
@@ -2141,9 +2186,9 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
                 )
         st.markdown(f'<div class="crm-thread">{"".join(items)}</div>', unsafe_allow_html=True)
     else:
-        st.caption("No emails or comments yet. Use the forms below to add the first entry.")
+        st.caption("No emails, comments, or meetings yet. Use the forms below to add the first entry.")
 
-    note_tab, email_tab = st.tabs(["Add note", "Log email"])
+    note_tab, meet_tab, email_tab = st.tabs(["Add note", "Schedule Meet", "Log email"])
 
     with note_tab:
         with st.form(f"activity_note_{cid}", clear_on_submit=True, border=False):
@@ -2171,6 +2216,73 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
                     if persist_crm(f"CRM: note on {display_name(updated)}"):
                         st.toast("Note added")
                         st.rerun()
+
+    with meet_tab:
+        st.caption("Schedule a Google Meet and log it as activity")
+        meet_link = st.session_state.get(f"_meet_link_{cid}", "")
+        with st.form(f"activity_meet_{cid}", clear_on_submit=True, border=False):
+            meet_col1, meet_col2 = st.columns([1, 1])
+            with meet_col1:
+                meet_date = st.date_input("Meeting date", value=date.today(), format="YYYY-MM-DD")
+                meet_time = st.time_input("Time", value=datetime.now().replace(hour=10, minute=0).time())
+            with meet_col2:
+                meet_subject = st.text_input("Meeting title", placeholder="Strategy review / Demo / Follow-up")
+                meet_notes = st.text_area(
+                    "Conversation notes",
+                    placeholder="What was discussed? Objections, decisions, next steps...",
+                    height=100,
+                )
+            gen_link_col, link_display_col = st.columns([1, 2])
+            with gen_link_col:
+                generate = st.form_submit_button("Generate Meet link", use_container_width=True)
+            with link_display_col:
+                if meet_link:
+                    st.markdown(
+                        f'<div style="padding:8px 10px;background:rgba(46,139,77,.08);border-radius:8px;'
+                        f'border:1px solid rgba(46,139,77,.18);font-size:13px;font-weight:600;color:var(--green);">'
+                        f'<a href="{html.escape(meet_link)}" target="_blank" rel="noreferrer" '
+                        f'style="color:var(--green);text-decoration:none;">'
+                        f'{html.escape(meet_link)}</a></div>',
+                        unsafe_allow_html=True,
+                    )
+
+            sched_col1, sched_col2 = st.columns([1, 1])
+            with sched_col1:
+                schedule = st.form_submit_button("Save & Schedule", type="primary", use_container_width=True)
+            with sched_col2:
+                st.form_submit_button("Join directly →", use_container_width=True, on_click=lambda: None)
+
+        if generate:
+            link = generate_meet_link()
+            st.session_state[f"_meet_link_{cid}"] = link
+            st.rerun()
+
+        if schedule:
+            final_link = st.session_state.get(f"_meet_link_{cid}", meet_link)
+            if not final_link:
+                final_link = generate_meet_link()
+                st.session_state[f"_meet_link_{cid}"] = final_link
+            meeting_record = normalize_comment({
+                "body": meet_notes or "Scheduled via CRM",
+                "author": "Team",
+                "subject": meet_subject or f"Google Meet — {meet_date.isoformat()} {meet_time.strftime('%H:%M')}",
+                "meeting_link": final_link,
+                "source": "google_meet",
+                "created_at": f"{meet_date.isoformat()}T{meet_time.strftime('%H:%M:%S')}",
+            })
+            meeting_record["meeting_link"] = final_link
+            contacts = st.session_state.crm_db.get("contacts", [])
+            updated = normalize_contact({
+                **contact,
+                "meetings": list(contact.get("meetings") or []) + [meeting_record],
+                "updated_at": utc_now_iso(),
+            })
+            contacts[idx] = updated
+            st.session_state.crm_db["contacts"] = contacts
+            if persist_crm(f"CRM: schedule meet for {display_name(updated)}"):
+                st.toast(f"Meeting scheduled — {final_link}")
+                st.session_state.pop(f"_meet_link_{cid}", None)
+                st.rerun()
 
     with email_tab:
         with st.form(f"activity_email_{cid}", clear_on_submit=True, border=False):
@@ -2315,7 +2427,9 @@ def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
     source_disp = _source_label(source)
     title = (contact.get("title") or "").strip()
     is_due = _is_due(contact) and deal_status == "open"
+    has_meetings = bool(contact.get("meetings"))
     due_html = '<span class="crm-pill due">Due</span>' if is_due else ""
+    meeting_html = '<span class="crm-pill meeting">Meet</span>' if has_meetings else ""
     title_html = f'<span class="crm-row-title">{html.escape(title)}</span>' if title else ""
 
     company = (contact.get("company") or "").strip() or "—"
@@ -2362,6 +2476,7 @@ def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
         f'<div class="crm-row-meta">'
         f'  <div class="crm-row-meta-top">'
         f'    {due_html}'
+        f'    {meeting_html}'
         f'    <span class="crm-pill {html.escape(deal_status)}">{html.escape(deal_label)}</span>'
         f'  </div>'
         f'  <div class="crm-row-sub">Owner: {html.escape(owner)} · Value: {html.escape(value)}</div>'

@@ -1141,6 +1141,7 @@ h1, h2, h3, h4, p, div, span, label {
 .kw-google   { background: #DBEAFE; color: #1E40AF; }
 .kw-linkedin { background: #E0E7FF; color: #3730A3; }
 .kw-reddit   { background: #FCE7F3; color: #9D174D; }
+.kw-yahoo    { background: #E6E6FA; color: #4B0082; }
 .kw-naukri   { background: #FEF3C7; color: #92400E; }
 .kw-q { flex: 1; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kw-count { color: var(--ink-mute); font-family: 'JetBrains Mono', monospace; font-size: 11px; flex-shrink: 0; }
@@ -2086,8 +2087,9 @@ elif st.session_state.stage == "running":
     def render_sources(sources: dict) -> str:
         if not sources: return ""
         rows = ""
-        ORDER = ["serper", "reddit", "tracxn", "proxycurl", "naukri"]
-        icons = {"serper": "Google", "reddit": "Reddit", "tracxn": "Tracxn",
+        ORDER = ["serper", "reddit", "yahoo", "yahoo_linkedin", "tracxn", "proxycurl", "naukri"]
+        icons = {"serper": "Google", "reddit": "Reddit", "yahoo": "Yahoo",
+                 "yahoo_linkedin": "Yahoo·LI", "tracxn": "Tracxn",
                  "proxycurl": "LinkedIn", "naukri": "Naukri"}
         for k in ORDER:
             if k not in sources: continue
@@ -2112,8 +2114,10 @@ elif st.session_state.stage == "running":
     def render_search_log(events: list) -> str:
         kw_events = [e for e in events if e.get("type") == "keyword_done"][-12:]
         if not kw_events: return '<div style="color:var(--ink-mute);font-size:12px;padding:8px 0">Waiting for search to start…</div>'
-        src_badge = {"serper": "google", "linkedin": "linkedin", "reddit": "reddit", "naukri": "naukri"}
-        src_label = {"serper": "Google", "linkedin": "LinkedIn", "reddit": "Reddit", "naukri": "Naukri"}
+        src_badge = {"serper": "google", "linkedin": "linkedin", "reddit": "reddit",
+                     "yahoo": "yahoo", "yahoo_linkedin": "yahoo", "naukri": "naukri"}
+        src_label = {"serper": "Google", "linkedin": "LinkedIn", "reddit": "Reddit",
+                     "yahoo": "Yahoo", "yahoo_linkedin": "Yahoo·LI", "naukri": "Naukri"}
         rows = ""
         for ev in kw_events:
             src  = ev.get("source", "serper")
@@ -2225,6 +2229,7 @@ elif st.session_state.stage == "running":
     KNOWN_SOURCES = [
         ("serper",  "Google · web/news"),
         ("reddit",  "Reddit · pain posts"),
+        ("yahoo",   "Yahoo · LinkedIn profiles"),
         ("tracxn",  "Tracxn · funded startups"),
         ("naukri",  "Naukri · job board"),
     ]

@@ -21,7 +21,7 @@ import requests
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
-from agent.searcher import search_serper
+from agent.searcher import search_serper, search_yahoo_linkedin_profiles
 from utils import budget
 
 
@@ -88,6 +88,35 @@ def find_decision_maker_via_linkedin(company_name: str, target_titles: list) -> 
                 "source":        "linkedin_search",
             }
 
+    return {}
+
+
+def find_decision_maker_via_yahoo(company_name: str, target_titles: list, city: str = "Bengaluru") -> dict:
+    """
+    Use Yahoo Search (not Google — Yahoo doesn't block automated fetches)
+    to find real LinkedIn profiles matching a decision-maker title at the
+    company. Yahoo returns actual LinkedIn profile pages in search results
+    with names, titles, and locations displayed in snippets.
+
+    Returns {name, title, linkedin_url} or {} if nothing credible found.
+    """
+    if not company_name:
+        return {}
+
+    for title in target_titles[:3]:
+        profiles = search_yahoo_linkedin_profiles(company_name, title, city)
+        for p in profiles:
+            name = p.get("name", "")
+            linkedin_url = p.get("linkedin_url", "")
+            snippet = p.get("snippet", "")
+            if name and linkedin_url:
+                if company_name.lower() in (snippet + " " + linkedin_url).lower():
+                    return {
+                        "contact_name":  name,
+                        "contact_title": title,
+                        "linkedin_url":  linkedin_url,
+                        "source":        "yahoo_linkedin",
+                    }
     return {}
 
 
