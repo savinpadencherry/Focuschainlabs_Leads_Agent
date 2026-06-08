@@ -59,6 +59,81 @@ def generate_meet_link() -> str:
     return f"https://meet.google.com/{suffix}"
 
 
+AI_INTAKE_TEMPLATES = [
+    {
+        "label": "Expo",
+        "source": "event",
+        "icon": "✦",
+        "desc": "Met at event or booth",
+        "example": "Met at expo — Rajesh, Prestige Group, 9876543210, wants 3BHK Whitefield demo",
+    },
+    {
+        "label": "Referral",
+        "source": "referral",
+        "icon": "◎",
+        "desc": "Introduced by partner",
+        "example": "SN Realtors referral — priya@zenith.in, founder Zenith Interiors, follow up Friday",
+    },
+    {
+        "label": "LinkedIn",
+        "source": "linkedin",
+        "icon": "in",
+        "desc": "Inbound or outbound social",
+        "example": "LinkedIn inbound — hiring sales head, Bangalore, budget 2Cr+",
+    },
+]
+
+
+def _render_ai_template_picker(*, active: int) -> None:
+    """Source selector — each option is a styled card button."""
+    st.markdown('<div class="ai-template-row">', unsafe_allow_html=True)
+    cols = st.columns(len(AI_INTAKE_TEMPLATES))
+    for i, tmpl in enumerate(AI_INTAKE_TEMPLATES):
+        is_active = i == active
+        slot_cls = "ai-tmpl-slot is-active" if is_active else "ai-tmpl-slot"
+        with cols[i]:
+            st.markdown(f'<div class="{slot_cls}">', unsafe_allow_html=True)
+            if st.button(
+                f'{tmpl["icon"]}  {tmpl["label"]}',
+                key=f"ai_ex_{i}",
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+                help=tmpl["desc"],
+            ):
+                st.session_state["_ai_active_template"] = i
+                st.session_state["_ai_example_placeholder"] = tmpl["example"]
+                st.session_state["_ai_template_source"] = tmpl["source"]
+                st.session_state["ai_text"] = ""
+                st.rerun()
+            st.markdown(
+                f'<span class="tmpl-desc-below">{html.escape(tmpl["desc"])}</span></div>',
+                unsafe_allow_html=True,
+            )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_ai_dialog_header(*, title: str, subtitle: str, step: str = "capture") -> None:
+    st.markdown(
+        f'<div class="ai-dialog-head">'
+        f'<p class="ai-dialog-kicker">CRM · New lead</p>'
+        f'<p class="ai-dialog-title">{html.escape(title)}</p>'
+        f'<p class="ai-dialog-sub">{html.escape(subtitle)}</p>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _resolve_ai_capture_text() -> str:
+    """Return typed notes, or the active template example if the box is still empty."""
+    typed = (st.session_state.get("ai_text") or "").strip()
+    if typed:
+        return typed
+    idx = st.session_state.get("_ai_active_template", -1)
+    if 0 <= idx < len(AI_INTAKE_TEMPLATES):
+        return AI_INTAKE_TEMPLATES[idx]["example"]
+    return ""
+
+
 def normalize_source(raw: str) -> str:
     fn = getattr(crm_models, "normalize_source", None)
     if fn:
@@ -773,34 +848,318 @@ CRM_CSS = """
     }
 }
 
-/* AI intake dialog — polished modal */
+/* ═══════════════════════════════════════════════════════════════════════════
+   AI INTAKE DIALOG — Premium composer layout
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 [data-testid="stDialog"] {
-    background: rgba(15, 42, 51, 0.42) !important;
-    backdrop-filter: blur(3px);
+    background: rgba(15, 42, 51, 0.58) !important;
+    backdrop-filter: blur(12px) saturate(120%);
+    animation: aiBackdropIn .28s ease both;
 }
+@keyframes aiBackdropIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
 [data-testid="stDialog"] [data-testid="stModal"] > div:first-child {
-    background: linear-gradient(180deg, #FDFCF9 0%, #F4F0E7 100%) !important;
-    border: 1px solid rgba(15, 42, 51, 0.12) !important;
-    border-radius: 22px !important;
-    box-shadow: 0 28px 90px rgba(15, 42, 51, 0.18) !important;
-    padding: 6px 4px 8px !important;
+    background: linear-gradient(180deg, #FDFCF9 0%, #F5F1E8 100%) !important;
+    border: 1px solid rgba(15, 42, 51, 0.07) !important;
+    border-radius: 28px !important;
+    box-shadow:
+        0 48px 140px rgba(15, 42, 51, 0.30),
+        0 0 0 1px rgba(255,255,255,.60) inset !important;
+    padding: 18px 20px 20px !important;
+    max-width: 580px !important;
+    animation: aiModalIn .38s cubic-bezier(.22,1,.36,1) both;
+    position: relative;
+    overflow: hidden;
 }
+[data-testid="stDialog"] [data-testid="stModal"] > div:first-child::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, transparent, var(--green), #7DD99A, var(--green), transparent);
+    opacity: .85;
+}
+@keyframes aiModalIn {
+    from { opacity: 0; transform: translateY(16px) scale(.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 [data-testid="stDialog"] h2 {
-    font-family: 'Bricolage Grotesque', sans-serif !important;
-    font-size: 24px !important;
-    font-weight: 800 !important;
-    color: var(--ink) !important;
-    letter-spacing: -0.02em !important;
-    padding-bottom: 2px !important;
+    font-size: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
 }
+
 [data-testid="stDialog"] [data-testid="stVerticalBlock"] {
     gap: 0.55rem !important;
 }
-.ai-dialog-wrap { margin-top: -2px; }
 
+.ai-dialog-wrap {
+    padding: 6px 4px 4px;
+    animation: aiFadeUp .35s ease both;
+}
+.ai-dialog-wrap.ai-review-reveal { animation: aiFadeUp .45s ease both; }
+
+.ai-dialog-head { margin: 0 0 10px; animation: aiFadeUp .4s ease both; }
+.ai-dialog-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--green); font-weight: 700; margin: 0 0 6px;
+}
+.ai-dialog-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 26px; font-weight: 800; color: var(--ink);
+    letter-spacing: -0.03em; margin: 0 0 5px; line-height: 1.12;
+}
+.ai-dialog-sub {
+    font-size: 13.5px; color: var(--ink-mute); margin: 0; line-height: 1.5;
+}
+.ai-step-badge { display: none !important; }
+
+/* Progress track */
+.ai-progress-wrap { margin: 0 0 16px; }
+.ai-progress-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 7px;
+}
+.ai-progress-step {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-mute);
+    transition: color .3s ease;
+}
+.ai-progress-step.on { color: var(--green); }
+.ai-progress-step.done { color: var(--green); opacity: .75; }
+.ai-progress-track {
+    height: 4px; border-radius: 999px;
+    background: rgba(15,42,51,.08); overflow: hidden;
+}
+.ai-progress-fill {
+    height: 100%; border-radius: inherit;
+    background: linear-gradient(90deg, var(--green), #5BCF82);
+    transition: width .55s cubic-bezier(.22,1,.36,1);
+    box-shadow: 0 0 12px rgba(46,139,77,.35);
+}
+
+/* Composer — native Streamlit bordered container */
+[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"] {
+    background: rgba(255,255,255,.98) !important;
+    border: 1px solid rgba(15,42,51,.08) !important;
+    border-radius: 20px !important;
+    padding: 16px 18px 14px !important;
+    box-shadow: 0 14px 40px rgba(15,42,51,.07) !important;
+    animation: aiFadeUp .4s ease both;
+}
+[data-testid="stDialog"] .ai-field-label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700;
+    margin: 0 0 10px;
+}
+[data-testid="stDialog"] .ai-field-label--spaced { margin-top: 16px; }
+[data-testid="stDialog"] [data-testid="stCaptionContainer"] {
+    display: none !important;
+}
+
+/* Template cards */
+.ai-template-row [data-testid="stHorizontalBlock"] { gap: 8px !important; align-items: stretch !important; }
+.ai-tmpl-slot { margin-bottom: 2px; }
+.ai-tmpl-slot [data-testid="stButton"] { width: 100% !important; }
+.ai-tmpl-slot button {
+    width: 100% !important;
+    min-height: 46px !important;
+    border-radius: 14px !important;
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    letter-spacing: .01em !important;
+    transition: all .22s cubic-bezier(.22,1,.36,1) !important;
+}
+.ai-tmpl-slot button[kind="secondary"] {
+    background: #fff !important;
+    border: 1.5px solid rgba(15,42,51,.09) !important;
+    color: var(--ink) !important;
+    box-shadow: 0 2px 8px rgba(15,42,51,.04) !important;
+}
+.ai-tmpl-slot button[kind="secondary"]:hover {
+    border-color: rgba(46,139,77,.28) !important;
+    color: var(--green) !important;
+    transform: translateY(-1px) !important;
+}
+.ai-tmpl-slot.is-active button[kind="primary"] {
+    background: linear-gradient(135deg, var(--ink), #1a4450) !important;
+    border: none !important;
+    color: #fff !important;
+    box-shadow: 0 8px 24px rgba(15,42,51,.22) !important;
+}
+.tmpl-desc-below {
+    display: block; text-align: center;
+    font-size: 10px; color: var(--ink-mute);
+    margin-top: 5px; line-height: 1.3;
+}
+.ai-tmpl-slot.is-active .tmpl-desc-below { color: var(--green); font-weight: 600; }
+
+/* Example ghost — separate from input, not placeholder clutter */
+.ai-example-ghost {
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px dashed rgba(46,139,77,.22);
+    background: linear-gradient(135deg, rgba(46,139,77,.04), rgba(255,255,255,.8));
+    animation: aiFadeUp .3s ease both;
+}
+.ai-example-ghost .eg-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px; letter-spacing: .14em; text-transform: uppercase;
+    font-weight: 700; color: var(--green);
+    background: rgba(46,139,77,.12);
+    padding: 2px 7px; border-radius: 999px; margin-bottom: 6px;
+}
+.ai-example-ghost p {
+    margin: 0; font-size: 13px; line-height: 1.55;
+    color: var(--ink-mute); font-style: italic;
+}
+
+/* Textarea + buttons inside bordered container */
+[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stForm"] {
+    border: none !important; padding: 0 !important;
+    box-shadow: none !important; background: transparent !important;
+}
+[data-testid="stDialog"] [data-testid="stForm"] {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"] .stTextArea textarea {
+    border-radius: 14px !important;
+    border: 1.5px solid rgba(15,42,51,.08) !important;
+    background: var(--cream-3) !important;
+    padding: 12px 14px !important;
+    min-height: 96px !important;
+    font-size: 15px !important;
+    line-height: 1.6 !important;
+}
+[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"] .stTextArea textarea:focus {
+    border-color: rgba(46,139,77,.45) !important;
+    background: #fff !important;
+    box-shadow: 0 0 0 4px rgba(46,139,77,.10) !important;
+}
+[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stForm"] [data-testid="stHorizontalBlock"] {
+    gap: 10px !important; margin-top: 14px !important;
+}
+[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stForm"] [data-testid="column"]:first-child button {
+    background: #fff !important;
+    border: 1.5px solid rgba(15,42,51,.12) !important;
+    color: var(--ink-soft) !important;
+    font-weight: 600 !important;
+    border-radius: 12px !important;
+    min-height: 44px !important;
+    animation: none !important;
+}
+[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stForm"] [data-testid="column"]:last-child button {
+    background: linear-gradient(135deg, var(--green), #3DB86A) !important;
+    border: none !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+    border-radius: 12px !important;
+    min-height: 44px !important;
+    box-shadow: 0 10px 28px rgba(46,139,77,.30) !important;
+    animation: none !important;
+}
+
+/* Dialog footer */
+.ai-dialog-footer {
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid rgba(15,42,51,.06);
+    animation: aiFadeUp .45s ease .1s both;
+}
+.ai-dialog-footer [data-testid="column"]:first-child [data-testid="stButton"] {
+    width: auto !important;
+}
+.ai-dialog-footer [data-testid="column"]:first-child button {
+    width: auto !important; min-width: 0 !important;
+    background: transparent !important; border: none !important;
+    color: var(--ink-mute) !important; font-size: 13px !important;
+    font-weight: 600 !important; padding: 6px 0 !important;
+    box-shadow: none !important; animation: none !important;
+}
+.ai-dialog-footer [data-testid="column"]:first-child button:hover { color: var(--ink) !important; }
+.ai-footer-note {
+    display: block; text-align: right;
+    font-size: 10px; color: var(--ink-mute); letter-spacing: .04em;
+    padding-top: 8px;
+}
+
+[data-testid="stDialog"] [data-testid="stCaptionContainer"] { display: none !important; }
+
+/* Legacy hero — hidden in new layout */
+.ai-hero { display: none; }
+
+/* ── Step rail (legacy) ── */
+/* ── Google Meet panel ── */
+.crm-meet-shell {
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1.5px solid var(--line-soft);
+    background: linear-gradient(165deg, rgba(255,255,255,.95), rgba(244,240,231,.55));
+    box-shadow: 0 8px 28px rgba(15,42,51,.05);
+    animation: aiFadeUp .35s ease both;
+}
+.crm-meet-shell .meet-head {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+}
+.crm-meet-shell .meet-icon {
+    width: 36px; height: 36px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #1a73e8, #4285f4);
+    color: #fff; font-size: 16px; font-weight: 800;
+    box-shadow: 0 6px 18px rgba(26,115,232,.25);
+}
+.crm-meet-shell .meet-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 15px; font-weight: 800; color: var(--ink); margin: 0;
+}
+.crm-meet-shell .meet-sub {
+    font-size: 12px; color: var(--ink-mute); margin: 2px 0 0;
+}
+.crm-meet-chat {
+    margin-top: 12px; padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(46,139,77,.16);
+    background: rgba(46,139,77,.05);
+    font-size: 13px; line-height: 1.55; color: var(--ink-soft);
+    white-space: pre-wrap;
+}
+.crm-meet-actions {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+}
+.crm-meet-actions a, .crm-meet-actions span.pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; text-decoration: none;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.crm-meet-actions a:hover { transform: translateY(-1px); }
+.crm-meet-actions a.cal {
+    border: 1px solid rgba(26,115,232,.22);
+    background: rgba(26,115,232,.08); color: #1a73e8;
+}
+.crm-meet-actions a.meet {
+    border: 1px solid rgba(46,139,77,.25);
+    background: rgba(46,139,77,.10); color: var(--green);
+}
+
+/* ── Step rail ── */
 .ai-step-rail {
     display: flex; align-items: center; gap: 0;
-    margin: 0 0 18px; padding: 0 2px;
+    margin: 0 0 10px; padding: 0 2px;
 }
 .ai-step-node {
     display: flex; align-items: center; gap: 8px;
@@ -810,136 +1169,143 @@ CRM_CSS = """
     width: 26px; height: 26px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; font-weight: 700;
-    border: 1px solid var(--line-soft);
-    background: var(--cream-3); color: var(--ink-mute);
+    font-size: 10px; font-weight: 700;
+    border: 2px solid var(--line-soft);
+    background: #fff; color: var(--ink-mute);
     flex-shrink: 0;
+    transition: all .35s var(--ease-spring);
 }
 .ai-step-label {
-    font-size: 12px; font-weight: 600; color: var(--ink-mute);
+    font-size: 11px; font-weight: 600; color: var(--ink-mute);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: color .3s ease;
 }
 .ai-step-node.active .ai-step-dot {
     background: var(--green); border-color: var(--green); color: #fff;
-    box-shadow: 0 0 0 4px rgba(46, 139, 77, 0.14);
+    box-shadow: 0 0 0 5px rgba(46, 139, 77, 0.14);
+    transform: scale(1.08);
 }
 .ai-step-node.active .ai-step-label { color: var(--ink); font-weight: 700; }
 .ai-step-node.done .ai-step-dot {
-    background: rgba(46, 139, 77, 0.12); border-color: rgba(46, 139, 77, 0.28);
-    color: var(--green);
+    background: var(--green); border-color: var(--green); color: #fff;
 }
 .ai-step-node.done .ai-step-label { color: var(--green); }
 .ai-step-line {
-    flex: 0 0 28px; height: 1px; background: var(--line-soft); margin: 0 6px;
+    flex: 1; height: 2px; background: var(--line-soft); margin: 0 10px;
+    border-radius: 2px;
+    transition: background .4s ease;
 }
 .ai-step-line.done { background: rgba(46, 139, 77, 0.35); }
 
+/* ── Hero ── */
 .ai-hero {
-    display: flex; align-items: flex-start; gap: 14px;
-    padding: 16px 18px; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px; margin-bottom: 10px;
     border-radius: 16px;
-    background: linear-gradient(135deg, rgba(46,139,77,.09) 0%, rgba(255,255,255,.55) 100%);
-    border: 1px solid rgba(46, 139, 77, 0.14);
+    background: linear-gradient(135deg, rgba(46,139,77,.06), rgba(255,255,255,.40));
+    border: 1px solid rgba(46, 139, 77, 0.12);
 }
 .ai-hero-icon {
-    width: 42px; height: 42px; border-radius: 12px;
+    width: 40px; height: 40px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
     background: var(--green); color: #fff;
     font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 22px; font-weight: 800; line-height: 1;
-    flex-shrink: 0;
-    box-shadow: 0 8px 20px rgba(46, 139, 77, 0.22);
+    font-size: 20px; font-weight: 800; flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(46, 139, 77, 0.18);
 }
 .ai-hero-title {
-    font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 18px; font-weight: 800; color: var(--ink);
-    margin: 0 0 3px 0; letter-spacing: -0.01em;
+    font-size: 17px; font-weight: 800; color: var(--ink);
+    margin: 0 0 1px 0; letter-spacing: -0.01em;
 }
 .ai-hero-sub {
-    font-size: 13px; color: var(--ink-mute); line-height: 1.45; margin: 0;
+    font-size: 12.5px; color: var(--ink-mute); line-height: 1.4; margin: 0;
 }
 
-.ai-template-section {
-    margin: 8px 0 16px 0;
-    padding: 0;
-}
-.ai-template-label {
-    display: block;
-    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
-    color: var(--ink-mute); font-weight: 700;
-    margin: 0 0 10px 0;
-    padding: 0;
-    line-height: 1.4;
-}
-[data-testid="stDialog"] .ai-template-section + div {
-    margin-top: 0 !important;
-}
-[data-testid="stDialog"] .ai-template-section + div [data-testid="stHorizontalBlock"] {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-}
+/* ── Dialogs captions — use ai-field-label instead ── */
 [data-testid="stDialog"] [data-testid="stCaptionContainer"] {
-    margin: 6px 0 10px 0 !important;
-    padding: 0 !important;
-}
-[data-testid="stDialog"] [data-testid="stCaptionContainer"] p {
-    font-size: 10px !important;
-    letter-spacing: .14em !important;
-    text-transform: uppercase !important;
-    font-weight: 700 !important;
-    color: var(--ink-mute) !important;
-    margin: 0 !important;
-    line-height: 1.4 !important;
-}
-[data-testid="stDialog"] .ai-hero {
-    margin-bottom: 18px !important;
+    display: none !important;
 }
 
+/* ── Input card ── */
 .ai-input-card {
     background: #fff;
-    border: 1px solid var(--line-soft);
+    border: 1.5px solid var(--line-soft);
     border-radius: 16px;
-    padding: 14px 14px 10px;
+    padding: 10px 14px 6px;
     margin-bottom: 8px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+    transition: all .25s ease;
+    box-shadow: 0 1px 4px rgba(15,42,51,.02);
+}
+.ai-input-card:focus-within {
+    border-color: rgba(46,139,77,.35);
+    box-shadow: 0 0 0 4px rgba(46,139,77,.06);
 }
 .ai-input-card .hint {
-    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
-    color: var(--ink-mute); font-weight: 700; margin-bottom: 8px;
+    font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700; margin-bottom: 2px;
 }
 .ai-input-card textarea {
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    min-height: 96px !important;
-    font-size: 15px !important;
-    line-height: 1.5 !important;
+    border: none !important; box-shadow: none !important;
+    padding: 2px 2px !important; min-height: 64px !important;
+    font-size: 15px !important; line-height: 1.6 !important;
+    caret-color: var(--green) !important; background: transparent !important;
 }
 
-.ai-footer {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 10px; margin-top: 6px; padding-top: 12px;
-    border-top: 1px solid var(--line-soft);
+/* ── Form controls inside dialog ── */
+[data-testid="stDialog"] [data-testid="stForm"] {
+    border: none !important; padding: 0 !important;
+    box-shadow: none !important; background: transparent !important;
 }
-.ai-footer-note {
-    font-size: 11.5px; color: var(--ink-mute); line-height: 1.4;
+[data-testid="stDialog"] .stTextArea textarea {
+    border-radius: 10px !important;
+    border-color: rgba(46, 139, 77, 0.18) !important;
+    background: transparent !important;
+    font-size: 15px !important; line-height: 1.6 !important;
+}
+[data-testid="stDialog"] .stTextArea textarea:focus {
+    border-color: var(--green) !important;
+    box-shadow: 0 0 0 3px rgba(46, 139, 77, 0.08) !important;
+}
+[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button {
+    border-radius: 10px !important; font-weight: 600 !important;
+    min-height: 40px !important; font-size: 14px !important;
+}
+[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button:hover {
+    transform: translateY(-1px) !important;
+}
+[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button:active {
+    transform: scale(.98) !important;
 }
 
+/* Review-phase primary pulse only — not every dialog button */
+.ai-save-bar [data-testid="baseButton-primary"]:not(:disabled) {
+    animation: aiSavePulse 2.4s ease-in-out infinite;
+}
+.ai-save-bar [data-testid="baseButton-primary"]:not(:disabled):hover {
+    animation: none;
+}
+.ai-action-bar [data-testid="baseButton-primary"]:not(:disabled) {
+    animation: none !important;
+}
+
+/* ── Preview card ── */
 .ai-preview-card {
     display: flex; align-items: center; gap: 14px;
-    padding: 14px 16px; margin-bottom: 14px;
+    padding: 14px 18px; margin-bottom: 10px;
     border-radius: 16px;
     background: #fff;
     border: 1px solid var(--line-soft);
-    box-shadow: 0 10px 30px rgba(15, 42, 51, 0.05);
+    box-shadow: 0 4px 16px rgba(15, 42, 51, 0.04);
 }
 .ai-preview-avatar {
-    width: 48px; height: 48px; border-radius: 14px;
+    width: 46px; height: 46px; border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
-    background: var(--green-bg); color: var(--green);
+    background: linear-gradient(135deg, var(--green), var(--green-br));
+    color: #fff;
     font-family: 'Bricolage Grotesque', sans-serif;
     font-size: 18px; font-weight: 800;
     flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(46, 139, 77, 0.18);
 }
 .ai-preview-name {
     font-family: 'Bricolage Grotesque', sans-serif;
@@ -947,49 +1313,185 @@ CRM_CSS = """
     margin: 0 0 2px 0;
 }
 .ai-preview-meta {
-    font-size: 12.5px; color: var(--ink-mute); margin: 0;
+    font-size: 12px; color: var(--ink-mute); margin: 0;
 }
 
+/* ── Field sections ── */
 .ai-field-section {
     background: #fff;
-    border: 1px solid var(--line-soft);
+    border: 1.5px solid var(--line-soft);
     border-radius: 16px;
-    padding: 14px 14px 6px;
-    margin-bottom: 10px;
+    padding: 12px 16px 8px;
+    margin-bottom: 8px;
+    transition: all .2s ease;
+    box-shadow: 0 1px 4px rgba(15,42,51,.02);
 }
 .ai-field-section .sec-label {
-    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
     color: var(--ink-mute); font-weight: 700; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+}
+.ai-field-section .sec-label::after {
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--line-soft), transparent);
+}
+.ai-field-section:focus-within {
+    border-color: rgba(46,139,77,.28);
+    box-shadow: 0 0 0 3px rgba(46,139,77,.05);
 }
 
+/* ── Note cards ── */
 .ai-note {
     display: flex; align-items: flex-start; gap: 10px;
-    font-size: 13px; line-height: 1.5; padding: 11px 14px;
+    font-size: 13px; line-height: 1.5; padding: 10px 14px;
     border-radius: 12px; border: 1px solid var(--line-soft);
-    background: var(--cream-3); margin-bottom: 12px;
+    background: var(--cream-3); margin-bottom: 8px;
 }
 .ai-note .tag {
     flex: none; font-family: 'JetBrains Mono', monospace; font-weight: 700;
-    font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
-    padding: 3px 8px; border-radius: 999px; margin-top: 1px;
+    font-size: 8.5px; letter-spacing: .14em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 999px; margin-top: 1px;
 }
-.ai-note.ok { border-color: rgba(46,139,77,.22); background: var(--green-bg); }
+.ai-note.ok { border-color: rgba(46,139,77,.18); background: var(--green-bg); }
+.ai-note.ok .tag { color: var(--green); background: rgba(46,139,77,.12); }
+.ai-note.warn { border-color: rgba(183,121,31,.18); background: var(--amber-bg); }
+.ai-note.warn .tag { color: var(--amber); background: rgba(183,121,31,.14); }
+
+/* ── Save bar ── */
+.ai-save-bar {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 2px; padding: 10px 0 0;
+    border-top: 1px solid var(--line-soft);
+}
+.ai-save-bar .missing-note {
+    font-size: 12px; color: var(--ink-mute); line-height: 1.4;
+    padding: 6px 10px; border-radius: 8px;
+    background: var(--amber-bg); border: 1px solid rgba(183,121,31,.16);
+    flex: 1;
+}
+.ai-save-bar .missing-note strong { color: var(--amber); }
+
+.ai-preview-card {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 20px; margin-bottom: 14px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,.85) 100%);
+    border: 1px solid var(--line-soft);
+    box-shadow: 0 10px 34px rgba(15, 42, 51, 0.06);
+    position: relative; overflow: hidden;
+    transition: all .3s var(--ease-out);
+}
+.ai-preview-card::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; height: 2.5px;
+    background: linear-gradient(90deg, transparent, var(--green), rgba(46,139,77,.30), transparent);
+    opacity: .7;
+}
+.ai-preview-avatar {
+    width: 52px; height: 52px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--green), #3DB86A);
+    color: #fff;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 21px; font-weight: 800;
+    flex-shrink: 0;
+    box-shadow: 0 6px 20px rgba(46, 139, 77, 0.22);
+    position: relative;
+    overflow: hidden;
+    animation: aiAvatarGlow 3s ease-in-out infinite;
+}
+@keyframes aiAvatarGlow {
+    0%, 100% { box-shadow: 0 6px 20px rgba(46, 139, 77, 0.22); }
+    50% { box-shadow: 0 6px 28px rgba(46, 139, 77, 0.32), 0 0 0 5px rgba(46,139,77,.08); }
+}
+.ai-preview-avatar::after {
+    content: "";
+    position: absolute; top: -30%; left: -30%;
+    width: 65%; height: 65%;
+    background: radial-gradient(circle, rgba(255,255,255,.18), transparent 70%);
+    pointer-events: none;
+}
+.ai-preview-name {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 20px; font-weight: 800; color: var(--ink);
+    margin: 0 0 3px 0;
+    letter-spacing: -0.01em;
+}
+.ai-preview-meta {
+    font-size: 12.5px; color: var(--ink-mute); margin: 0;
+    line-height: 1.45;
+}
+
+/* ── Field sections ── */
+.ai-field-section {
+    background: #fff;
+    border: 1.5px solid var(--line-soft);
+    border-radius: 18px;
+    padding: 14px 16px 10px;
+    margin-bottom: 10px;
+    transition: all .25s var(--ease-out);
+    box-shadow: 0 2px 8px rgba(15,42,51,.03);
+}
+.ai-field-section .sec-label {
+    font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-mute); font-weight: 700; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+}
+.ai-field-section .sec-label::after {
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--line-soft), transparent);
+}
+.ai-field-section:focus-within {
+    border-color: rgba(46,139,77,.30) !important;
+    box-shadow: 0 0 0 4px rgba(46,139,77,.07), 0 4px 16px rgba(15,42,51,.04);
+}
+
+[data-testid="stDialog"] .stTextInput input,
+[data-testid="stDialog"] .stSelectbox > div > div {
+    border-radius: 10px !important;
+    padding: 8px 12px !important;
+    font-size: 14px !important;
+}
+
+/* ── Note cards ── */
+.ai-note {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 13px; line-height: 1.55; padding: 12px 15px;
+    border-radius: 14px; border: 1px solid var(--line-soft);
+    background: var(--cream-3); margin-bottom: 12px;
+    transition: all .25s var(--ease-out);
+}
+.ai-note:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(15,42,51,.06); }
+.ai-note .tag {
+    flex: none; font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 999px; margin-top: 2px;
+}
+.ai-note.ok { border-color: rgba(46,139,77,.20); background: linear-gradient(135deg, var(--green-bg), rgba(255,255,255,.60)); }
 .ai-note.ok .tag { color: var(--green); background: rgba(46,139,77,.14); }
-.ai-note.warn { border-color: rgba(183,121,31,.24); background: var(--amber-bg); }
+.ai-note.warn { border-color: rgba(183,121,31,.22); background: linear-gradient(135deg, var(--amber-bg), rgba(255,255,255,.60)); }
 .ai-note.warn .tag { color: var(--amber); background: rgba(183,121,31,.16); }
 
 .ai-captured {
-    font-size: 12.5px; line-height: 1.55; color: var(--ink-mute);
-    padding: 10px 12px; border-radius: 12px;
-    background: var(--cream-2); border: 1px solid var(--line-soft);
+    font-size: 12px; line-height: 1.55; color: var(--ink-mute);
+    padding: 12px 14px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--cream-2), rgba(255,255,255,.55));
+    border: 1px solid var(--line-soft);
     margin-bottom: 12px;
 }
-.ai-captured b { color: var(--ink); font-weight: 600; }
+.ai-captured b { color: var(--ink); font-weight: 600; display: block; margin-bottom: 6px; }
 .ai-captured .chip {
-    display: inline-block; margin: 2px 6px 2px 0; padding: 2px 8px;
-    border-radius: 999px; background: var(--cream-3); border: 1px solid var(--line-soft);
+    display: inline-block; margin: 3px 6px 3px 0; padding: 3px 10px;
+    border-radius: 999px; background: #fff; border: 1px solid var(--line-soft);
     font-size: 12px; color: var(--ink);
+    transition: transform .15s ease, box-shadow .15s ease;
 }
+.ai-captured .chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(15,42,51,.06);
+    border-color: rgba(46,139,77,.22);
+}
+.ai-captured .chip b { display: inline; margin-bottom: 0; }
 
 .ai-review-grid label {
     font-size: 11px !important;
@@ -999,53 +1501,87 @@ CRM_CSS = """
     font-weight: 700 !important;
 }
 
-/* Tighten dialog form controls */
+/* Expander in dialog */
+[data-testid="stDialog"] .streamlit-expanderHeader {
+    background: var(--cream-3) !important;
+    border: 1.5px dashed var(--line-soft) !important;
+    border-radius: 12px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: var(--ink-mute) !important;
+    padding: 10px 14px !important;
+    transition: all .2s ease !important;
+}
+[data-testid="stDialog"] .streamlit-expanderHeader:hover {
+    border-color: rgba(46,139,77,.25) !important;
+    color: var(--green) !important;
+    background: rgba(46,139,77,.04) !important;
+}
+[data-testid="stDialog"] .streamlit-expanderContent {
+    background: transparent !important;
+    border: none !important;
+    padding: 8px 0 0 !important;
+}
+
+/* ── Dialog form controls ── */
 [data-testid="stDialog"] [data-testid="stForm"] {
     border: none !important;
     padding: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
 }
 [data-testid="stDialog"] .stTextArea textarea {
     border-radius: 12px !important;
-    border-color: rgba(46, 139, 77, 0.22) !important;
-    background: #fff !important;
+    border-color: rgba(46, 139, 77, 0.20) !important;
+    background: transparent !important;
     font-size: 15px !important;
-    line-height: 1.5 !important;
-    margin-top: 4px !important;
-}
-[data-testid="stDialog"] [data-testid="stForm"] [data-testid="stCaptionContainer"] {
-    margin-bottom: 6px !important;
+    line-height: 1.65 !important;
 }
 [data-testid="stDialog"] .stTextArea textarea:focus {
     border-color: var(--green) !important;
     box-shadow: 0 0 0 3px rgba(46, 139, 77, 0.12) !important;
+    background: transparent !important;
 }
 [data-testid="stDialog"] [data-testid="stFormSubmitButton"] button {
-    border-radius: 12px !important;
+    border-radius: 10px !important;
     font-weight: 700 !important;
-    min-height: 44px !important;
+    min-height: 42px !important;
+    font-size: 14px !important;
 }
-[data-testid="stDialog"] [data-testid="baseButton-secondary"] button {
-    border-radius: 12px !important;
-    min-height: 40px !important;
+[data-testid="stDialog"] [data-testid="baseButton-secondary"] {
+    border-radius: 10px !important;
+    min-height: 38px !important;
+}
+[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button {
+    transition: transform .2s var(--ease-spring), box-shadow .2s ease !important;
+}
+[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button:hover {
+    transform: translateY(-1px) !important;
+}
+[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button:active {
+    transform: scale(.97) !important;
 }
 
-/* ── AI dialog motion (matches agent console) ── */
+/* ── Save button pulse when enabled (review only) ── */
+.ai-save-bar [data-testid="baseButton-primary"]:not(:disabled) {
+    animation: aiSavePulse 2.4s ease-in-out infinite;
+}
+.ai-save-bar [data-testid="baseButton-primary"]:not(:disabled):hover {
+    animation: none;
+}
+.ai-action-bar [data-testid="baseButton-primary"]:not(:disabled) {
+    animation: none !important;
+}
+
+/* ── AI dialog motion ── */
 @keyframes aiFadeUp {
-    from { opacity: 0; transform: translateY(10px); }
+    from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes aiCardIn {
-    from { opacity: 0; transform: translateY(8px) scale(.985); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-@keyframes aiModalIn {
-    from { opacity: 0; transform: translateY(18px) scale(.975); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes aiOrbitSpin { to { transform: rotate(360deg); } }
 @keyframes aiOrbitGlow {
-    0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10), 0 0 12px rgba(46,139,77,.12); }
-    50%       { box-shadow: 0 0 0 14px rgba(46,139,77,.04), 0 0 28px rgba(46,139,77,.28); }
+    0%, 100% { box-shadow: 0 0 0 8px rgba(46,139,77,.10), 0 0 14px rgba(46,139,77,.12); }
+    50%       { box-shadow: 0 0 0 16px rgba(46,139,77,.04), 0 0 32px rgba(46,139,77,.28); }
 }
 @keyframes aiScanline { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }
 @keyframes aiScanCell {
@@ -1057,167 +1593,135 @@ CRM_CSS = """
     0%   { left: -80%; }
     100% { left: 160%; }
 }
-@keyframes aiStepPulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(46,139,77,.22); }
-    50%      { box-shadow: 0 0 0 8px rgba(46,139,77,.06); }
-}
-@keyframes aiButtonShine {
-    0%, 35% { left: -45%; opacity: 0; }
-    50%     { opacity: 1; }
-    75%,100%{ left: 115%; opacity: 0; }
-}
 @keyframes aiChipPulse {
     0%, 100% { opacity: .55; transform: translateY(0); }
     50%      { opacity: 1; transform: translateY(-1px); }
 }
-
-[data-testid="stDialog"] [data-testid="stModal"] > div:first-child {
-    animation: aiModalIn .48s cubic-bezier(.16,1,.3,1) both !important;
+@keyframes aiSavePulse {
+    0%, 100% { box-shadow: 0 4px 16px rgba(46,139,77,.22); }
+    50%      { box-shadow: 0 4px 26px rgba(46,139,77,.34), 0 0 0 5px rgba(46,139,77,.08); }
 }
+
 [data-testid="stDialog"] [data-testid="stSpinner"] { display: none !important; }
 
-.ai-dialog-wrap .ai-step-rail { animation: aiFadeUp .42s ease both; }
-.ai-dialog-wrap .ai-hero { animation: aiFadeUp .52s cubic-bezier(.16,1,.3,1) .06s both; }
-.ai-dialog-wrap .ai-captured { animation: aiFadeUp .45s ease both; }
-
-.ai-step-node.processing .ai-step-dot {
-    background: var(--green); border-color: var(--green); color: #fff;
-    animation: aiStepPulse 2s ease-in-out infinite;
-}
-.ai-step-node.processing .ai-step-label { color: var(--green); font-weight: 700; }
-
-[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button {
-    position: relative !important;
-    overflow: hidden !important;
-    transition: transform .18s ease, box-shadow .18s ease !important;
-}
-[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button::after {
-    content: "";
-    position: absolute; top: 0; left: -45%; width: 38%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,.32), transparent);
-    animation: aiButtonShine 4.8s ease-in-out infinite;
-    pointer-events: none;
-}
-[data-testid="stDialog"] [data-testid="stFormSubmitButton"] button:active {
-    transform: scale(.985) !important;
-}
-
-/* Gemini / parsing console */
 .ai-thinking-panel {
     position: relative;
     background: linear-gradient(165deg, #0F2A33 0%, #153942 100%);
-    border-radius: 18px;
-    padding: 22px 20px 18px;
-    margin: 6px 0 8px;
+    border-radius: 20px;
+    padding: 24px 22px 20px;
+    margin: 8px 0 10px;
     border: 1px solid rgba(155,207,158,.18);
-    box-shadow: 0 18px 42px rgba(15,42,51,.16);
+    box-shadow: 0 20px 50px rgba(15,42,51,.18);
     overflow: hidden;
-    animation: aiCardIn .45s cubic-bezier(.16,1,.3,1) both;
+    animation: aiFadeUp .4s ease both;
 }
 .ai-thinking-panel::before {
     content: "";
-    position: absolute; top: 0; left: -80%; width: 40%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,.025), transparent);
-    animation: aiShimmerSweep 5s ease-in-out infinite;
+    position: absolute; top: 0; left: -80%; width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.03), transparent);
+    animation: aiShimmerSweep 4s ease-in-out infinite;
     pointer-events: none; z-index: 0;
 }
 .ai-thinking-panel::after {
     content: "";
     position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
-    background: linear-gradient(90deg, var(--green), #9BCF9E, var(--green));
-    background-size: 220% 100%;
-    animation: aiScanline 2.4s linear infinite;
+    background: linear-gradient(90deg, transparent, var(--green), #9BCF9E, var(--green), transparent);
+    background-size: 300% 100%;
+    animation: aiScanline 2.8s linear infinite;
 }
 .ai-thinking-top {
-    display: flex; align-items: center; gap: 14px;
-    margin-bottom: 14px; position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 16px; position: relative; z-index: 1;
 }
 .ai-orbit {
-    width: 40px; height: 40px; border-radius: 50%;
+    width: 44px; height: 44px; border-radius: 50%;
     border: 1.5px solid rgba(155,207,158,.65);
     display: flex; align-items: center; justify-content: center;
     color: #DFF0D8; font-family: 'JetBrains Mono', monospace;
     font-size: 11px; font-weight: 700; letter-spacing: .04em;
-    box-shadow: 0 0 0 7px rgba(46,139,77,.13);
+    box-shadow: 0 0 0 8px rgba(46,139,77,.12);
     animation: aiOrbitGlow 2s ease-in-out infinite;
     flex-shrink: 0; position: relative;
 }
 .ai-orbit::after {
     content: "";
-    position: absolute; inset: -5px; border-radius: 50%;
+    position: absolute; inset: -6px; border-radius: 50%;
     border: 1.5px solid transparent;
-    border-top-color: rgba(155,207,158,.80);
-    border-right-color: rgba(155,207,158,.22);
-    animation: aiOrbitSpin 2.2s linear infinite;
+    border-top-color: rgba(155,207,158,.85);
+    border-right-color: rgba(155,207,158,.20);
+    border-bottom-color: rgba(155,207,158,.05);
+    animation: aiOrbitSpin 1.8s linear infinite;
     pointer-events: none;
 }
 .ai-thinking-title {
     color: var(--cream) !important;
     font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 19px; font-weight: 800; line-height: 1.15;
+    font-size: 20px; font-weight: 800; line-height: 1.15;
     margin: 0 0 4px 0;
+    letter-spacing: -0.01em;
 }
 .ai-thinking-sub {
     color: #CBD5C0 !important;
-    font-size: 13px; line-height: 1.45; margin: 0;
+    font-size: 13px; line-height: 1.5; margin: 0;
+    opacity: .85;
 }
 .ai-signal-strip {
-    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
-    margin-top: 14px; position: relative; z-index: 1;
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px;
+    margin-top: 16px; position: relative; z-index: 1;
 }
 .ai-signal-strip span {
-    height: 3px; border-radius: 999px;
-    background: rgba(155,207,158,.16);
+    height: 4px; border-radius: 999px;
+    background: rgba(155,207,158,.12);
     overflow: hidden; position: relative;
 }
 .ai-signal-strip span::after {
     content: "";
     position: absolute; inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(155,207,158,.95), transparent);
-    animation: aiScanCell 1.8s ease-in-out infinite;
-    animation-delay: calc(var(--i) * .13s);
+    background: linear-gradient(90deg, transparent, #9BCF9E, transparent);
+    animation: aiScanCell 1.6s ease-in-out infinite;
+    animation-delay: calc(var(--i) * .12s);
 }
 .ai-thinking-chips {
     display: flex; flex-wrap: wrap; gap: 8px;
-    margin-top: 14px; position: relative; z-index: 1;
+    margin-top: 16px; position: relative; z-index: 1;
 }
 .ai-thinking-chip {
     font-family: 'JetBrains Mono', monospace;
     font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
-    color: #9BCF9E; padding: 5px 10px; border-radius: 999px;
-    border: 1px solid rgba(155,207,158,.22);
-    background: rgba(244,240,231,.06);
+    color: #9BCF9E; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid rgba(155,207,158,.20);
+    background: rgba(244,240,231,.07);
     animation: aiChipPulse 2.4s ease-in-out infinite;
     animation-delay: calc(var(--d) * .35s);
+    backdrop-filter: blur(4px);
 }
 
 /* Staggered review reveal */
-.ai-review-reveal .ai-preview-card {
-    animation: aiCardIn .58s cubic-bezier(.16,1,.3,1) both;
-}
-.ai-review-reveal .ai-preview-avatar {
-    animation: aiOrbitGlow 2.4s ease-in-out .2s 2;
-}
-.ai-review-reveal .ai-note:nth-of-type(1) { animation: aiFadeUp .48s ease .1s both; }
-.ai-review-reveal .ai-note:nth-of-type(2) { animation: aiFadeUp .48s ease .18s both; }
-.ai-review-reveal .ai-field-section:nth-of-type(1) { animation: aiFadeUp .52s cubic-bezier(.16,1,.3,1) .14s both; }
-.ai-review-reveal .ai-field-section:nth-of-type(2) { animation: aiFadeUp .52s cubic-bezier(.16,1,.3,1) .24s both; }
-.ai-review-reveal .ai-preview-card {
-    position: relative; overflow: hidden;
-}
-.ai-review-reveal .ai-preview-card::before {
-    content: "";
-    position: absolute; top: 0; left: -80%; width: 45%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(46,139,77,.08), transparent);
-    animation: aiShimmerSweep 1.8s ease-in-out .15s 1;
-    pointer-events: none;
-}
+.ai-review-reveal .ai-preview-card { animation: aiFadeUp .45s ease both; }
+.ai-review-reveal .ai-note:nth-of-type(1) { animation: aiFadeUp .4s ease .08s both; }
+.ai-review-reveal .ai-note:nth-of-type(2) { animation: aiFadeUp .4s ease .14s both; }
+.ai-review-reveal .ai-field-section:nth-of-type(1) { animation: aiFadeUp .45s ease .12s both; }
+.ai-review-reveal .ai-field-section:nth-of-type(2) { animation: aiFadeUp .45s ease .18s both; }
 
-.ai-preview-card { transition: box-shadow .35s ease, transform .35s ease; }
+/* Review save action bar */
+.ai-save-bar {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 4px; padding: 12px 0 0;
+    border-top: 1px solid var(--line-soft);
+    animation: aiFadeUp .4s var(--ease-out) .3s both;
+}
+.ai-save-bar .missing-note {
+    font-size: 12px; color: var(--ink-mute); line-height: 1.4;
+    padding: 8px 12px; border-radius: 10px;
+    background: var(--amber-bg); border: 1px solid rgba(183,121,31,.18);
+    flex: 1;
+}
+.ai-save-bar .missing-note strong { color: var(--amber); }
+
 .ai-field-section { transition: border-color .25s ease, box-shadow .25s ease; }
 .ai-field-section:focus-within {
-    border-color: rgba(46,139,77,.28) !important;
-    box-shadow: 0 0 0 3px rgba(46,139,77,.08);
+    border-color: rgba(46,139,77,.30) !important;
+    box-shadow: 0 0 0 4px rgba(46,139,77,.07);
 }
 </style>
 """
@@ -1653,11 +2157,15 @@ def _open_ai_dialog() -> None:
     for k in ("ai_text",):
         st.session_state.pop(k, None)
     st.session_state["_ai_active_template"] = -1
+    st.session_state["_ai_example_placeholder"] = ""
+    st.session_state["_ai_template_source"] = ""
 
 
 def _close_ai_dialog() -> None:
     st.session_state.crm_ai_dialog_open = False
     st.session_state["_ai_active_template"] = -1
+    st.session_state["_ai_example_placeholder"] = ""
+    st.session_state["_ai_template_source"] = ""
     for k in ("ai_intake", "ai_text"):
         st.session_state.pop(k, None)
 
@@ -1667,29 +2175,22 @@ def _reset_ai_intake() -> None:
 
 
 def _render_ai_steps(*, active: str) -> None:
-    steps = [("capture", "1", "Describe"), ("review", "2", "Review & save")]
-    parts = ['<div class="ai-step-rail">']
-    for i, (slug, num, label) in enumerate(steps):
-        cls = "ai-step-node"
-        step_label = label
-        if slug == active:
-            cls += " active"
-        elif active == "processing" and slug == "capture":
-            cls += " processing"
-            step_label = "Structuring…"
-        elif active in ("review", "processing") and slug == "capture":
-            cls += " done"
-        parts.append(
-            f'<div class="{cls}">'
-            f'<div class="ai-step-dot">{html.escape(num)}</div>'
-            f'<div class="ai-step-label">{html.escape(step_label)}</div>'
-            f"</div>"
-        )
-        if i == 0:
-            line_cls = "ai-step-line done" if active in ("review", "processing") else "ai-step-line"
-            parts.append(f'<div class="{line_cls}"></div>')
-    parts.append("</div>")
-    st.markdown("".join(parts), unsafe_allow_html=True)
+    on_capture = active in ("capture", "processing")
+    step2_label = "Structuring…" if active == "processing" else "Review & save"
+    fill_pct = 18 if on_capture else 100
+    if active == "processing":
+        fill_pct = 52
+    st.markdown(
+        f'<div class="ai-progress-wrap" style="animation:aiFadeUp .4s ease both">'
+        f'<div class="ai-progress-meta">'
+        f'<span class="ai-progress-step {"on" if on_capture else "done"}">'
+        f'{"Structuring…" if active == "processing" else "Describe"}</span>'
+        f'<span class="ai-progress-step {"on" if not on_capture else ""}">{html.escape(step2_label)}</span>'
+        f"</div>"
+        f'<div class="ai-progress-track"><div class="ai-progress-fill" style="width:{fill_pct}%"></div></div>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def _render_ai_thinking(*, mode: str = "ai") -> None:
@@ -1749,12 +2250,16 @@ def _ai_add_dialog() -> None:
         wrap_cls += " ai-dialog-processing"
 
     st.markdown(f'<div class="{wrap_cls}">', unsafe_allow_html=True)
-    step_active = "review" if phase == "review" else ("processing" if phase == "processing" else "capture")
-    _render_ai_steps(active=step_active)
 
     # ── Phase 1b: processing (animated loader, then parse) ────────────────────
     if phase == "processing":
         mode = state.get("processing_mode") or "ai"
+        _render_ai_dialog_header(
+            title="Structuring your lead",
+            subtitle="Gemini is mapping name, company, phone, and notes.",
+            step="processing",
+        )
+        _render_ai_steps(active="processing")
         _render_ai_thinking(mode=mode)
 
         if not state.get("_processing_visible"):
@@ -1779,6 +2284,9 @@ def _ai_add_dialog() -> None:
             st.rerun()
 
         state["existing"] = dict(res.get("fields") or {})
+        tmpl_source = st.session_state.get("_ai_template_source") or ""
+        if tmpl_source and not state["existing"].get("source"):
+            state["existing"]["source"] = tmpl_source
         state["result"] = res
         state["phase"] = "review"
         state["review_reveal"] = True
@@ -1791,6 +2299,17 @@ def _ai_add_dialog() -> None:
     # ── Phase 1: describe ─────────────────────────────────────────────────────
     if phase == "capture":
         existing = dict(state.get("existing") or {})
+        active_template = st.session_state.get("_ai_active_template", -1)
+        skip_ai = False
+        review = False
+
+        _render_ai_dialog_header(
+            title="Who did you meet?",
+            subtitle="Pick a source, jot a line — Gemini structures the rest.",
+            step="capture",
+        )
+        _render_ai_steps(active="capture")
+
         if existing:
             _render_ai_captured_summary(existing)
             prior = state.get("result") or {}
@@ -1800,85 +2319,88 @@ def _ai_add_dialog() -> None:
                     f'<span>{html.escape(prior["follow_up"])}</span></div>',
                     unsafe_allow_html=True,
                 )
-        else:
+
+        with st.container(border=True):
             st.markdown(
-                '<div class="ai-hero">'
-                '<div class="ai-hero-icon">+</div>'
-                '<div>'
-                '<p class="ai-hero-title">Tell us about the lead</p>'
-                '<p class="ai-hero-sub">One sentence works — name, phone, company, '
-                'where you met. Use your keyboard mic to dictate if you prefer.</p>'
-                '</div></div>',
+                '<span class="ai-field-label">Where did this lead come from?</span>',
                 unsafe_allow_html=True,
             )
+            _render_ai_template_picker(active=active_template)
 
-        st.caption("Quick templates — click to fill, then edit freely")
-        examples = [
-            ("Expo meet", "Met at expo — Rajesh, Prestige Group, 9876543210, wants 3BHK Whitefield demo"),
-            ("Referral", "SN Realtors referral — priya@zenith.in, founder Zenith Interiors, follow up Friday"),
-            ("LinkedIn", "LinkedIn inbound — hiring sales head, Bangalore, budget 2Cr+"),
-        ]
-        active_template = st.session_state.get("_ai_active_template", -1)
-        ex_cols = st.columns(3)
-        for i, (label, sample) in enumerate(examples):
-            btn_type = "primary" if i == active_template else "secondary"
-            if ex_cols[i].button(label, key=f"ai_ex_{i}", use_container_width=True, type=btn_type):
-                st.session_state["ai_text"] = sample
-                st.session_state["_ai_active_template"] = i
-                st.rerun()
+            example_text = ""
+            if 0 <= active_template < len(AI_INTAKE_TEMPLATES):
+                example_text = AI_INTAKE_TEMPLATES[active_template]["example"]
+            elif st.session_state.get("_ai_example_placeholder"):
+                example_text = st.session_state["_ai_example_placeholder"]
 
-        current_text = st.session_state.get("ai_text", "")
-        if active_template >= 0 and current_text != examples[active_template][1]:
-            st.session_state["_ai_active_template"] = -1
+            typed_now = (st.session_state.get("ai_text") or "").strip()
+            if example_text and not typed_now:
+                st.markdown(
+                    f'<div class="ai-example-ghost">'
+                    f'<span class="eg-tag">Example · tap Structure to use as-is</span>'
+                    f'<p>{html.escape(example_text)}</p>'
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
 
-        if state.get("capture_text") and "ai_text" not in st.session_state:
-            st.session_state["ai_text"] = state["capture_text"]
+            if state.get("capture_text") and "ai_text" not in st.session_state:
+                st.session_state["ai_text"] = state["capture_text"]
+                st.session_state["_ai_active_template"] = -1
+                st.session_state["_ai_example_placeholder"] = ""
 
-        if state.get("last_error"):
-            if "Gemini credits" in state["last_error"] or "Continue without AI" in state["last_error"]:
-                st.warning(state["last_error"])
-            else:
-                st.error(state["last_error"])
+            if state.get("last_error"):
+                if "Gemini credits" in state["last_error"] or "Continue without AI" in state["last_error"]:
+                    st.warning(state["last_error"])
+                else:
+                    st.error(state["last_error"])
 
-        with st.form("ai_capture_form", clear_on_submit=False, border=False):
-            st.caption("Your notes")
-            st.text_area(
-                "Lead details",
-                key="ai_text",
-                height=110,
-                placeholder="e.g. Priya Nair, Zenith Interiors, 9876543210 — met at Mumbai expo, wants demo next week",
-                label_visibility="collapsed",
+            st.markdown(
+                '<span class="ai-field-label ai-field-label--spaced">Your notes</span>',
+                unsafe_allow_html=True,
             )
-            review = st.form_submit_button("Structure with AI →", type="primary", use_container_width=True)
+            with st.form("ai_capture_form", clear_on_submit=False, border=False):
+                st.text_area(
+                    "Lead details",
+                    key="ai_text",
+                    height=120,
+                    placeholder="Name, company, phone, context…",
+                    label_visibility="collapsed",
+                )
+                btn_skip, btn_ai = st.columns([1, 1.45])
+                with btn_skip:
+                    skip_ai = st.form_submit_button("Skip AI", use_container_width=True)
+                with btn_ai:
+                    review = st.form_submit_button("Structure with AI →", type="primary", use_container_width=True)
 
-        foot1, foot2, foot3 = st.columns([1, 1.3, 1.7])
-        with foot1:
-            if st.button("Cancel", key="ai_capture_cancel", use_container_width=True):
+        st.markdown('<div class="ai-dialog-footer">', unsafe_allow_html=True)
+        foot_l, foot_r = st.columns([1, 1.6])
+        with foot_l:
+            if st.button("Cancel", key="ai_capture_cancel"):
                 _close_ai_dialog()
                 st.rerun()
-        with foot2:
-            if st.button("Skip AI →", use_container_width=True, key="ai_skip_ai"):
-                text_value = (st.session_state.get("ai_text") or "").strip()
-                if not text_value:
-                    state["last_error"] = "Add a few details in the box first."
-                    st.rerun()
-                state["last_error"] = ""
-                state["phase"] = "processing"
-                state["processing_mode"] = "basic"
-                state["processing_text"] = text_value
-                state.pop("_processing_visible", None)
-                st.rerun()
-        with foot3:
+        with foot_r:
             st.markdown(
-                '<div class="ai-footer-note">Tip: Ctrl+Enter submits the form. '
-                "Skip AI if credits are out — you can still save manually.</div>",
+                '<span class="ai-footer-note">Gemini 2.5 Flash · Ctrl+Enter to submit</span>',
                 unsafe_allow_html=True,
             )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        if skip_ai:
+            text_value = _resolve_ai_capture_text()
+            if not text_value:
+                state["last_error"] = "Pick a source or type a few details first."
+                st.rerun()
+            state["last_error"] = ""
+            state["phase"] = "processing"
+            state["processing_mode"] = "basic"
+            state["processing_text"] = text_value
+            state.pop("_processing_visible", None)
+            st.rerun()
 
         if review:
-            text_value = (st.session_state.get("ai_text") or "").strip()
+            text_value = _resolve_ai_capture_text()
             if not text_value:
-                state["last_error"] = "Add a few details in the box first."
+                state["last_error"] = "Pick a source or type a few details first."
                 st.rerun()
             state["last_error"] = ""
             state["phase"] = "processing"
@@ -1890,6 +2412,13 @@ def _ai_add_dialog() -> None:
         return
 
     # ── Phase 2: review & save ────────────────────────────────────────────────
+    _render_ai_dialog_header(
+        title="Review your lead",
+        subtitle="Edit anything before saving to the CRM.",
+        step="review",
+    )
+    _render_ai_steps(active="review")
+
     res = state.get("result") or {}
     f = dict(res.get("fields") or {})
     preview_name = f.get("name") or f.get("company") or "New lead"
@@ -1982,6 +2511,14 @@ def _ai_add_dialog() -> None:
     if not (f.get("phone") or f.get("email")):
         missing.append("phone or email")
 
+    st.markdown('<div class="ai-save-bar">', unsafe_allow_html=True)
+    if missing:
+        st.markdown(
+            f'<div class="missing-note"><strong>Still need</strong> '
+            f'{" and ".join(missing)} before saving.</div>',
+            unsafe_allow_html=True,
+        )
+
     s1, s2, s3 = st.columns([2, 1, 1])
     with s1:
         save = st.button(
@@ -1991,7 +2528,7 @@ def _ai_add_dialog() -> None:
             disabled=bool(missing),
         )
     with s2:
-        if st.button("← Back", use_container_width=True):
+        if st.button("← Revise", use_container_width=True):
             state["phase"] = "capture"
             state["capture_text"] = ""
             state["last_error"] = ""
@@ -2002,9 +2539,7 @@ def _ai_add_dialog() -> None:
         if st.button("Cancel", key="ai_review_cancel", use_container_width=True):
             _close_ai_dialog()
             st.rerun()
-
-    if missing:
-        st.caption("Need " + " and ".join(missing) + " before saving.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
     if save:
         clean_follow_up = _clean_follow_up(f.get("next_follow_up") or "")
@@ -2218,8 +2753,25 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
                         st.rerun()
 
     with meet_tab:
-        st.caption("Schedule a Google Meet and log it as activity")
+        from agent.crm_meet_agent import (
+            build_google_calendar_url,
+            format_meet_chat_script,
+            generate_meet_chat_prompts,
+        )
+
+        st.markdown(
+            '<div class="crm-meet-shell">'
+            '<div class="meet-head">'
+            '<div class="meet-icon">▶</div>'
+            '<div>'
+            '<p class="meet-title">Google Meet + Calendar</p>'
+            '<p class="meet-sub">Generate a Meet link, add to Calendar, and get conversational chat prompts.</p>'
+            '</div></div></div>',
+            unsafe_allow_html=True,
+        )
+
         meet_link = st.session_state.get(f"_meet_link_{cid}", "")
+        chat_key = f"_meet_chat_{cid}"
         with st.form(f"activity_meet_{cid}", clear_on_submit=True, border=False):
             meet_col1, meet_col2 = st.columns([1, 1])
             with meet_col1:
@@ -2232,40 +2784,82 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
                     placeholder="What was discussed? Objections, decisions, next steps...",
                     height=100,
                 )
-            gen_link_col, link_display_col = st.columns([1, 2])
+            gen_link_col, prep_col = st.columns([1, 1])
             with gen_link_col:
                 generate = st.form_submit_button("Generate Meet link", use_container_width=True)
-            with link_display_col:
-                if meet_link:
-                    st.markdown(
-                        f'<div style="padding:8px 10px;background:rgba(46,139,77,.08);border-radius:8px;'
-                        f'border:1px solid rgba(46,139,77,.18);font-size:13px;font-weight:600;color:var(--green);">'
-                        f'<a href="{html.escape(meet_link)}" target="_blank" rel="noreferrer" '
-                        f'style="color:var(--green);text-decoration:none;">'
-                        f'{html.escape(meet_link)}</a></div>',
-                        unsafe_allow_html=True,
-                    )
+            with prep_col:
+                prep_chat = st.form_submit_button("Draft Meet chat →", use_container_width=True)
+
+            if meet_link:
+                cal_url = build_google_calendar_url(
+                    title=meet_subject or f"Follow-up — {display_name(contact)}",
+                    start_date=meet_date.isoformat(),
+                    start_time=meet_time.strftime("%H:%M"),
+                    meet_link=meet_link,
+                    details=meet_notes or contact.get("notes") or "",
+                )
+                st.markdown(
+                    f'<div class="crm-meet-actions">'
+                    f'<a class="meet" href="{html.escape(meet_link)}" target="_blank" rel="noreferrer">Join Meet</a>'
+                    f'<a class="cal" href="{html.escape(cal_url)}" target="_blank" rel="noreferrer">Add to Google Calendar</a>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
             sched_col1, sched_col2 = st.columns([1, 1])
             with sched_col1:
                 schedule = st.form_submit_button("Save & Schedule", type="primary", use_container_width=True)
             with sched_col2:
-                st.form_submit_button("Join directly →", use_container_width=True, on_click=lambda: None)
+                join_now = st.form_submit_button("Open Meet now →", use_container_width=True)
 
         if generate:
             link = generate_meet_link()
             st.session_state[f"_meet_link_{cid}"] = link
             st.rerun()
 
+        if prep_chat:
+            payload = generate_meet_chat_prompts(
+                contact,
+                meeting_subject=meet_subject,
+                meeting_notes=meet_notes,
+            )
+            st.session_state[chat_key] = payload
+            st.rerun()
+
+        chat_payload = st.session_state.get(chat_key)
+        if chat_payload:
+            script = format_meet_chat_script(chat_payload)
+            st.markdown(
+                f'<div class="crm-meet-chat">{html.escape(script)}</div>'
+                f'<p class="ai-template-hint">Paste into Google Meet chat when you join — '
+                f'questions adapt to this contact&apos;s CRM context.</p>',
+                unsafe_allow_html=True,
+            )
+
+        if join_now:
+            link = st.session_state.get(f"_meet_link_{cid}") or generate_meet_link()
+            st.session_state[f"_meet_link_{cid}"] = link
+            st.markdown(
+                f'<meta http-equiv="refresh" content="0; url={html.escape(link)}">',
+                unsafe_allow_html=True,
+            )
+            st.link_button("Open Google Meet", link, use_container_width=True)
+
         if schedule:
             final_link = st.session_state.get(f"_meet_link_{cid}", meet_link)
             if not final_link:
                 final_link = generate_meet_link()
                 st.session_state[f"_meet_link_{cid}"] = final_link
+            chat_payload = st.session_state.get(chat_key) or generate_meet_chat_prompts(
+                contact,
+                meeting_subject=meet_subject,
+                meeting_notes=meet_notes,
+            )
+            chat_script = format_meet_chat_script(chat_payload)
             meeting_record = normalize_comment({
-                "body": meet_notes or "Scheduled via CRM",
+                "body": (meet_notes or chat_script or "Scheduled via CRM")[:1200],
                 "author": "Team",
-                "subject": meet_subject or f"Google Meet — {meet_date.isoformat()} {meet_time.strftime('%H:%M')}",
+                "subject": meet_subject or chat_payload.get("calendar_summary") or f"Google Meet — {meet_date.isoformat()} {meet_time.strftime('%H:%M')}",
                 "meeting_link": final_link,
                 "source": "google_meet",
                 "created_at": f"{meet_date.isoformat()}T{meet_time.strftime('%H:%M:%S')}",
@@ -2282,6 +2876,7 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
             if persist_crm(f"CRM: schedule meet for {display_name(updated)}"):
                 st.toast(f"Meeting scheduled — {final_link}")
                 st.session_state.pop(f"_meet_link_{cid}", None)
+                st.session_state.pop(chat_key, None)
                 st.rerun()
 
     with email_tab:

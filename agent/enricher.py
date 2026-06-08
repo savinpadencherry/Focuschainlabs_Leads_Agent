@@ -89,20 +89,20 @@ def enrich_contact(
                 contact["contact_title"] = public_hit.get("contact_title", "")
             contact["contact_source"] = contact.get("contact_source") or "public_website"
 
-    # ── Step 4: LinkedIn-via-Serper fallback ──────────────────────────────────
-    if not contact.get("contact_name"):
-        linkedin_hit = find_decision_maker_via_linkedin(company_name, target_titles)
-        if linkedin_hit:
-            contact.update(linkedin_hit)
-            contact["contact_source"] = "linkedin"
-
-    # ── Step 4b: LinkedIn-via-Yahoo fallback (Yahoo doesn't block automated
+    # ── Step 4: LinkedIn-via-Yahoo (preferred — Yahoo doesn't block automated
     #     fetches and returns real profile pages with names & titles) ──────────
     if not contact.get("contact_name"):
         yahoo_hit = find_decision_maker_via_yahoo(company_name, target_titles, location)
         if yahoo_hit:
             contact.update(yahoo_hit)
             contact["contact_source"] = "yahoo_linkedin"
+
+    # ── Step 4b: LinkedIn-via-Serper fallback ──────────────────────────────────
+    if not contact.get("contact_name"):
+        linkedin_hit = find_decision_maker_via_linkedin(company_name, target_titles)
+        if linkedin_hit:
+            contact.update(linkedin_hit)
+            contact["contact_source"] = "linkedin"
 
     # ── Step 5: Email recovery ────────────────────────────────────────────────
     if contact.get("contact_name") and not contact.get("email"):

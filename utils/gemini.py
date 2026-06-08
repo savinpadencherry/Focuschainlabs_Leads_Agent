@@ -16,10 +16,33 @@ from google import genai
 
 from utils import budget
 
+# Supported models only — legacy names (2.0-flash, 1.5-flash, etc.) are remapped.
+_SUPPORTED = ("gemini-2.5-flash", "gemini-2.5-flash-lite")
+_LEGACY_MAP = {
+    "gemini-2.0-flash": "gemini-2.5-flash",
+    "gemini-2.0-flash-exp": "gemini-2.5-flash",
+    "gemini-1.5-flash": "gemini-2.5-flash",
+    "gemini-1.5-flash-latest": "gemini-2.5-flash",
+    "gemini-1.5-pro": "gemini-2.5-flash",
+    "gemini-pro": "gemini-2.5-flash",
+}
+
+
+def _normalize_model(name: str) -> str:
+    cleaned = (name or "").strip().lower()
+    if not cleaned:
+        return "gemini-2.5-flash"
+    if cleaned in _LEGACY_MAP:
+        return _LEGACY_MAP[cleaned]
+    if cleaned in _SUPPORTED:
+        return cleaned
+    # Unknown model id — default to current flash rather than failing at runtime.
+    return "gemini-2.5-flash"
+
 
 def _models() -> list[str]:
-    primary = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    fallbacks = ["gemini-2.5-flash", "gemini-1.5-flash"]
+    primary = _normalize_model(os.getenv("GEMINI_MODEL", "gemini-2.5-flash"))
+    fallbacks = [_normalize_model(m) for m in _SUPPORTED if m != primary]
     ordered = [primary] + fallbacks
     return list(dict.fromkeys(m for m in ordered if m))
 
@@ -32,7 +55,17 @@ def _is_retryable(exc: Exception) -> bool:
     msg = str(exc).lower()
     return any(
         token in msg
-        for token in ("503", "unavailable", "overloaded", "high demand", "temporarily")
+        for token in (
+            "503",
+            "404",
+            "not found",
+            "no longer",
+            "unsupported",
+            "unavailable",
+            "overloaded",
+            "high demand",
+            "temporarily",
+        )
     )
 
 

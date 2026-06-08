@@ -28,6 +28,7 @@ load_dotenv()
 from agent.searcher import (
     search_serper, search_tracxn, search_proxycurl_jobs, search_naukri,
     search_reddit, search_yahoo, search_yahoo_linkedin_profiles,
+    search_linkedin_jobs_yahoo,
 )
 from agent.contact_finder import find_decision_maker_via_yahoo
 from agent.researcher import research_company
@@ -39,6 +40,7 @@ from utils.deduplicator import load_exclusion_list, deduplicate
 from utils.excel_writer import write_leads_to_excel
 from utils.exceptions import RateLimitError
 from utils.reach import best_reach_channel, how_to_reach
+from utils import budget
 
 
 def today() -> str:
@@ -162,9 +164,12 @@ def run_pipeline_streaming(
     yield {"type": "source_start", "source": "yahoo",
            "label": "Yahoo Search (LinkedIn profiles)"}
     yahoo_results = []
-    for title in icp.get("target_titles", [])[:3]:
-        city = (icp.get("locations") or ["Bengaluru"])[0]
-        query = f"linkedin {title} {city}"
+    city = (icp.get("locations") or ["Bengaluru"])[0]
+    yahoo_queries = list(plan.get("yahoo_queries") or [])
+    if not yahoo_queries:
+        for title in icp.get("target_titles", [])[:3]:
+            yahoo_queries.append(f"linkedin {title} {city}")
+    for query in yahoo_queries[:8]:
         yield {"type": "keyword_searching", "keyword": query[:80], "source": "yahoo"}
         yr = search_yahoo(query, num=6)
         yahoo_results.extend(yr)
@@ -174,6 +179,23 @@ def run_pipeline_streaming(
     yield {"type": "source_done", "source": "yahoo",
            "count": len(yahoo_results), "status": "done" if yahoo_results else "warn",
            "reason": None if yahoo_results else "No LinkedIn profiles found via Yahoo"}
+
+    # LinkedIn Jobs via Yahoo — companies actively hiring = budget + need
+    yield {"type": "source_start", "source": "linkedin_jobs",
+           "label": "LinkedIn Jobs (Yahoo — hiring signals)"}
+    job_keywords = []
+    for kw in icp.get("trigger_keywords", [])[:6]:
+        job_keywords.append(kw)
+    for title in icp.get("target_titles", [])[:4]:
+        job_keywords.append(f"{title} analytics")
+    if custom_focus := (icp.get("custom_focus") or "").strip():
+        job_keywords.insert(0, custom_focus[:80])
+    job_results = search_linkedin_jobs_yahoo(job_keywords, city=city)
+    all_results.extend(job_results)
+    yield {"type": "source_done", "source": "linkedin_jobs",
+           "count": len(job_results),
+           "status": "done" if job_results else "warn",
+           "reason": None if job_results else "No active hiring signals found"}
 
     # Yahoo LinkedIn Profile Discovery — cross-reference companies with
     # decision-maker titles and extract names, URLs from Yahoo snippets

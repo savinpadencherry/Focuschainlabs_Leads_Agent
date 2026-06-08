@@ -262,6 +262,83 @@ def search_yahoo(keyword: str, num: int = 8) -> list:
         return []
 
 
+def _company_from_job_result(title: str, snippet: str = "") -> str:
+    """Extract employer name from LinkedIn job / hiring search titles."""
+    raw = (title or "").strip()
+    if not raw:
+        return ""
+
+    hiring_match = re.search(r"^(.{2,70}?)\s+hiring\b", raw, flags=re.I)
+    if hiring_match:
+        candidate = hiring_match.group(1).strip(" :,-·|")
+        if _looks_like_company(candidate):
+            return candidate
+
+    at_match = re.search(r"\bat\s+([^|–—·-]{2,80})", raw, flags=re.I)
+    if at_match:
+        candidate = at_match.group(1).strip(" :,-")
+        if _looks_like_company(candidate):
+            return candidate
+
+    combined = f"{raw} {snippet}"
+    jobs_match = re.search(r"([\w&.\s]{2,60}?)\s+(?:is\s+)?hiring\s+", combined, flags=re.I)
+    if jobs_match:
+        candidate = jobs_match.group(1).strip(" :,-")
+        if _looks_like_company(candidate):
+            return candidate
+
+    return extract_company_name(raw)
+
+
+def search_linkedin_jobs_yahoo(
+    keywords: list,
+    city: str = "Bengaluru",
+    *,
+    num: int = 8,
+) -> list:
+    """Find companies actively hiring via Yahoo → LinkedIn job signals.
+
+    Yahoo Search is used instead of Google/DuckDuckGo because automated fetches
+    to those engines are often blocked. Live job postings imply budget + need.
+    """
+    results: list[dict] = []
+    seen: set[str] = set()
+    city = (city or "Bengaluru").strip()
+
+    for kw in keywords[:8]:
+        kw = (kw or "").strip()
+        if not kw:
+            continue
+        queries = [
+            f"site:linkedin.com/jobs {kw} {city}",
+            f"linkedin {kw} hiring {city}",
+            f"{kw} hiring {city} linkedin jobs",
+        ]
+        for query in queries:
+            hits = search_yahoo(query, num=num)
+            for hit in hits:
+                title = hit.get("result_title", "")
+                snippet = hit.get("snippet", "")
+                company = _company_from_job_result(title, snippet)
+                if not company:
+                    continue
+                key = company.lower().strip()
+                if key in seen:
+                    continue
+                seen.add(key)
+                results.append({
+                    "company_name":   company,
+                    "website":        hit.get("website", ""),
+                    "result_title":   title,
+                    "snippet":        snippet or f"Active hiring signal: {kw}",
+                    "signal_keyword": f"hiring:{kw[:50]}",
+                    "source":         "linkedin_jobs",
+                    "date_found":     today(),
+                })
+            time.sleep(0.2)
+    return results
+
+
 def search_yahoo_linkedin_profiles(company: str, role: str, city: str = "Bengaluru") -> list:
     """Search Yahoo specifically for LinkedIn profile pages using the format:
     'linkedin [company] [role] [city]'. Yahoo returns actual LinkedIn profile

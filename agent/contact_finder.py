@@ -110,7 +110,9 @@ def find_decision_maker_via_yahoo(company_name: str, target_titles: list, city: 
             linkedin_url = p.get("linkedin_url", "")
             snippet = p.get("snippet", "")
             if name and linkedin_url:
-                if company_name.lower() in (snippet + " " + linkedin_url).lower():
+                blob = f"{snippet} {linkedin_url} {company_name}".lower()
+                tokens = [t for t in re.split(r"\W+", company_name.lower()) if len(t) > 2]
+                if not tokens or any(t in blob for t in tokens):
                     return {
                         "contact_name":  name,
                         "contact_title": title,
