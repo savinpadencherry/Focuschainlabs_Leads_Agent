@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-09T13:03:58+00:00",
+  "updated_at": "2026-06-09T13:04:13+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -249,39 +249,6 @@
       "status": "new",
       "deal_status": "open",
       "notes": "ZERO – 5 centres independent\nCO#: 9\nREVENUE: ₹15-25 Cr\nBEST TIME: Via website / director",
-      "next_follow_up": "",
-      "source": "other",
-      "tags": [
-        "agent-import"
-      ],
-      "email_events": [],
-      "comments": [],
-      "contact_people": [],
-      "invoices": [],
-      "meetings": [],
-      "created_at": "2026-06-09T13:01:38+00:00",
-      "updated_at": "2026-06-09T13:02:01+00:00",
-      "title": "",
-      "linkedin_url": "",
-      "website": "",
-      "score": 0,
-      "signal": "",
-      "opening_line": "",
-      "agent_run_id": "excel_upload_20260609_130201"
-    },
-    {
-      "id": "5e1f40b5-7ce3-4263-8edd-5b7ca927ce81",
-      "name": "Director / Partner",
-      "company": "GOODWILL FABRICS PVT. LTD.",
-      "industry": "Garment Manufacturing",
-      "phone": "Search LinkedIn / Google",
-      "email": "",
-      "client": "",
-      "owner": "",
-      "value": "",
-      "status": "new",
-      "deal_status": "open",
-      "notes": "ZERO – no tech team\nCO#: 10\nREVENUE: ₹50-100 Cr\nBEST TIME: Direct call to factory",
       "next_follow_up": "",
       "source": "other",
       "tags": [
