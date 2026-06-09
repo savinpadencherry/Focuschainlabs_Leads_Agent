@@ -2177,7 +2177,7 @@ def _render_excel_upload() -> None:
                 # Column synonyms
                 col_mapping = {
                     "company": ["company", "company name", "firm", "business", "organization", "organisation", "company_name"],
-                    "name": ["name", "contact", "contact name", "person", "lead name", "full name", "lead", "contact_name"],
+                    "name": ["name", "contact", "contact name", "person", "lead name", "full name", "lead", "contact_name", "primary contact"],
                     "phone": ["phone", "telephone", "mobile", "phone number", "mobile number", "tel"],
                     "email": ["email", "email address", "mail", "e-mail", "contact_email"],
                     "client": ["client", "for client", "target client"],
@@ -2185,7 +2185,7 @@ def _render_excel_upload() -> None:
                     "owner": ["owner", "assigned to", "sales rep", "lead owner"],
                     "value": ["value", "amount", "deal value", "price", "deal size", "budget", "deal_value"],
                     "status": ["status", "stage", "lead status", "lead stage", "pipeline stage"],
-                    "notes": ["notes", "comments", "description", "context", "details", "requirement"],
+                    "notes": ["notes", "comments", "description", "context", "details", "requirement", "tech gap"],
                     "next_follow_up": ["next_follow_up", "follow up", "follow-up", "follow up date", "follow-up date"],
                     "source": ["source", "lead source"],
                     "title": ["title", "job title", "designation", "role", "contact_title"],
@@ -2203,14 +2203,19 @@ def _render_excel_upload() -> None:
                             mapped_cols[std_col] = col
                             break
                 
-                # If we couldn't map at least name or company, try case-insensitive substring matching
-                if "name" not in mapped_cols and "company" not in mapped_cols:
+                # Check for substring matches for essential fields if not mapped yet
+                if "name" not in mapped_cols:
                     for col in df.columns:
                         col_lower = str(col).lower()
-                        if "name" in col_lower:
+                        if "name" in col_lower or "contact" in col_lower:
                             mapped_cols["name"] = col
-                        elif "company" in col_lower:
+                            break
+                if "company" not in mapped_cols:
+                    for col in df.columns:
+                        col_lower = str(col).lower()
+                        if "company" in col_lower or "firm" in col_lower or "business" in col_lower:
                             mapped_cols["company"] = col
+                            break
                 
                 if not mapped_cols.get("name") and not mapped_cols.get("company"):
                     st.warning("Could not identify a column for Contact Name or Company. Please ensure your file has headers like 'Name' or 'Company'.")
@@ -2247,6 +2252,7 @@ def _render_excel_upload() -> None:
                         # Import Button
                         if st.button("Import Leads & Sort CRM", type="primary", use_container_width=True, key="crm_excel_import_submit"):
                             leads = []
+                            unmapped_cols = [col for col in df.columns if col not in mapped_cols.values()]
                             for row in valid_rows:
                                 lead = {}
                                 for std_col, df_col in mapped_cols.items():
@@ -2254,6 +2260,29 @@ def _render_excel_upload() -> None:
                                     if pd.isna(val):
                                         val = ""
                                     lead[std_col] = str(val).strip()
+                                
+                                # Map standard keys to lead_to_contact expected keys
+                                if "company" in lead:
+                                    lead["company_name"] = lead["company"]
+                                if "name" in lead:
+                                    lead["contact_name"] = lead["name"]
+                                if "title" in lead:
+                                    lead["contact_title"] = lead["title"]
+                                if "score" in lead:
+                                    lead["total_score"] = lead["score"]
+                                if "signal" in lead:
+                                    lead["primary_signal"] = lead["signal"]
+                                
+                                # Gather unmapped columns into notes
+                                lead_notes = []
+                                if lead.get("notes"):
+                                    lead_notes.append(lead["notes"])
+                                for col in unmapped_cols:
+                                    val = row[col]
+                                    if not pd.isna(val) and str(val).strip() and str(val).strip().lower() != "nan":
+                                        lead_notes.append(f"{col}: {str(val).strip()}")
+                                if lead_notes:
+                                    lead["notes"] = "\n".join(lead_notes)
                                 
                                 # Default fields if missing
                                 lead.setdefault("source", "other")

@@ -418,6 +418,8 @@ def normalize_contact(raw: dict[str, Any]) -> dict[str, Any]:
 def lead_to_contact(lead: dict[str, Any], *, agent_run_id: str = "") -> dict[str, Any]:
     """Map agent lead → simple CRM contact. Agent fluff goes into notes, not columns."""
     note_lines = []
+    if lead.get("notes"):
+        note_lines.append(str(lead["notes"]))
     if lead.get("pain_point"):
         note_lines.append(str(lead["pain_point"]))
     if lead.get("opening_line"):
