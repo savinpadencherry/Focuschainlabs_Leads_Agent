@@ -89,7 +89,7 @@ st.set_page_config(
     page_title="FocusChain Labs — LeadGen",
     page_icon="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='%232E8B4D'/></svg>",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ── Brand CSS ────────────────────────────────────────────────────────────────
@@ -151,16 +151,208 @@ html, body { margin: 0; padding: 0; }
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='0.04'/></svg>");
 }
 .block-container {
-    padding-top: 28px !important;
-    padding-bottom: 80px !important;
+    padding-top: 16px !important;
+    padding-bottom: 48px !important;
     max-width: 960px !important;
     position: relative; z-index: 1;
 }
 
-/* hide sidebar and header chrome */
-[data-testid="stSidebar"] { display: none !important; }
-[data-testid="collapsedControl"] { display: none !important; }
+/* hide header chrome */
 header[data-testid="stHeader"] { background: transparent !important; height: 0 !important; }
+
+/* ── Left drawer — narrow rail, expands on hover ── */
+[data-testid="stSidebar"],
+[data-testid="stSidebar"][aria-expanded="false"],
+[data-testid="stSidebar"][aria-expanded="true"] {
+    display: block !important;
+    visibility: visible !important;
+    transform: translateX(0) !important;
+    margin-left: 0 !important;
+    position: relative !important;
+    min-width: 54px !important;
+    max-width: 54px !important;
+    width: 54px !important;
+    background: linear-gradient(180deg, rgba(239,234,222,.78), rgba(244,240,231,.52)) !important;
+    border-right: 1px solid var(--line-soft) !important;
+    box-shadow: 4px 0 18px rgba(15,42,51,.05) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    transition: min-width .30s var(--ease-out), max-width .30s var(--ease-out), width .30s var(--ease-out), box-shadow .30s var(--ease-out) !important;
+    z-index: 999 !important;
+}
+[data-testid="stSidebar"]:hover {
+    min-width: 204px !important;
+    max-width: 204px !important;
+    width: 204px !important;
+    box-shadow: 10px 0 28px rgba(15,42,51,.10) !important;
+}
+[data-testid="stAppViewContainer"] > section[data-testid="stSidebar"] {
+    flex: 0 0 54px !important;
+    width: 54px !important;
+    max-width: 54px !important;
+}
+[data-testid="stAppViewContainer"]:has([data-testid="stSidebar"]:hover) > section[data-testid="stSidebar"] {
+    flex: 0 0 204px !important;
+    width: 204px !important;
+    max-width: 204px !important;
+}
+[data-testid="stSidebar"] > div:first-child {
+    padding: 0 !important;
+    background: transparent !important;
+    width: 100% !important;
+}
+[data-testid="collapsedControl"] { display: none !important; }
+.drawer-hamburger {
+    position: fixed;
+    top: 10px;
+    left: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin: 0;
+    border-radius: 10px;
+    background: rgba(255,255,255,.96);
+    border: 1px solid rgba(15,42,51,.10);
+    box-shadow: 0 6px 18px rgba(15,42,51,.08), inset 0 1px 0 rgba(255,255,255,.95);
+    pointer-events: none;
+    z-index: 10002;
+    transition: opacity .2s ease, transform .26s var(--ease-out);
+}
+.drawer-hamburger-bars {
+    display: block;
+    width: 14px;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--ink-soft);
+    box-shadow: 0 5px 0 var(--ink-soft), 0 10px 0 var(--ink-soft);
+}
+[data-testid="stSidebar"]:hover .drawer-hamburger {
+    opacity: 0;
+    transform: translateX(-6px) scale(.88);
+}
+.drawer-hero {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0 4px;
+    pointer-events: none;
+}
+[data-testid="stSidebar"]:hover .drawer-hero {
+    opacity: 1;
+    max-height: 72px;
+    margin: 52px 0 10px;
+    padding: 0 6px 10px;
+    border-bottom: 1px solid var(--line-soft);
+    pointer-events: auto;
+    animation: drawerHeroIn .36s var(--ease-out) both;
+}
+.drawer-hero-kicker {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .20em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 4px;
+}
+.drawer-hero-title {
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    color: var(--ink);
+    line-height: 1.1;
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+    padding: 0 !important;
+    width: 100% !important;
+}
+[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] {
+    padding: 0 8px 16px !important;
+    background:
+        linear-gradient(180deg, rgba(253,252,249,.98) 0%, rgba(239,234,222,.92) 100%);
+    border-radius: 0 16px 16px 0;
+    box-shadow: inset -1px 0 0 rgba(46,139,77,.08);
+    animation: drawerPanelIn .34s var(--ease-out) both;
+}
+[data-testid="stSidebar"]:not(:hover) [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton) {
+    opacity: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    transform: translateX(-10px);
+}
+[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton) {
+    opacity: 1 !important;
+    max-height: 80px !important;
+    margin-bottom: 6px !important;
+    pointer-events: auto !important;
+    transform: translateX(0);
+    animation: drawerNavIn .34s var(--ease-out) both;
+}
+[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(2) { animation-delay: .04s; }
+[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(3) { animation-delay: .08s; }
+[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(4) { animation-delay: .12s; }
+[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(5) { animation-delay: .16s; }
+[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(6) { animation-delay: .20s; }
+[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(7) { animation-delay: .24s; }
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] .stButton {
+    margin: 0 !important;
+    width: 100% !important;
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] .stButton > button {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+    padding: 9px 12px !important;
+    min-height: 36px !important;
+    border-radius: var(--radius-sm) !important;
+    font-family: 'Bricolage Grotesque', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: .005em !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stBaseButton-secondary"],
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] .stButton > button[kind="secondary"],
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] .stButton > button:not([data-testid="stBaseButton-primary"]) {
+    background: transparent !important;
+    color: var(--ink) !important;
+    -webkit-text-fill-color: var(--ink) !important;
+    border: 1.5px solid transparent !important;
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stBaseButton-secondary"]:hover,
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] .stButton > button:not([data-testid="stBaseButton-primary"]):hover {
+    background: rgba(255,255,255,.55) !important;
+    border-color: var(--line-soft) !important;
+    transform: translateX(2px) !important;
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stBaseButton-primary"],
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] .stButton > button[kind="primary"],
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] .stButton > button[data-testid="stBaseButton-primary"] {
+    background: var(--green) !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    border: 1.5px solid var(--green) !important;
+    box-shadow: 0 2px 8px rgba(46,139,77,.18) !important;
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stBaseButton-primary"]::after,
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] .stButton > button[data-testid="stBaseButton-primary"]::after {
+    display: none !important;
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stBaseButton-primary"]:hover,
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] .stButton > button[data-testid="stBaseButton-primary"]:hover {
+    background: var(--green-br) !important;
+    border-color: var(--green-br) !important;
+    transform: translateX(2px) !important;
+    box-shadow: 0 6px 16px rgba(46,139,77,.22) !important;
+}
 
 /* ── Typography base ── */
 h1, h2, h3, h4, p, div, span, label {
@@ -191,7 +383,7 @@ h1, h2, h3, h4, p, div, span, label {
 
 /* ── Wordmark ── */
 .wordmark {
-    margin: 14px 0 4px;
+    margin: 10px 0 2px;
     font-weight: 800;
     font-size: clamp(34px, 5.5vw, 58px);
     letter-spacing: -0.02em; line-height: .95;
@@ -223,7 +415,7 @@ h1, h2, h3, h4, p, div, span, label {
     font-size: 12px; color: var(--ink-mute);
     letter-spacing: .04em;
     animation: fadeUp .7s ease .5s both;
-    margin-bottom: 22px;
+    margin-bottom: 12px;
 }
 
 /* ── Sub-page hero header (Reach / Intel / Proposal / CRM) ── */
@@ -261,7 +453,7 @@ h1, h2, h3, h4, p, div, span, label {
 /* ── Step rail ── */
 .steps {
     display: flex; align-items: center;
-    gap: 0; margin: 0 0 32px;
+    gap: 0; margin: 0 0 18px;
     font-family: 'JetBrains Mono', monospace !important;
     font-size: 10px; font-weight: 600;
     letter-spacing: .22em; text-transform: uppercase;
@@ -304,7 +496,7 @@ h1, h2, h3, h4, p, div, span, label {
     font-size: 10px; font-weight: 600;
     letter-spacing: .28em; text-transform: uppercase;
     color: var(--ink-mute);
-    margin: 28px 0 10px;
+    margin: 16px 0 8px;
     display: flex; align-items: center; gap: 12px;
 }
 .sec .line { flex: 1; height: 1px; background: var(--line-soft); }
@@ -1405,6 +1597,26 @@ h1, h2, h3, h4, p, div, span, label {
     from { opacity: 0; transform: translateX(-10px); }
     to   { opacity: 1; transform: translateX(0); }
 }
+@keyframes drawerSlideIn {
+    from { opacity: 0; transform: translateX(-18px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes drawerPanelIn {
+    from { opacity: 0; transform: translateX(-12px); box-shadow: inset -1px 0 0 transparent; }
+    to   { opacity: 1; transform: translateX(0); box-shadow: inset -1px 0 0 rgba(46,139,77,.08); }
+}
+@keyframes drawerHeroIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes drawerNavIn {
+    from { opacity: 0; transform: translateX(-14px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInDrawer {
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
 @keyframes node-glow {
     0%, 100% { box-shadow: 0 0 0 8px rgba(46,139,77,.10); }
     50%       { box-shadow: 0 0 0 16px rgba(46,139,77,.04), 0 0 10px rgba(46,139,77,.50); }
@@ -1625,8 +1837,45 @@ def resolve_client_label(template_key: str) -> str:
     return list(ICPS.keys())[0]
 
 
-# ── Header ────────────────────────────────────────────────────────────────────
-st.markdown("""
+# ── Left drawer navigation ──────────────────────────────────────────────────
+APP_NAV = [
+    ("agent", "Agent"),
+    ("reach", "Reach"),
+    ("intel", "Intel"),
+    ("proposal", "Proposal"),
+    ("finance", "Finance"),
+    ("crm", "CRM"),
+]
+
+
+def render_app_drawer() -> None:
+    current = st.session_state.get("app_view", "agent")
+    with st.sidebar:
+        st.markdown(
+            """
+            <div class="drawer-hamburger" aria-hidden="true">
+              <span class="drawer-hamburger-bars"></span>
+            </div>
+            <div class="drawer-hero">
+              <div class="drawer-hero-kicker">FocusChain Labs</div>
+              <div class="drawer-hero-title">Modules</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        for view_id, label in APP_NAV:
+            if st.button(
+                label,
+                key=f"nav_{view_id}",
+                use_container_width=True,
+                type="primary" if current == view_id else "secondary",
+            ):
+                st.session_state.app_view = view_id
+                st.rerun()
+
+
+def render_agent_hero() -> None:
+    st.markdown("""
 <div class="eyebrow">
   <span class="dot"></span>
   <span class="dash"></span>
@@ -1641,62 +1890,8 @@ st.markdown("""
 <p class="tagline">prompt.intake()&nbsp;&nbsp;→&nbsp;&nbsp;signals.scan&nbsp;&nbsp;→&nbsp;&nbsp;outreach.deploy</p>
 """, unsafe_allow_html=True)
 
-# ── App navigation ────────────────────────────────────────────────────────────
-nav_agent, nav_reach, nav_intel, nav_proposal, nav_finance, nav_crm = st.columns(6)
-with nav_agent:
-    if st.button(
-        "Agent",
-        use_container_width=True,
-        type="primary" if st.session_state.get("app_view", "agent") == "agent" else "secondary",
-        key="nav_agent",
-    ):
-        st.session_state.app_view = "agent"
-        st.rerun()
-with nav_reach:
-    if st.button(
-        "Reach",
-        use_container_width=True,
-        type="primary" if st.session_state.get("app_view") == "reach" else "secondary",
-        key="nav_reach",
-    ):
-        st.session_state.app_view = "reach"
-        st.rerun()
-with nav_intel:
-    if st.button(
-        "Intel",
-        use_container_width=True,
-        type="primary" if st.session_state.get("app_view") == "intel" else "secondary",
-        key="nav_intel",
-    ):
-        st.session_state.app_view = "intel"
-        st.rerun()
-with nav_proposal:
-    if st.button(
-        "Proposal",
-        use_container_width=True,
-        type="primary" if st.session_state.get("app_view") == "proposal" else "secondary",
-        key="nav_proposal",
-    ):
-        st.session_state.app_view = "proposal"
-        st.rerun()
-with nav_finance:
-    if st.button(
-        "Finance",
-        use_container_width=True,
-        type="primary" if st.session_state.app_view == "finance" else "secondary",
-        key="nav_finance",
-    ):
-        st.session_state.app_view = "finance"
-        st.rerun()
-with nav_crm:
-    if st.button(
-        "CRM",
-        use_container_width=True,
-        type="primary" if st.session_state.get("app_view") == "crm" else "secondary",
-        key="nav_crm",
-    ):
-        st.session_state.app_view = "crm"
-        st.rerun()
+
+render_app_drawer()
 
 if st.session_state.get("app_view") == "crm":
     render_crm_page()
@@ -1717,6 +1912,8 @@ if st.session_state.get("app_view") == "proposal":
 if st.session_state.get("app_view") == "finance":
     render_finance_page()
     st.stop()
+
+render_agent_hero()
 
 # ── Step rail ─────────────────────────────────────────────────────────────────
 def render_steps(cur: str):
@@ -1742,8 +1939,6 @@ render_steps(st.session_state.stage)
 #  STAGE 1 — SETUP
 # ═══════════════════════════════════════════════════════════════════════════════
 if st.session_state.stage == "setup":
-
-    render_usage_guide("scout")
 
     if not ICPS:
         st.error("No ICP config files found in /config. Add a JSON file there.")
@@ -1809,14 +2004,6 @@ if st.session_state.stage == "setup":
     # tier can be killed mid-way and reload to the home screen, so honour the limit.
     max_leads = int(os.getenv("MAX_LEADS_PER_RUN", 30))
 
-    st.markdown(
-        f'<div class="template-note"><strong>{base_icp.get("client", client_choice)}</strong> '
-        f'will run a {max_leads}-lead search across {", ".join(locations[:2])}. '
-        f'The prompt below is editable; the agent will refine searches, inspect job posts/news/posts, '
-        f'find the responsible senior owner, and export a scored Excel sheet.</div>',
-        unsafe_allow_html=True,
-    )
-
     # ── PROMPT + RUN (upload left, send right) ───────────────────────────────
     st.markdown('<div class="sec">Brief <span class="line"></span></div>',
                 unsafe_allow_html=True)
@@ -1844,7 +2031,7 @@ if st.session_state.stage == "setup":
     with st.form("run_form", border=False, clear_on_submit=False):
         prompt = st.text_area(
             "brief",
-            height=260,
+            height=200,
             placeholder=(
                 "Describe what you sell and who you want to reach. The agent will turn it "
                 "into web searches, company research, job-post proof, management mapping, "

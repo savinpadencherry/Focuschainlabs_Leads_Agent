@@ -261,16 +261,14 @@ CRM_CSS = """
 /* Ledger header */
 .crm-ledger-head {
     display: grid;
-    grid-template-columns: 92px minmax(0, 1.35fr) minmax(0, 1.45fr) minmax(0, .9fr) minmax(0, .9fr) minmax(0, 1fr);
-    gap: 12px;
-    padding: 10px 14px;
-    border: 1px solid var(--line-soft);
-    border-radius: var(--rs);
-    background: rgba(255,255,255,.55);
+    grid-template-columns: minmax(0, 2.5fr) minmax(0, 1.8fr) minmax(0, 1.4fr) 36px;
+    gap: 14px;
+    padding: 0 16px 8px;
+    margin-bottom: 2px;
     color: var(--ink-mute);
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
-    letter-spacing: .18em;
+    letter-spacing: .16em;
     text-transform: uppercase;
 }
 .crm-ledger-head span { display: inline-flex; align-items: center; gap: 8px; }
@@ -279,114 +277,156 @@ CRM_CSS = """
     flex: 1;
     background: linear-gradient(90deg, rgba(15,42,51,.12), transparent);
 }
-
-/* Contact row */
-.crm-row {
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] {
+    align-items: stretch !important;
+    margin-bottom: 8px;
     border: 1px solid var(--line-soft);
-    border-radius: var(--r);
-    background: rgba(255,255,255,.65);
-    padding: 8px 14px;
-    display: grid;
-    grid-template-columns: 92px minmax(0, 1.35fr) minmax(0, 1.45fr) minmax(0, .9fr) minmax(0, .9fr) minmax(0, 1fr);
-    gap: 12px;
-    align-items: center;
-    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease, background .18s ease;
-    box-shadow: 0 10px 24px rgba(15,42,51,.06);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(255,255,255,.80);
+    box-shadow: 0 4px 16px rgba(15,42,51,.05);
+    min-height: 68px;
+    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    animation: cardIn .32s var(--ease-out) both;
 }
-.crm-row:hover {
-    background: #fff;
+.crm-row-anchor.crm-row-due + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
+.crm-row-anchor.crm-row-due + div[data-testid="stHorizontalBlock"] {
+    border-color: rgba(183,121,31,.30);
+    background: linear-gradient(90deg, rgba(183,121,31,.07), rgba(255,255,255,.84));
+}
+.crm-row-anchor.crm-row-active + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
+.crm-row-anchor.crm-row-active + div[data-testid="stHorizontalBlock"] {
+    border-color: rgba(46,139,77,.34);
+    background: linear-gradient(90deg, rgba(46,139,77,.08), rgba(255,255,255,.92));
+    box-shadow: 0 8px 22px rgba(46,139,77,.10);
+}
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"]:hover,
+.crm-row-anchor + div[data-testid="stHorizontalBlock"]:hover {
     border-color: rgba(46,139,77,.28);
-    transform: translateY(-1px);
-    box-shadow: 0 14px 32px rgba(15,42,51,.10);
+    background: #fff;
+    box-shadow: 0 10px 26px rgba(15,42,51,.08);
 }
-.crm-row.crm-due {
-    border-color: rgba(183,121,31,.24);
-    box-shadow: 0 12px 28px rgba(183,121,31,.08);
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"],
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    min-height: 68px !important;
+    padding: 12px 8px !important;
+    min-width: 0 !important;
 }
-.crm-row.crm-due:hover {
-    border-color: rgba(183,121,31,.36);
-    box-shadow: 0 16px 34px rgba(183,121,31,.12);
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child,
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child {
+    padding-left: 18px !important;
 }
-.crm-row.crm-due .crm-book::before { background: rgba(183,121,31,.42); }
-.crm-book {
-    width: 34px;
-    height: 26px;
-    border-radius: 7px;
-    position: relative;
-    background: rgba(15,42,51,.06);
-    border: 1px solid rgba(15,42,51,.08);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"],
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] {
+    width: 100%;
+    margin: 0;
 }
-.crm-book::before {
-    content: "";
-    position: absolute;
-    left: 5px;
-    top: 4px;
-    bottom: 4px;
-    width: 6px;
-    border-radius: 5px;
-    background: rgba(15,42,51,.18);
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] p,
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] p {
+    margin: 0 !important;
 }
-.crm-book::after {
-    content: "";
-    position: absolute;
-    left: 13px;
-    top: 6px;
-    right: 6px;
-    height: 1px;
-    background: rgba(15,42,51,.12);
-    box-shadow: 0 5px 0 rgba(15,42,51,.10), 0 10px 0 rgba(15,42,51,.08);
-    opacity: .9;
-}
-.crm-book.new { background: rgba(46,139,77,.14); border-color: rgba(46,139,77,.18); }
-.crm-book.contacted { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.18); }
-.crm-book.qualified { background: rgba(168,85,247,.12); border-color: rgba(168,85,247,.20); }
-.crm-book.meeting { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.20); }
-.crm-book.proposal { background: rgba(183,121,31,.12); border-color: rgba(183,121,31,.24); }
-.crm-book.nurture { background: rgba(15,42,51,.06); border-color: rgba(15,42,51,.12); }
-.crm-book.won { background: rgba(46,139,77,.18); border-color: rgba(46,139,77,.22); }
-.crm-book.lost { background: rgba(169,61,61,.12); border-color: rgba(169,61,61,.20); }
-
-.crm-row-main { min-width: 0; }
-.crm-row-name {
+.crm-lead-co {
     font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 800;
     color: var(--ink);
-    line-height: 1.15;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+.crm-lead-name {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+.crm-lead-status {
     display: flex;
-    gap: 8px;
-    align-items: baseline;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    width: 100%;
 }
-.crm-row-title {
-    font-size: 12px;
-    color: var(--ink-mute);
-    font-weight: 650;
-}
-.crm-row-sub {
-    font-size: 12.5px;
-    color: var(--ink-mute);
-    margin-top: 4px;
-    line-height: 1.4;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.crm-lead-status .crm-pill {
+    flex-shrink: 0;
     white-space: nowrap;
 }
-.crm-row-k {
-    display: none;
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child,
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child {
+    flex: 0 0 36px !important;
+    max-width: 36px !important;
+    min-width: 36px !important;
+    width: 36px !important;
+    padding: 0 !important;
+    justify-content: center !important;
 }
-.crm-row-v {
-    font-size: 13px;
-    color: var(--ink);
-    font-weight: 650;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stButton"],
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stButton"] {
+    margin: 0 !important;
+    width: 36px !important;
+    height: 100% !important;
 }
-.crm-row-v.mute { color: var(--ink-mute); font-weight: 600; }
-.crm-row-meta { justify-self: end; width: 100%; min-width: 0; }
-.crm-row-meta-top { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button,
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    min-height: 68px !important;
+    height: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-left: 1px solid var(--line-soft) !important;
+    border-radius: 0 !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+    position: relative !important;
+}
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button::after,
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button::after {
+    content: "›";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: var(--ink-mute) !important;
+}
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover,
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover {
+    background: var(--green-bg) !important;
+}
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover::after,
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover::after {
+    color: var(--green) !important;
+}
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button,
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button {
+    background: var(--green) !important;
+    border-color: var(--green) !important;
+}
+.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button::after,
+.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button::after {
+    color: #fff !important;
+}
+
 .crm-pill {
     display: inline-block; padding: 4px 9px; border-radius: 999px;
     font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
@@ -815,20 +855,8 @@ CRM_CSS = """
     .crm-snapshot-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .crm-stat { padding: 13px 12px; }
     .crm-ledger-head { display: none; }
-    .crm-row { grid-template-columns: 1fr; padding: 12px; }
-    .crm-row-sub { white-space: normal; }
-    .crm-row-meta { justify-self: start; width: auto; }
-    .crm-row-meta-top { justify-content: flex-start; }
-    .crm-actions { justify-content: flex-start; }
-    .crm-row-k {
-        display: block;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 8px;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        color: var(--ink-mute);
-        margin-bottom: 2px;
-    }
+    .crm-lead-co, .crm-lead-name { white-space: normal; }
+    .crm-lead-status { flex-wrap: wrap; }
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: column !important;
@@ -1734,6 +1762,51 @@ CRM_CSS = """
     padding: 18px;
     margin: 16px 0;
 }
+.crm-hero-wrap { margin: 0 0 18px; animation: fadeUp .55s var(--ease-out) both; }
+.crm-hero-wrap .eyebrow { margin-bottom: 10px; }
+.crm-hero-wrap .wordmark { margin: 8px 0 6px; font-size: clamp(30px, 4.8vw, 52px); }
+.crm-hero-wrap .tagline { margin-bottom: 14px; }
+.crm-detail-shell {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.94), rgba(253,252,249,.88)),
+      radial-gradient(120% 140% at 100% 0%, rgba(46,139,77,.10), transparent 55%);
+    border: 1px solid rgba(46,139,77,.14);
+    border-radius: var(--rl);
+    padding: 18px 20px 22px;
+    box-shadow: var(--shadow-lg);
+    animation: fadeUp .45s var(--ease-out) both;
+    margin: 6px 0 20px;
+}
+.crm-detail-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 14px; flex-wrap: wrap;
+    margin-bottom: 14px; padding-bottom: 14px;
+    border-bottom: 1px solid var(--line-soft);
+}
+.crm-detail-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; font-weight: 700; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--green); margin-bottom: 6px;
+}
+.crm-detail-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: clamp(24px, 3.2vw, 32px);
+    font-weight: 850; color: var(--ink); line-height: 1.02;
+    margin: 0;
+}
+.crm-detail-sub {
+    color: var(--ink-mute); font-size: 13px; margin-top: 6px; line-height: 1.45;
+}
+.crm-detail-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.crm-detail-panel {
+    background: rgba(255,255,255,.72);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r);
+    padding: 14px 16px 8px;
+    animation: cardIn .4s var(--ease-out) .08s both;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 """
 
@@ -1788,27 +1861,8 @@ def persist_crm(message: str = "Update CRM contacts") -> bool:
 
 
 def _sync_badge(meta: dict) -> str:
-    source = meta.get("source")
-    if source == "postgres" and not meta.get("error"):
-        label = meta.get("label", "Postgres")
-        return (
-            f'<span class="crm-sync ok"><span class="dot"></span>'
-            f'{html.escape(label)} · {meta.get("count", 0)} records · own database</span>'
-        )
-    if source == "postgres":
-        return (
-            f'<span class="crm-sync warn"><span class="dot"></span>'
-            f'{html.escape(str(meta.get("error", "Database not reachable")))}</span>'
-        )
-    if github_configured() and source == "github" and not meta.get("error"):
-        return (
-            '<span class="crm-sync ok"><span class="dot"></span>'
-            'Saved in GitHub · loads on every visit</span>'
-        )
-    return (
-        '<span class="crm-sync warn"><span class="dot"></span>'
-        'Add GITHUB_TOKEN in Secrets to persist on Cloud</span>'
-    )
+    """Sync badge hidden from UI — persistence still works in the background."""
+    return ""
 
 
 def _github_setup_hint_html() -> str:
@@ -2004,9 +2058,21 @@ def _reset_crm_filters() -> None:
         "crm_work_filter": "all",
         "crm_sort": "recent",
         "crm_page": 1,
+        "crm_view_mode": "list",
+        "crm_selected_contact_id": None,
     }
     for key, value in defaults.items():
         st.session_state[key] = value
+
+
+def _open_lead_detail(contact_id: str) -> None:
+    st.session_state.crm_selected_contact_id = contact_id
+    st.session_state.crm_view_mode = "detail"
+
+
+def _close_lead_detail() -> None:
+    st.session_state.crm_view_mode = "list"
+    st.session_state.crm_selected_contact_id = None
 
 
 def _sync_stage_widget(stage_key: str, deal_key: str) -> None:
@@ -3308,80 +3374,103 @@ def _render_lead_details(contact: dict, idx: int, statuses: list[str]) -> None:
             st.caption("No agent data for this lead.")
 
 
-def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
+def _render_lead_detail_view(contact: dict, idx: int, statuses: list[str]) -> None:
     cid = contact.get("id", f"row-{idx}")
-    lead_id = str(cid)[:8]
+    name = display_name(contact)
+    company = (contact.get("company") or "").strip() or "—"
+    stage = normalize_status(contact.get("status") or "new")
+    deal_status = normalize_deal_status(contact.get("deal_status") or "", stage=stage)
+    source = normalize_source(contact.get("source") or "other")
+    owner = (contact.get("owner") or "").strip() or "—"
+    value = _value_display(contact.get("value") or "")
+    follow = (contact.get("next_follow_up") or "").strip()[:10]
+    contact_line = " · ".join(
+        part for part in [(contact.get("email") or "").strip(), (contact.get("phone") or "").strip()] if part
+    ) or "No email or phone"
+
+    back_col, _ = st.columns([1.1, 4.9])
+    with back_col:
+        if st.button("← Back to list", key="crm_detail_back", use_container_width=True):
+            _close_lead_detail()
+            st.rerun()
+
+    st.markdown(
+        f"""
+        <div class="crm-detail-shell">
+          <div class="crm-detail-top">
+            <div>
+              <div class="crm-detail-kicker">Lead workspace</div>
+              <h2 class="crm-detail-title">{html.escape(company)}</h2>
+              <div class="crm-detail-sub">
+                {html.escape(name)} · {html.escape(contact_line)} · Owner {html.escape(owner)}
+                {" · Next " + html.escape(follow) if follow else ""}
+              </div>
+              <div class="crm-detail-badges">
+                <span class="crm-pill {html.escape(stage)}">{html.escape(_status_label(stage))}</span>
+                <span class="crm-pill {html.escape(deal_status)}">{html.escape(_deal_status_label(deal_status))}</span>
+                <span class="crm-pill">{html.escape(_source_label(source))}</span>
+                <span class="crm-pill">Value {html.escape(value)}</span>
+              </div>
+            </div>
+          </div>
+          <div class="crm-detail-panel">
+        """,
+        unsafe_allow_html=True,
+    )
+    _render_lead_details(contact, idx, statuses)
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
+
+def _render_contact_card(
+    contact: dict,
+    idx: int,
+    statuses: list[str],
+    *,
+    selected_id: str | None = None,
+) -> None:
+    cid = contact.get("id", f"row-{idx}")
     name = display_name(contact)
     stage = normalize_status(contact.get("status") or "new")
     stage_label = _status_label(stage)
     deal_status = normalize_deal_status(contact.get("deal_status") or "", stage=stage)
     deal_label = _deal_status_label(deal_status)
-    source = normalize_source(contact.get("source") or "other")
-    source_disp = _source_label(source)
-    title = (contact.get("title") or "").strip()
     is_due = _is_due(contact) and deal_status == "open"
-    has_meetings = bool(contact.get("meetings"))
     due_html = '<span class="crm-pill due">Due</span>' if is_due else ""
-    meeting_html = '<span class="crm-pill meeting">Meet</span>' if has_meetings else ""
-    title_html = f'<span class="crm-row-title">{html.escape(title)}</span>' if title else ""
 
     company = (contact.get("company") or "").strip() or "—"
-    industry = (contact.get("industry") or "").strip()
-    industry_html = f'<div class="crm-row-v mute">{html.escape(industry)}</div>' if industry else ""
-    contact_line = " / ".join(
-        part for part in [(contact.get("email") or "").strip(), (contact.get("phone") or "").strip()] if part
-    ) or "No email or phone"
-    owner = (contact.get("owner") or "").strip() or "—"
-    value = _value_display(contact.get("value") or "")
-    client = (contact.get("client") or "").strip()
-    client_html = f'<div class="crm-row-sub">{html.escape(client)}</div>' if client else ""
-    follow = (contact.get("next_follow_up") or "").strip()[:10]
-    follow_label = "Due" if is_due else "Next"
-    follow_html = f'<div class="crm-row-sub">{follow_label}: {html.escape(follow)}</div>' if follow else ""
-    row_cls = "crm-row crm-due" if is_due else "crm-row"
 
-    st.markdown(
-        f'<div class="{row_cls}">'
-        f'<div>'
-        f'  <div class="crm-row-k">Lead ID</div>'
-        f'  <div class="crm-row-v">{html.escape(lead_id)}</div>'
+    anchor_cls = "crm-row-anchor"
+    if is_due:
+        anchor_cls += " crm-row-due"
+    if selected_id and str(cid) == str(selected_id):
+        anchor_cls += " crm-row-active"
+
+    status_html = (
+        f'<div class="crm-lead-status">'
+        f'{due_html}'
+        f'<span class="crm-pill {html.escape(stage)}">{html.escape(stage_label)}</span>'
+        f'<span class="crm-pill {html.escape(deal_status)}">{html.escape(deal_label)}</span>'
         f'</div>'
-        f'<div>'
-        f'  <div class="crm-row-k">Company</div>'
-        f'  <div class="crm-row-v">{html.escape(company)}</div>'
-        f'  {industry_html}'
-        f'</div>'
-        f'<div class="crm-row-main">'
-        f'  <div class="crm-row-k">Contact</div>'
-        f'  <div class="crm-row-name">{html.escape(name)}{title_html}</div>'
-        f'  <div class="crm-row-sub">{html.escape(contact_line)}</div>'
-        f'  {client_html}'
-        f'</div>'
-        f'<div>'
-        f'  <div class="crm-row-k">Source</div>'
-        f'  <div class="crm-row-v">{html.escape(source_disp)}</div>'
-        f'  {follow_html}'
-        f'</div>'
-        f'<div>'
-        f'  <div class="crm-row-k">Stage</div>'
-        f'  <span class="crm-pill {html.escape(stage)}">{html.escape(stage_label)}</span>'
-        f'</div>'
-        f'<div class="crm-row-meta">'
-        f'  <div class="crm-row-meta-top">'
-        f'    {due_html}'
-        f'    {meeting_html}'
-        f'    <span class="crm-pill {html.escape(deal_status)}">{html.escape(deal_label)}</span>'
-        f'  </div>'
-        f'  <div class="crm-row-sub">Owner: {html.escape(owner)} · Value: {html.escape(value)}</div>'
-        f'  {_contact_actions(contact)}'
-        f'</div>'
-        f'</div>',
-        unsafe_allow_html=True,
     )
 
-    if st.session_state.get("crm_show_editors", False):
-        with st.expander(f"Open lead: {company} / {name}", expanded=False):
-            _render_lead_details(contact, idx, statuses)
+    st.markdown(f'<span class="{anchor_cls}"></span>', unsafe_allow_html=True)
+    co_col, name_col, status_col, open_col = st.columns([2.5, 1.8, 1.4, 0.25], gap="small")
+    with co_col:
+        st.markdown(f'<div class="crm-lead-co">{html.escape(company)}</div>', unsafe_allow_html=True)
+    with name_col:
+        st.markdown(f'<div class="crm-lead-name">{html.escape(name)}</div>', unsafe_allow_html=True)
+    with status_col:
+        st.markdown(status_html, unsafe_allow_html=True)
+    with open_col:
+        is_open = selected_id and str(cid) == str(selected_id)
+        if st.button(
+            " ",
+            key=f"crm_open_{cid}",
+            use_container_width=True,
+            type="primary" if is_open else "secondary",
+        ):
+            _open_lead_detail(str(cid))
+            st.rerun()
 
 
 def render_crm_page() -> None:
@@ -3391,9 +3480,9 @@ def render_crm_page() -> None:
         interacted_with_main = False
         
         main_keys = [
-            "crm_search", "crm_stage_filter", "crm_source_filter", 
-            "crm_deal_filter", "crm_work_filter", "crm_sort", 
-            "crm_page", "crm_page_size", "crm_show_editors", "crm_selected_lead_dropdown"
+            "crm_search", "crm_stage_filter", "crm_source_filter",
+            "crm_deal_filter", "crm_work_filter", "crm_sort",
+            "crm_page", "crm_page_size", "crm_selected_contact_id", "crm_view_mode",
         ]
         for k in main_keys:
             if k in st.session_state and last_state.get(k) != st.session_state[k]:
@@ -3410,9 +3499,11 @@ def render_crm_page() -> None:
         if interacted_with_main:
             st.session_state.crm_ai_dialog_open = False
 
+    st.session_state.setdefault("crm_view_mode", "list")
+    st.session_state.setdefault("crm_selected_contact_id", None)
+
     st.markdown(CRM_CSS, unsafe_allow_html=True)
     tenancy.render_org_switcher()
-    org = tenancy.active_org()
     ensure_crm_loaded()
 
     db = st.session_state.crm_db
@@ -3429,8 +3520,9 @@ def render_crm_page() -> None:
         if _is_due(c) and normalize_deal_status(c.get("deal_status") or "", stage=normalize_status(c.get("status") or "new")) == "open"
     )
     won = sum(1 for c in contacts if normalize_deal_status(c.get("deal_status") or "", stage=normalize_status(c.get("status") or "new")) == "won")
-    setup_hint_html = "" if github_configured() else _github_setup_hint_html()
     snapshot_html = _stage_snapshot_html(statuses, contacts)
+    selected_id = st.session_state.get("crm_selected_contact_id")
+    detail_mode = st.session_state.get("crm_view_mode") == "detail"
 
     st.markdown(
         f"""
@@ -3440,12 +3532,7 @@ def render_crm_page() -> None:
             <h2>CRM</h2>
             <p>Contacts, follow-ups, and imported lead-agent prospects in one working list.</p>
           </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
-            {tenancy.backend_badge_html(org)}
-            {_sync_badge(meta)}
-          </div>
         </div>
-        {setup_hint_html}
         <div class="crm-stats">
           <div class="crm-stat"><div class="n">{len(contacts)}</div><div class="l">Total</div></div>
           <div class="crm-stat"><div class="n">{active}</div><div class="l">Active</div></div>
@@ -3458,6 +3545,20 @@ def render_crm_page() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+    if detail_mode and selected_id and selected_id in id_to_idx:
+        sel_idx = id_to_idx[selected_id]
+        sel_contact = contacts[sel_idx]
+        _render_lead_detail_view(sel_contact, sel_idx, statuses)
+        toast = st.session_state.pop("crm_save_toast", None)
+        if toast:
+            st.toast(toast)
+        if st.session_state.get("crm_ai_dialog_open"):
+            _ai_add_dialog()
+        return
+    if detail_mode:
+        st.session_state.crm_view_mode = "list"
+        st.session_state.crm_selected_contact_id = None
 
     render_usage_guide("crm")
 
@@ -3583,41 +3684,6 @@ def render_crm_page() -> None:
     else:
         filtered = sorted(filtered, key=lambda c: c.get("updated_at", ""), reverse=True)
 
-    # --- Compact Mode Toggle & Dropdown ---
-    c_toggle, c_dropdown = st.columns([1.8, 3.2])
-    with c_toggle:
-        st.write("") # small alignment spacing
-        st.toggle("Show inline editors", value=False, key="crm_show_editors")
-    with c_dropdown:
-        options = ["-- Select a lead to view details --"]
-        lead_ids = [None]
-        for c in filtered:
-            comp = c.get("company") or "Unnamed Company"
-            nm = c.get("name") or "Unnamed Contact"
-            options.append(f"{comp} / {nm}")
-            lead_ids.append(c.get("id"))
-            
-        selected_lead_option = st.selectbox(
-            "Select lead to view details",
-            options,
-            key="crm_selected_lead_dropdown",
-            label_visibility="collapsed"
-        )
-        
-    if selected_lead_option != "-- Select a lead to view details --":
-        try:
-            selected_idx_in_options = options.index(selected_lead_option)
-            sel_cid = lead_ids[selected_idx_in_options]
-            sel_idx = id_to_idx.get(sel_cid)
-            if sel_idx is not None:
-                sel_contact = contacts[sel_idx]
-                st.markdown('<div class="crm-selected-lead-card">', unsafe_allow_html=True)
-                st.markdown(f"### Details: {sel_contact.get('company') or '—'} / {sel_contact.get('name') or '—'}")
-                _render_lead_details(sel_contact, sel_idx, statuses)
-                st.markdown('</div>', unsafe_allow_html=True)
-        except ValueError:
-            pass
-
     st.markdown('<div class="sec">Your list <span class="line"></span></div>', unsafe_allow_html=True)
 
     if not filtered:
@@ -3669,12 +3735,10 @@ def render_crm_page() -> None:
 
     st.markdown(
         '<div class="crm-ledger-head">'
-        '<span>Lead ID <span class="line"></span></span>'
         '<span>Company <span class="line"></span></span>'
         '<span>Contact <span class="line"></span></span>'
-        '<span>Source <span class="line"></span></span>'
-        '<span>Stage <span class="line"></span></span>'
-        '<span>Deal state <span class="line"></span></span>'
+        '<span>Status <span class="line"></span></span>'
+        '<span></span>'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -3682,7 +3746,7 @@ def render_crm_page() -> None:
     for contact in page_slice:
         idx = id_to_idx.get(contact.get("id"))
         if idx is not None:
-            _render_contact_card(contact, idx, statuses)
+            _render_contact_card(contact, idx, statuses, selected_id=selected_id)
 
     toast = st.session_state.pop("crm_save_toast", None)
     if toast:

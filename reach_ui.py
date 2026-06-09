@@ -8,6 +8,7 @@ or copy / open in Gmail → email auto-logged to CRM thread, stage → Contacted
 
 from __future__ import annotations
 
+import html
 import os
 import re
 import urllib.parse
@@ -185,23 +186,87 @@ def render_reach_page() -> None:
     <style>
     .ra-head {
         font-family: 'Bricolage Grotesque', sans-serif;
-        font-size: 26px; font-weight: 800;
-        letter-spacing: -.02em; margin-bottom: 2px;
+        font-size: clamp(24px, 3.2vw, 30px);
+        font-weight: 850;
+        letter-spacing: -.03em;
+        margin-bottom: 2px;
     }
-    .ra-sub { font-size: 13px; color: var(--ink-mute); margin-bottom: 20px; }
-
+    .ra-sub {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 11px; color: var(--ink-mute);
+        letter-spacing: .03em;
+        margin-bottom: 12px;
+    }
+    .ra-filters {
+        display: flex; flex-wrap: wrap; gap: 6px;
+        margin-bottom: 12px;
+    }
+.reach-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
+.reach-row-anchor + div[data-testid="stHorizontalBlock"] {
+        margin-bottom: 5px;
+        animation: cardIn .32s var(--ease-out) both;
+    }
+    .reach-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"]:hover .cq-card,
+    .reach-row-anchor + div[data-testid="stHorizontalBlock"]:hover .cq-card {
+        border-color: rgba(46,139,77,.28);
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(15,42,51,.08);
+        transform: translateY(-1px);
+    }
+    .reach-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button,
+    .reach-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
+        min-height: 52px !important;
+        border-radius: 0 10px 10px 0 !important;
+        border-left: none !important;
+        font-size: 17px !important;
+        font-weight: 700 !important;
+        color: var(--ink-mute) !important;
+        background: rgba(255,255,255,.72) !important;
+        box-shadow: 0 4px 14px rgba(15,42,51,.05) !important;
+        transform: none !important;
+    }
+    .reach-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button,
+    .reach-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button {
+        background: var(--green) !important;
+        color: #fff !important;
+        border-color: var(--green) !important;
+    }
     .cq-card {
-        padding: 11px 13px; border-radius: 8px;
-        border: 1.5px solid var(--line); background: var(--cream-3);
-        margin-bottom: 6px;
+        padding: 10px 12px;
+        border-radius: 10px 0 0 10px;
+        border: 1px solid var(--line-soft);
+        border-right: none;
+        background: rgba(255,255,255,.68);
+        min-height: 52px;
+        transition: all .2s var(--ease-out);
+        box-shadow: 0 4px 14px rgba(15,42,51,.05);
     }
     .cq-card-sel {
-        border-color: var(--green) !important;
-        background: var(--green-bg) !important;
-        box-shadow: 0 0 0 2px rgba(46,139,77,.12);
+        border-color: rgba(46,139,77,.34) !important;
+        background: linear-gradient(135deg, rgba(46,139,77,.07), rgba(255,255,255,.92)) !important;
+        box-shadow: 0 10px 24px rgba(46,139,77,.12) !important;
     }
-    .cq-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
-    .cq-meta { font-size: 11.5px; color: var(--ink-mute); }
+    .cq-top {
+        display: flex; align-items: flex-start; justify-content: space-between;
+        gap: 8px; margin-bottom: 4px;
+    }
+    .cq-name {
+        font-family: 'Bricolage Grotesque', sans-serif;
+        font-weight: 800; font-size: 14px; line-height: 1.15;
+        color: var(--ink);
+    }
+    .cq-meta {
+        font-size: 11px; color: var(--ink-mute); line-height: 1.35;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .cq-foot {
+        display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 5px;
+    }
+    .cq-score {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 9px; font-weight: 700; letter-spacing: .06em;
+        color: var(--ink-mute); text-transform: uppercase;
+    }
 
     .draft-wrap {
         background: var(--cream-3); border: 1.5px solid var(--line);
@@ -228,17 +293,25 @@ def render_reach_page() -> None:
         color: var(--ink-mute); margin-bottom: 4px;
     }
     .empty-state {
-        text-align:center; padding: 56px 20px; color: var(--ink-mute);
+        text-align:center; padding: 40px 16px; color: var(--ink-mute);
     }
-    .empty-state .es-icon { font-size: 34px; margin-bottom: 12px; }
-    .empty-state .es-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
-    .empty-state .es-body  { font-size: 13px; }
+    .empty-state .es-kicker {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 9px; letter-spacing: .18em; text-transform: uppercase;
+        color: var(--green); margin-bottom: 10px;
+    }
+    .empty-state .es-title { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: var(--ink); }
+    .empty-state .es-body  { font-size: 12.5px; line-height: 1.55; }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="ra-head">Reach Agent</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="ra-sub">Pick a contact → AI composes a personalised 3-email sequence → send or copy.</div>',
+        '<div class="ra-head">Reach <span style="color:var(--green)">Agent</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="ra-sub">contact&nbsp;&nbsp;→&nbsp;&nbsp;compose&nbsp;&nbsp;→&nbsp;&nbsp;send</div>',
         unsafe_allow_html=True,
     )
 
@@ -253,7 +326,7 @@ def render_reach_page() -> None:
         )
         return
 
-    col_q, col_d = st.columns([1, 1.85], gap="large")
+    col_q, col_d = st.columns([1, 1.85], gap="medium")
 
     # ══════════════════════════════════ LEFT — QUEUE ══════════════════════════
     with col_q:
@@ -264,19 +337,25 @@ def render_reach_page() -> None:
         new_n        = sum(1 for c in contacts if c.get("status") == "new")
         contacted_n  = sum(1 for c in contacts if c.get("status") == "contacted")
 
-        flt = st.radio(
-            "filter",
-            ["all", "has_email", "no_email", "new", "contacted"],
-            format_func=lambda x: {
-                "all":       f"All ({len(contacts)})",
-                "has_email": f"Has email ({has_email_n})",
-                "no_email":  f"No email ({no_email_n})",
-                "new":       f"New ({new_n})",
-                "contacted": f"Contacted ({contacted_n})",
-            }[x],
-            key="reach_filter_radio",
-            label_visibility="collapsed",
-        )
+        filter_defs = [
+            ("all", f"All {len(contacts)}"),
+            ("has_email", f"Email {has_email_n}"),
+            ("no_email", f"No email {no_email_n}"),
+            ("new", f"New {new_n}"),
+            ("contacted", f"Contacted {contacted_n}"),
+        ]
+        flt = st.session_state.reach_filter
+        fcols = st.columns(len(filter_defs))
+        for col, (key, label) in zip(fcols, filter_defs):
+            with col:
+                if st.button(
+                    label,
+                    key=f"reach_f_{key}",
+                    use_container_width=True,
+                    type="primary" if flt == key else "secondary",
+                ):
+                    st.session_state.reach_filter = key
+                    st.rerun()
 
         filtered = _filter_contacts(contacts, flt)
         filtered = sorted(
@@ -300,29 +379,36 @@ def render_reach_page() -> None:
             email_disp = email if email else "No email"
             email_col  = "var(--ink-soft)" if email else "var(--amber)"
             card_cls   = "cq-card cq-card-sel" if is_sel else "cq-card"
+            score_html = f'<span class="cq-score">Score {score}</span>' if score else ""
 
-            st.markdown(f"""
-            <div class="{card_cls}">
-              <div class="cq-name">{name_disp}</div>
-              <div class="cq-meta">
-                {"<span>" + sub_disp + " · </span>" if sub_disp else ""}
-                <span style="color:{email_col};">{email_disp}</span>
-              </div>
-              <div style="margin-top:5px;display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
-                {_stage_badge(stage)}
-                {"<span style='font-size:10px;color:var(--ink-mute);'>&nbsp;·&nbsp;score " + str(score) + "</span>" if score else ""}
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            btn_label = "✓ Selected" if is_sel else "Select →"
-            btn_type  = "primary" if is_sel else "secondary"
-            if st.button(btn_label, key=f"selb_{cid}", use_container_width=True, type=btn_type):
-                st.session_state.reach_sel_id   = cid
-                st.session_state.reach_draft    = None
-                st.session_state.reach_sent_msg = None
-                st.session_state.reach_find_error = None
-                st.rerun()
+            st.markdown('<span class="reach-row-anchor"></span>', unsafe_allow_html=True)
+            row_col, pick_col = st.columns([20, 1.05], gap="small")
+            with row_col:
+                st.markdown(f"""
+                <div class="{card_cls}">
+                  <div class="cq-top">
+                    <div class="cq-name">{html.escape(name_disp)}</div>
+                    {_stage_badge(stage)}
+                  </div>
+                  <div class="cq-meta">
+                    {"<span>" + html.escape(sub_disp) + " · </span>" if sub_disp else ""}
+                    <span style="color:{email_col};">{html.escape(email_disp)}</span>
+                  </div>
+                  <div class="cq-foot">{score_html}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with pick_col:
+                if st.button(
+                    "›",
+                    key=f"selb_{cid}",
+                    use_container_width=True,
+                    type="primary" if is_sel else "secondary",
+                ):
+                    st.session_state.reach_sel_id   = cid
+                    st.session_state.reach_draft    = None
+                    st.session_state.reach_sent_msg = None
+                    st.session_state.reach_find_error = None
+                    st.rerun()
 
     # ══════════════════════════════════ RIGHT — DRAFT ═════════════════════════
     with col_d:
@@ -330,9 +416,9 @@ def render_reach_page() -> None:
         if not sel_id:
             st.markdown("""
             <div class="empty-state">
-              <div class="es-icon">✉️</div>
+              <div class="es-kicker">Outreach workspace</div>
               <div class="es-title">Select a contact to start</div>
-              <div class="es-body">AI will write a personalised outreach sequence<br>using their Scout-Agent signals.</div>
+              <div class="es-body">AI writes a personalised 3-email sequence<br>using Scout-Agent signals.</div>
             </div>
             """, unsafe_allow_html=True)
             return
