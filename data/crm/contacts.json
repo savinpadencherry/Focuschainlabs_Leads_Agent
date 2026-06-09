@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-09T13:02:53+00:00",
+  "updated_at": "2026-06-09T13:03:32+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -103,39 +103,6 @@
       "signal": "",
       "opening_line": "",
       "agent_run_id": ""
-    },
-    {
-      "id": "71c82ffe-d277-4743-a252-8e75d7000273",
-      "name": "V.S. Ganesh (MD)",
-      "company": "PAGE INDUSTRIES LTD",
-      "industry": "Innerwear / Apparel",
-      "phone": "Via HQ / ir@pageind.com",
-      "email": "",
-      "client": "",
-      "owner": "",
-      "value": "",
-      "status": "new",
-      "deal_status": "open",
-      "notes": "Minimal – no mobile app\nCO#: 2\nREVENUE: ₹400+ Cr\nBEST TIME: Office hours",
-      "next_follow_up": "",
-      "source": "other",
-      "tags": [
-        "agent-import"
-      ],
-      "email_events": [],
-      "comments": [],
-      "contact_people": [],
-      "invoices": [],
-      "meetings": [],
-      "created_at": "2026-06-09T13:01:38+00:00",
-      "updated_at": "2026-06-09T13:02:01+00:00",
-      "title": "",
-      "linkedin_url": "",
-      "website": "",
-      "score": 0,
-      "signal": "",
-      "opening_line": "",
-      "agent_run_id": "excel_upload_20260609_130201"
     },
     {
       "id": "9cbc9d47-e3e5-4ffc-9699-8df307f456c9",
