@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-09T13:03:45+00:00",
+  "updated_at": "2026-06-09T13:03:58+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -183,39 +183,6 @@
       "status": "new",
       "deal_status": "open",
       "notes": "EMAIL BACKUP ONLY\nCO#: 6\nREVENUE: ₹100+ Cr\nBEST TIME: N/A – Email",
-      "next_follow_up": "",
-      "source": "other",
-      "tags": [
-        "agent-import"
-      ],
-      "email_events": [],
-      "comments": [],
-      "contact_people": [],
-      "invoices": [],
-      "meetings": [],
-      "created_at": "2026-06-09T13:01:38+00:00",
-      "updated_at": "2026-06-09T13:02:01+00:00",
-      "title": "",
-      "linkedin_url": "",
-      "website": "",
-      "score": 0,
-      "signal": "",
-      "opening_line": "",
-      "agent_run_id": "excel_upload_20260609_130201"
-    },
-    {
-      "id": "b7336042-ef56-415d-81df-daea863ee4fd",
-      "name": "Owner / Director",
-      "company": "ACURA DIAGNOSTICS",
-      "industry": "Diagnostic / Path Lab",
-      "phone": "Via acuradiagnostics.com",
-      "email": "",
-      "client": "",
-      "owner": "",
-      "value": "",
-      "status": "new",
-      "deal_status": "open",
-      "notes": "ZERO – no app, no online\nCO#: 7\nREVENUE: ₹10-30 Cr\nBEST TIME: Office hours",
       "next_follow_up": "",
       "source": "other",
       "tags": [
