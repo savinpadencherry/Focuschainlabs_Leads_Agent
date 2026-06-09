@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-09T13:06:50+00:00",
+  "updated_at": "2026-06-09T13:09:06+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -139,19 +139,19 @@
     },
     {
       "id": "fad8b5df-b620-48f4-ab72-33c0ead7889e",
-      "name": "Owner / Director",
-      "company": "CADABAMS DIAGNOSTICS",
-      "industry": "Diagnostic / Path Lab",
-      "phone": "Via cadabamsdiagnostics.com",
-      "email": "",
+      "name": "Adithya",
+      "company": "CADABAMS Wenest",
+      "industry": "Senior Living",
+      "phone": "9035978303",
+      "email": "adithya@cadabams.com",
       "client": "",
       "owner": "",
       "value": "",
-      "status": "new",
+      "status": "contacted",
       "deal_status": "open",
-      "notes": "Minimal – basic digital\nCO#: 8\nREVENUE: ₹20-40 Cr\nBEST TIME: Mid-morning / Late aftn",
-      "next_follow_up": "",
-      "source": "other",
+      "notes": "Spoken and met for Wenest Lead gen. Asked to be onboarded as Channel Partner",
+      "next_follow_up": "2026-06-10",
+      "source": "referral",
       "tags": [
         "agent-import"
       ],
@@ -161,8 +161,8 @@
       "invoices": [],
       "meetings": [],
       "created_at": "2026-06-09T13:01:38+00:00",
-      "updated_at": "2026-06-09T13:02:01+00:00",
-      "title": "",
+      "updated_at": "2026-06-09T13:09:06+00:00",
+      "title": "CoS",
       "linkedin_url": "",
       "website": "",
       "score": 0,
