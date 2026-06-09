@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-08T05:34:16+00:00",
+  "updated_at": "2026-06-09T03:55:34+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -25,6 +25,7 @@
       "comments": [],
       "contact_people": [],
       "invoices": [],
+      "meetings": [],
       "created_at": "2026-06-06T17:07:14+00:00",
       "updated_at": "2026-06-07T03:09:28+00:00",
       "title": "",
@@ -37,7 +38,7 @@
     },
     {
       "id": "c62da77a-383c-47d3-996e-5a78a16a1000",
-      "name": "Aditya Patel",
+      "name": "Aditya Patil",
       "company": "MMA design",
       "industry": "interior design and furniture design for corporate offices",
       "phone": "+919158394714",
@@ -58,8 +59,9 @@
       "comments": [],
       "contact_people": [],
       "invoices": [],
+      "meetings": [],
       "created_at": "2026-06-08T05:27:00+00:00",
-      "updated_at": "2026-06-08T05:27:00+00:00",
+      "updated_at": "2026-06-09T03:55:34+00:00",
       "title": "MMA design",
       "linkedin_url": "",
       "website": "",
@@ -91,6 +93,7 @@
       "comments": [],
       "contact_people": [],
       "invoices": [],
+      "meetings": [],
       "created_at": "2026-06-08T05:34:16+00:00",
       "updated_at": "2026-06-08T05:34:16+00:00",
       "title": "founder",
