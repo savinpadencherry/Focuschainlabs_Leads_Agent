@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-09T13:04:28+00:00",
+  "updated_at": "2026-06-09T13:04:43+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -150,39 +150,6 @@
       "status": "new",
       "deal_status": "open",
       "notes": "Minimal – no online platform\nCO#: 5\nREVENUE: ₹5-15 Cr\nBEST TIME: 10 AM–12 PM or 4–6 PM",
-      "next_follow_up": "",
-      "source": "other",
-      "tags": [
-        "agent-import"
-      ],
-      "email_events": [],
-      "comments": [],
-      "contact_people": [],
-      "invoices": [],
-      "meetings": [],
-      "created_at": "2026-06-09T13:01:38+00:00",
-      "updated_at": "2026-06-09T13:02:01+00:00",
-      "title": "",
-      "linkedin_url": "",
-      "website": "",
-      "score": 0,
-      "signal": "",
-      "opening_line": "",
-      "agent_run_id": "excel_upload_20260609_130201"
-    },
-    {
-      "id": "326d2a03-1f50-46c3-9fd9-0fb88ee7e2c6",
-      "name": "Siva Ganapathi",
-      "company": "GOKALDAS EXPORTS (Email BU)",
-      "industry": "Textile / Garment",
-      "phone": "siva.ganapathi@gokaldasexports.com",
-      "email": "",
-      "client": "",
-      "owner": "",
-      "value": "",
-      "status": "new",
-      "deal_status": "open",
-      "notes": "EMAIL BACKUP ONLY\nCO#: 6\nREVENUE: ₹100+ Cr\nBEST TIME: N/A – Email",
       "next_follow_up": "",
       "source": "other",
       "tags": [
