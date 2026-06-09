@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-09T13:10:09+00:00",
+  "updated_at": "2026-06-09T16:39:07+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -41,15 +41,15 @@
       "name": "Aditya Patil",
       "company": "MMA design",
       "industry": "interior design and furniture design for corporate offices",
-      "phone": "+919158394714",
+      "phone": "9158394714",
       "email": "aditya.patil@mmadesign.in",
       "client": "FocusChainLabs",
       "owner": "Aditya",
       "value": "",
-      "status": "new",
+      "status": "qualified",
       "deal_status": "open",
       "notes": "MMA design's address is Plot No. 2, 150/7, jaideep bungalow prathamesh park, baner, Pune 411045. They are looking for a complete website revamp with a 3D engine.",
-      "next_follow_up": "",
+      "next_follow_up": "2026-06-12",
       "source": "referral",
       "tags": [
         "ai-intake",
@@ -61,7 +61,7 @@
       "invoices": [],
       "meetings": [],
       "created_at": "2026-06-08T05:27:00+00:00",
-      "updated_at": "2026-06-09T03:55:34+00:00",
+      "updated_at": "2026-06-09T16:39:07+00:00",
       "title": "MMA design",
       "linkedin_url": "",
       "website": "",
