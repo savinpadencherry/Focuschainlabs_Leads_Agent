@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-09T13:02:01+00:00",
+  "updated_at": "2026-06-09T13:02:53+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -103,39 +103,6 @@
       "signal": "",
       "opening_line": "",
       "agent_run_id": ""
-    },
-    {
-      "id": "b1ec8fa3-5b36-4ad4-aeef-dcbb11ec4f4b",
-      "name": "Siva Ganapathi (MD)",
-      "company": "GOKALDAS EXPORTS LTD",
-      "industry": "Textile / Garment",
-      "phone": "+91-80-68951000",
-      "email": "",
-      "client": "",
-      "owner": "",
-      "value": "",
-      "status": "new",
-      "deal_status": "open",
-      "notes": "ZERO mobile, ZERO AI\nCO#: 1\nREVENUE: ₹100+ Cr\nBEST TIME: 10 AM – 4 PM IST",
-      "next_follow_up": "",
-      "source": "other",
-      "tags": [
-        "agent-import"
-      ],
-      "email_events": [],
-      "comments": [],
-      "contact_people": [],
-      "invoices": [],
-      "meetings": [],
-      "created_at": "2026-06-09T13:01:38+00:00",
-      "updated_at": "2026-06-09T13:02:01+00:00",
-      "title": "",
-      "linkedin_url": "",
-      "website": "",
-      "score": 0,
-      "signal": "",
-      "opening_line": "",
-      "agent_run_id": "excel_upload_20260609_130201"
     },
     {
       "id": "71c82ffe-d277-4743-a252-8e75d7000273",
