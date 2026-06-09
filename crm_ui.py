@@ -285,7 +285,7 @@ CRM_CSS = """
     border: 1px solid var(--line-soft);
     border-radius: var(--r);
     background: rgba(255,255,255,.65);
-    padding: 12px 14px;
+    padding: 8px 14px;
     display: grid;
     grid-template-columns: 92px minmax(0, 1.35fr) minmax(0, 1.45fr) minmax(0, .9fr) minmax(0, .9fr) minmax(0, 1fr);
     gap: 12px;
@@ -374,12 +374,7 @@ CRM_CSS = """
     white-space: nowrap;
 }
 .crm-row-k {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
-    margin-bottom: 2px;
+    display: none;
 }
 .crm-row-v {
     font-size: 13px;
@@ -825,6 +820,15 @@ CRM_CSS = """
     .crm-row-meta { justify-self: start; width: auto; }
     .crm-row-meta-top { justify-content: flex-start; }
     .crm-actions { justify-content: flex-start; }
+    .crm-row-k {
+        display: block;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 8px;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: var(--ink-mute);
+        margin-bottom: 2px;
+    }
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: column !important;
@@ -1723,6 +1727,13 @@ CRM_CSS = """
     border-color: rgba(46,139,77,.30) !important;
     box-shadow: 0 0 0 4px rgba(46,139,77,.07);
 }
+.crm-selected-lead-card {
+    background: var(--cream-3);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r);
+    padding: 18px;
+    margin: 16px 0;
+}
 </style>
 """
 
@@ -2142,6 +2153,130 @@ def _render_quick_add() -> None:
                     if persist_crm(f"CRM: {action} {display_name(saved)}"):
                         st.toast(f"{'Updated' if action == 'updated' else 'Added'} {display_name(saved)}")
                         st.rerun()
+
+
+def _render_excel_upload() -> None:
+    with st.expander("Import leads from Excel / CSV", expanded=False):
+        st.caption("Upload an Excel (.xlsx, .xls) or CSV file to import leads. Columns will be automatically mapped to CRM fields.")
+        
+        uploaded_file = st.file_uploader(
+            "Upload leads file",
+            type=["xlsx", "xls", "csv"],
+            key="crm_excel_file_upload",
+            label_visibility="collapsed"
+        )
+        
+        if uploaded_file:
+            import pandas as pd
+            try:
+                if uploaded_file.name.endswith(".csv"):
+                    df = pd.read_csv(uploaded_file)
+                else:
+                    df = pd.read_excel(uploaded_file)
+                
+                # Column synonyms
+                col_mapping = {
+                    "company": ["company", "company name", "firm", "business", "organization", "organisation", "company_name"],
+                    "name": ["name", "contact", "contact name", "person", "lead name", "full name", "lead", "contact_name"],
+                    "phone": ["phone", "telephone", "mobile", "phone number", "mobile number", "tel"],
+                    "email": ["email", "email address", "mail", "e-mail", "contact_email"],
+                    "client": ["client", "for client", "target client"],
+                    "industry": ["industry", "sector", "niche"],
+                    "owner": ["owner", "assigned to", "sales rep", "lead owner"],
+                    "value": ["value", "amount", "deal value", "price", "deal size", "budget", "deal_value"],
+                    "status": ["status", "stage", "lead status", "lead stage", "pipeline stage"],
+                    "notes": ["notes", "comments", "description", "context", "details", "requirement"],
+                    "next_follow_up": ["next_follow_up", "follow up", "follow-up", "follow up date", "follow-up date"],
+                    "source": ["source", "lead source"],
+                    "title": ["title", "job title", "designation", "role", "contact_title"],
+                    "linkedin_url": ["linkedin", "linkedin url", "linkedin profile", "linkedin_url"],
+                    "website": ["website", "site", "domain", "web site", "url"],
+                    "score": ["score", "lead score", "total score"],
+                    "signal": ["signal", "buying signal", "trigger"],
+                    "opening_line": ["opening line", "opener", "pitch"],
+                }
+                
+                mapped_cols = {}
+                for std_col, synonyms in col_mapping.items():
+                    for col in df.columns:
+                        if str(col).lower().strip() in synonyms:
+                            mapped_cols[std_col] = col
+                            break
+                
+                # If we couldn't map at least name or company, try case-insensitive substring matching
+                if "name" not in mapped_cols and "company" not in mapped_cols:
+                    for col in df.columns:
+                        col_lower = str(col).lower()
+                        if "name" in col_lower:
+                            mapped_cols["name"] = col
+                        elif "company" in col_lower:
+                            mapped_cols["company"] = col
+                
+                if not mapped_cols.get("name") and not mapped_cols.get("company"):
+                    st.warning("Could not identify a column for Contact Name or Company. Please ensure your file has headers like 'Name' or 'Company'.")
+                else:
+                    # Filter out empty rows
+                    valid_rows = []
+                    for idx, row in df.iterrows():
+                        name_val = str(row[mapped_cols["name"]]).strip() if "name" in mapped_cols else ""
+                        comp_val = str(row[mapped_cols["company"]]).strip() if "company" in mapped_cols else ""
+                        email_val = str(row[mapped_cols["email"]]).strip() if "email" in mapped_cols else ""
+                        
+                        if (name_val and name_val.lower() != "nan" and name_val != "") or \
+                           (comp_val and comp_val.lower() != "nan" and comp_val != "") or \
+                           (email_val and email_val.lower() != "nan" and email_val != ""):
+                            valid_rows.append(row)
+                            
+                    if not valid_rows:
+                        st.warning("No valid rows found in the file (must have at least a Name, Company, or Email).")
+                    else:
+                        st.success(f"Found {len(valid_rows)} valid leads in the file. Columns mapped: {', '.join(mapped_cols.keys())}")
+                        
+                        # Preview
+                        preview_rows = []
+                        for row in valid_rows[:3]:
+                            p_row = {}
+                            for std_col, df_col in mapped_cols.items():
+                                val = row[df_col]
+                                p_row[std_col] = "" if pd.isna(val) else str(val)
+                            preview_rows.append(p_row)
+                        
+                        st.markdown("**Preview of mapped columns:**")
+                        st.dataframe(pd.DataFrame(preview_rows), use_container_width=True)
+                        
+                        # Import Button
+                        if st.button("Import Leads & Sort CRM", type="primary", use_container_width=True, key="crm_excel_import_submit"):
+                            leads = []
+                            for row in valid_rows:
+                                lead = {}
+                                for std_col, df_col in mapped_cols.items():
+                                    val = row[df_col]
+                                    if pd.isna(val):
+                                        val = ""
+                                    lead[std_col] = str(val).strip()
+                                
+                                # Default fields if missing
+                                lead.setdefault("source", "other")
+                                lead.setdefault("status", "new")
+                                lead.setdefault("deal_status", "open")
+                                lead["tags"] = ["excel-import"]
+                                
+                                leads.append(lead)
+                            
+                            db = st.session_state.crm_db
+                            run_id = f"excel_upload_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                            db, stats = import_leads_to_crm(db, leads, agent_run_id=run_id)
+                            st.session_state.crm_db = db
+                            
+                            # Persist
+                            if persist_crm(f"CRM: imported {stats.get('added', 0)} from Excel"):
+                                st.session_state.crm_save_toast = f"Import complete: {stats.get('added', 0)} added, {stats.get('updated', 0)} updated."
+                                # Set sort to Recent so new ones are at the top
+                                st.session_state.crm_sort = "recent"
+                                st.session_state.crm_page = 1
+                                st.rerun()
+            except Exception as e:
+                st.error(f"Error parsing file: {e}")
 
 
 def _open_ai_dialog() -> None:
@@ -3010,6 +3145,140 @@ def _render_people_tab(contact: dict, idx: int) -> None:
                     st.rerun()
 
 
+def _render_lead_details(contact: dict, idx: int, statuses: list[str]) -> None:
+    cid = contact.get("id", f"row-{idx}")
+    name = display_name(contact)
+    company = (contact.get("company") or "").strip() or "—"
+    stage = normalize_status(contact.get("status") or "new")
+    deal_status = normalize_deal_status(contact.get("deal_status") or "", stage=stage)
+    source = normalize_source(contact.get("source") or "other")
+    
+    tab_thread, tab_people, tab_edit, tab_agent = st.tabs(["Activity", "Contacts", "Details", "Agent context"])
+
+    with tab_edit:
+        st.markdown('<div class="crm-edit-wrap">', unsafe_allow_html=True)
+
+        e1, e2, e3 = st.columns(3)
+        with e1:
+            v_company = st.text_input("Company", contact.get("company", ""), key=f"c_{cid}")
+            v_industry = st.text_input("Industry", contact.get("industry", ""), key=f"i_{cid}")
+            v_owner = st.text_input("Owner", contact.get("owner", ""), key=f"o_{cid}")
+        with e2:
+            v_name = st.text_input("Contact name", contact.get("name", ""), key=f"n_{cid}")
+            v_title = st.text_input("Contact title", contact.get("title", ""), key=f"t_{cid}")
+            v_email = st.text_input("Contact email", contact.get("email", ""), key=f"e_{cid}")
+            v_phone = st.text_input("Phone", contact.get("phone", ""), key=f"p_{cid}")
+        with e3:
+            v_source = st.selectbox(
+                "Source",
+                CRM_SOURCE_OPTIONS,
+                index=CRM_SOURCE_OPTIONS.index(source) if source in CRM_SOURCE_OPTIONS else 0,
+                format_func=_source_label,
+                key=f"src_{cid}",
+            )
+            v_stage = st.selectbox(
+                "Stage",
+                CRM_STATUSES,
+                index=CRM_STATUSES.index(stage) if stage in CRM_STATUSES else 0,
+                format_func=_status_label,
+                key=f"s_{cid}",
+                on_change=_sync_stage_widget,
+                args=(f"s_{cid}", f"ds_{cid}"),
+            )
+            v_deal_status = st.selectbox(
+                "Deal state",
+                DEAL_STATUSES,
+                index=DEAL_STATUSES.index(deal_status) if deal_status in DEAL_STATUSES else 0,
+                format_func=_deal_status_label,
+                key=f"ds_{cid}",
+                on_change=_sync_deal_widget,
+                args=(f"s_{cid}", f"ds_{cid}"),
+            )
+
+        e4, e5, e6 = st.columns([1, 1, 1])
+        with e4:
+            v_value = st.text_input("Value", contact.get("value", ""), key=f"v_{cid}")
+        with e5:
+            v_follow = st.date_input(
+                "Follow-up date",
+                value=_date_value(contact.get("next_follow_up") or ""),
+                format="YYYY-MM-DD",
+                key=f"f_{cid}",
+            )
+        with e6:
+            v_client = st.text_input("For client", contact.get("client", ""), key=f"cl_{cid}")
+
+        v_notes = st.text_area("Context and next step", contact.get("notes", ""), height=96, key=f"nt_{cid}")
+
+        b1, b2, _ = st.columns([1, 1, 2])
+        with b1:
+            if st.button("Save", key=f"save_{cid}", type="primary", use_container_width=True):
+                clean_follow_up = _clean_follow_up(v_follow)
+                if clean_follow_up is None:
+                    st.error("Use YYYY-MM-DD for follow-up date.")
+                else:
+                    updated = normalize_contact(
+                        {
+                            **contact,
+                            "name": v_name,
+                            "phone": v_phone,
+                            "email": v_email,
+                            "title": v_title,
+                            "company": v_company,
+                            "industry": v_industry,
+                            "client": v_client,
+                            "owner": v_owner,
+                            "value": v_value,
+                            "source": v_source,
+                            "status": v_stage,
+                            "deal_status": v_deal_status,
+                            "notes": v_notes,
+                            "next_follow_up": clean_follow_up,
+                            "updated_at": utc_now_iso(),
+                        }
+                    )
+                    contacts = st.session_state.crm_db.get("contacts", [])
+                    contacts[idx] = updated
+                    st.session_state.crm_db["contacts"] = contacts
+                    if persist_crm(f"CRM: update {display_name(updated)}"):
+                        st.toast("Saved")
+                        st.rerun()
+        with b2:
+            with st.popover("Delete lead", use_container_width=True):
+                st.warning(f"Remove {name} and its activity history?")
+                if st.button("Confirm delete", key=f"del_{cid}", use_container_width=True):
+                    contacts = [c for c in st.session_state.crm_db.get("contacts", []) if c.get("id") != cid]
+                    st.session_state.crm_db["contacts"] = contacts
+                    if persist_crm(f"CRM: delete {name}"):
+                        st.toast("Lead removed")
+                        st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with tab_thread:
+        _render_thread_tab(contact, idx)
+
+    with tab_people:
+        _render_people_tab(contact, idx)
+
+    with tab_agent:
+        if contact.get("signal") or contact.get("opening_line") or contact.get("score"):
+            if contact.get("score"):
+                st.caption(f"Score: {contact['score']}/100")
+            if contact.get("signal"):
+                st.write(contact["signal"])
+            if contact.get("opening_line"):
+                st.info(contact["opening_line"])
+            if contact.get("linkedin_url"):
+                st.markdown(f"[LinkedIn]({contact['linkedin_url']})")
+            if contact.get("website"):
+                st.markdown(f"[Website]({contact['website']})")
+            if contact.get("agent_run_id"):
+                st.caption(f"Agent run: {contact['agent_run_id']}")
+        else:
+            st.caption("No agent data for this lead.")
+
+
 def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
     cid = contact.get("id", f"row-{idx}")
     lead_id = str(cid)[:8]
@@ -3081,134 +3350,37 @@ def _render_contact_card(contact: dict, idx: int, statuses: list[str]) -> None:
         unsafe_allow_html=True,
     )
 
-    with st.expander(f"Open lead: {company} / {name}", expanded=False):
-        tab_thread, tab_people, tab_edit, tab_agent = st.tabs(["Activity", "Contacts", "Details", "Agent context"])
-
-        with tab_edit:
-            st.markdown('<div class="crm-edit-wrap">', unsafe_allow_html=True)
-
-            e1, e2, e3 = st.columns(3)
-            with e1:
-                v_company = st.text_input("Company", contact.get("company", ""), key=f"c_{cid}")
-                v_industry = st.text_input("Industry", contact.get("industry", ""), key=f"i_{cid}")
-                v_owner = st.text_input("Owner", contact.get("owner", ""), key=f"o_{cid}")
-            with e2:
-                v_name = st.text_input("Contact name", contact.get("name", ""), key=f"n_{cid}")
-                v_title = st.text_input("Contact title", contact.get("title", ""), key=f"t_{cid}")
-                v_email = st.text_input("Contact email", contact.get("email", ""), key=f"e_{cid}")
-                v_phone = st.text_input("Phone", contact.get("phone", ""), key=f"p_{cid}")
-            with e3:
-                v_source = st.selectbox(
-                    "Source",
-                    CRM_SOURCE_OPTIONS,
-                    index=CRM_SOURCE_OPTIONS.index(source) if source in CRM_SOURCE_OPTIONS else 0,
-                    format_func=_source_label,
-                    key=f"src_{cid}",
-                )
-                v_stage = st.selectbox(
-                    "Stage",
-                    CRM_STATUSES,
-                    index=CRM_STATUSES.index(stage) if stage in CRM_STATUSES else 0,
-                    format_func=_status_label,
-                    key=f"s_{cid}",
-                    on_change=_sync_stage_widget,
-                    args=(f"s_{cid}", f"ds_{cid}"),
-                )
-                v_deal_status = st.selectbox(
-                    "Deal state",
-                    DEAL_STATUSES,
-                    index=DEAL_STATUSES.index(deal_status) if deal_status in DEAL_STATUSES else 0,
-                    format_func=_deal_status_label,
-                    key=f"ds_{cid}",
-                    on_change=_sync_deal_widget,
-                    args=(f"s_{cid}", f"ds_{cid}"),
-                )
-
-            e4, e5, e6 = st.columns([1, 1, 1])
-            with e4:
-                v_value = st.text_input("Value", contact.get("value", ""), key=f"v_{cid}")
-            with e5:
-                v_follow = st.date_input(
-                    "Follow-up date",
-                    value=_date_value(contact.get("next_follow_up") or ""),
-                    format="YYYY-MM-DD",
-                    key=f"f_{cid}",
-                )
-            with e6:
-                v_client = st.text_input("For client", contact.get("client", ""), key=f"cl_{cid}")
-
-            v_notes = st.text_area("Context and next step", contact.get("notes", ""), height=96, key=f"nt_{cid}")
-
-            b1, b2, _ = st.columns([1, 1, 2])
-            with b1:
-                if st.button("Save", key=f"save_{cid}", type="primary", use_container_width=True):
-                    clean_follow_up = _clean_follow_up(v_follow)
-                    if clean_follow_up is None:
-                        st.error("Use YYYY-MM-DD for follow-up date.")
-                    else:
-                        updated = normalize_contact(
-                            {
-                                **contact,
-                                "name": v_name,
-                                "phone": v_phone,
-                                "email": v_email,
-                                "title": v_title,
-                                "company": v_company,
-                                "industry": v_industry,
-                                "client": v_client,
-                                "owner": v_owner,
-                                "value": v_value,
-                                "source": v_source,
-                                "status": v_stage,
-                                "deal_status": v_deal_status,
-                                "notes": v_notes,
-                                "next_follow_up": clean_follow_up,
-                                "updated_at": utc_now_iso(),
-                            }
-                        )
-                        contacts = st.session_state.crm_db.get("contacts", [])
-                        contacts[idx] = updated
-                        st.session_state.crm_db["contacts"] = contacts
-                        if persist_crm(f"CRM: update {display_name(updated)}"):
-                            st.toast("Saved")
-                            st.rerun()
-            with b2:
-                with st.popover("Delete lead", use_container_width=True):
-                    st.warning(f"Remove {name} and its activity history?")
-                    if st.button("Confirm delete", key=f"del_{cid}", use_container_width=True):
-                        contacts = [c for c in st.session_state.crm_db.get("contacts", []) if c.get("id") != cid]
-                        st.session_state.crm_db["contacts"] = contacts
-                        if persist_crm(f"CRM: delete {name}"):
-                            st.toast("Lead removed")
-                            st.rerun()
-
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with tab_thread:
-            _render_thread_tab(contact, idx)
-
-        with tab_people:
-            _render_people_tab(contact, idx)
-
-        with tab_agent:
-            if contact.get("signal") or contact.get("opening_line") or contact.get("score"):
-                if contact.get("score"):
-                    st.caption(f"Score: {contact['score']}/100")
-                if contact.get("signal"):
-                    st.write(contact["signal"])
-                if contact.get("opening_line"):
-                    st.info(contact["opening_line"])
-                if contact.get("linkedin_url"):
-                    st.markdown(f"[LinkedIn]({contact['linkedin_url']})")
-                if contact.get("website"):
-                    st.markdown(f"[Website]({contact['website']})")
-                if contact.get("agent_run_id"):
-                    st.caption(f"Agent run: {contact['agent_run_id']}")
-            else:
-                st.caption("No agent data for this lead.")
+    if st.session_state.get("crm_show_editors", False):
+        with st.expander(f"Open lead: {company} / {name}", expanded=False):
+            _render_lead_details(contact, idx, statuses)
 
 
 def render_crm_page() -> None:
+    # --- Dialog Click-Outside / Main Page Interaction Check ---
+    if st.session_state.get("crm_ai_dialog_open"):
+        last_state = st.session_state.get("crm_last_main_state", {})
+        interacted_with_main = False
+        
+        main_keys = [
+            "crm_search", "crm_stage_filter", "crm_source_filter", 
+            "crm_deal_filter", "crm_work_filter", "crm_sort", 
+            "crm_page", "crm_page_size", "crm_show_editors", "crm_selected_lead_dropdown"
+        ]
+        for k in main_keys:
+            if k in st.session_state and last_state.get(k) != st.session_state[k]:
+                interacted_with_main = True
+                break
+        
+        if not interacted_with_main:
+            for k, val in st.session_state.items():
+                if any(k.startswith(prefix) for prefix in ["c_", "i_", "o_", "n_", "t_", "e_", "p_", "src_", "s_", "ds_", "v_", "f_", "cl_", "nt_"]):
+                    if k in last_state and last_state[k] != val:
+                        interacted_with_main = True
+                        break
+        
+        if interacted_with_main:
+            st.session_state.crm_ai_dialog_open = False
+
     st.markdown(CRM_CSS, unsafe_allow_html=True)
     tenancy.render_org_switcher()
     org = tenancy.active_org()
@@ -3219,6 +3391,7 @@ def render_crm_page() -> None:
     contacts = list(db.get("contacts") or [])
 
     statuses = _available_statuses(db, contacts)
+    id_to_idx = {c.get("id"): i for i, c in enumerate(contacts)}
 
     active = sum(1 for c in contacts if normalize_deal_status(c.get("deal_status") or "", stage=normalize_status(c.get("status") or "new")) == "open")
     due = sum(
@@ -3271,6 +3444,7 @@ def render_crm_page() -> None:
         st.caption("Describe a lead in one sentence — type it, or tap the box and use your keyboard's mic to dictate. The AI fills in the record and only asks for what's missing.")
 
     _render_quick_add()
+    _render_excel_upload()
 
     st.markdown('<div class="sec">Find leads <span class="line"></span></div>', unsafe_allow_html=True)
     search_col, sync_col, clear_col = st.columns([5, 1, 1])
@@ -3380,6 +3554,41 @@ def render_crm_page() -> None:
     else:
         filtered = sorted(filtered, key=lambda c: c.get("updated_at", ""), reverse=True)
 
+    # --- Compact Mode Toggle & Dropdown ---
+    c_toggle, c_dropdown = st.columns([1.8, 3.2])
+    with c_toggle:
+        st.write("") # small alignment spacing
+        st.toggle("Show inline editors", value=False, key="crm_show_editors")
+    with c_dropdown:
+        options = ["-- Select a lead to view details --"]
+        lead_ids = [None]
+        for c in filtered:
+            comp = c.get("company") or "Unnamed Company"
+            nm = c.get("name") or "Unnamed Contact"
+            options.append(f"{comp} / {nm}")
+            lead_ids.append(c.get("id"))
+            
+        selected_lead_option = st.selectbox(
+            "Select lead to view details",
+            options,
+            key="crm_selected_lead_dropdown",
+            label_visibility="collapsed"
+        )
+        
+    if selected_lead_option != "-- Select a lead to view details --":
+        try:
+            selected_idx_in_options = options.index(selected_lead_option)
+            sel_cid = lead_ids[selected_idx_in_options]
+            sel_idx = id_to_idx.get(sel_cid)
+            if sel_idx is not None:
+                sel_contact = contacts[sel_idx]
+                st.markdown('<div class="crm-selected-lead-card">', unsafe_allow_html=True)
+                st.markdown(f"### Details: {sel_contact.get('company') or '—'} / {sel_contact.get('name') or '—'}")
+                _render_lead_details(sel_contact, sel_idx, statuses)
+                st.markdown('</div>', unsafe_allow_html=True)
+        except ValueError:
+            pass
+
     st.markdown('<div class="sec">Your list <span class="line"></span></div>', unsafe_allow_html=True)
 
     if not filtered:
@@ -3441,7 +3650,6 @@ def render_crm_page() -> None:
         unsafe_allow_html=True,
     )
 
-    id_to_idx = {c.get("id"): i for i, c in enumerate(contacts)}
     for contact in page_slice:
         idx = id_to_idx.get(contact.get("id"))
         if idx is not None:
@@ -3450,6 +3658,15 @@ def render_crm_page() -> None:
     toast = st.session_state.pop("crm_save_toast", None)
     if toast:
         st.toast(toast)
+
+    # Save main page state at the end of the page render to detect changes in the next run
+    last_state = {}
+    for k, val in st.session_state.items():
+        if k in ("crm_ai_dialog_open", "crm_last_main_state", "ai_text", "ai_intake") or k.startswith("aif_"):
+            continue
+        if isinstance(val, (str, int, float, bool, list, dict, date)) or val is None:
+            last_state[k] = val
+    st.session_state.crm_last_main_state = last_state
 
     if st.session_state.get("crm_ai_dialog_open"):
         _ai_add_dialog()
