@@ -277,8 +277,8 @@ CRM_CSS = """
     flex: 1;
     background: linear-gradient(90deg, rgba(15,42,51,.12), transparent);
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] {
     align-items: stretch !important;
     margin-bottom: 8px;
     border: 1px solid var(--line-soft);
@@ -291,26 +291,26 @@ CRM_CSS = """
                 background .22s ease, transform .22s cubic-bezier(.22,.61,.36,1);
     animation: cardIn .32s var(--ease-out) both;
 }
-.crm-row-anchor.crm-row-due + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
-.crm-row-anchor.crm-row-due + div[data-testid="stHorizontalBlock"] {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-due) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
+div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-due) + div[data-testid="stHorizontalBlock"] {
     border-color: rgba(183,121,31,.30);
     background: linear-gradient(90deg, rgba(183,121,31,.07), rgba(255,255,255,.84));
 }
-.crm-row-anchor.crm-row-active + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
-.crm-row-anchor.crm-row-active + div[data-testid="stHorizontalBlock"] {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-active) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
+div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-active) + div[data-testid="stHorizontalBlock"] {
     border-color: rgba(46,139,77,.34);
     background: linear-gradient(90deg, rgba(46,139,77,.08), rgba(255,255,255,.92));
     box-shadow: 0 8px 22px rgba(46,139,77,.10);
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"]:hover,
-.crm-row-anchor + div[data-testid="stHorizontalBlock"]:hover {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"]:hover,
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"]:hover {
     border-color: rgba(46,139,77,.28);
     background: #fff;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(15,42,51,.04), 0 14px 32px rgba(15,42,51,.09);
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"],
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"],
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
     display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
@@ -318,17 +318,17 @@ CRM_CSS = """
     padding: 12px 8px !important;
     min-width: 0 !important;
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child,
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child,
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child {
     padding-left: 18px !important;
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"],
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"],
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] {
     width: 100%;
     margin: 0;
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] p,
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] p {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] p,
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] p {
     margin: 0 !important;
 }
 .crm-lead-co-wrap { display: flex; align-items: center; gap: 11px; min-width: 0; width: 100%; }
@@ -384,8 +384,8 @@ CRM_CSS = """
     flex-shrink: 0;
     white-space: nowrap;
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child,
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child,
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child {
     flex: 0 0 36px !important;
     max-width: 36px !important;
     min-width: 36px !important;
@@ -393,14 +393,14 @@ CRM_CSS = """
     padding: 0 !important;
     justify-content: center !important;
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stButton"],
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stButton"] {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stButton"],
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stButton"] {
     margin: 0 !important;
     width: 36px !important;
     height: 100% !important;
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button,
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button,
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
     width: 36px !important;
     min-width: 36px !important;
     max-width: 36px !important;
@@ -419,8 +419,8 @@ CRM_CSS = """
     transform: none !important;
     position: relative !important;
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button::after,
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button::after {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button::after,
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button::after {
     content: "›";
     position: absolute;
     inset: 0;
@@ -431,21 +431,21 @@ CRM_CSS = """
     font-weight: 700 !important;
     color: var(--ink-mute) !important;
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover,
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover,
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover {
     background: var(--green-bg) !important;
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover::after,
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover::after {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover::after,
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover::after {
     color: var(--green) !important;
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button,
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button,
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button {
     background: var(--green) !important;
     border-color: var(--green) !important;
 }
-.crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button::after,
-.crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button::after {
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button::after,
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button::after {
     color: #fff !important;
 }
 
@@ -1829,6 +1829,10 @@ CRM_CSS = """
 }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+div[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] .crm-row-anchor) {
+    margin: 0 !important; height: 0 !important; min-height: 0 !important; overflow: hidden;
+}
 </style>
 """
 

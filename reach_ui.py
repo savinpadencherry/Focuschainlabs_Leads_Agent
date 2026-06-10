@@ -201,20 +201,50 @@ def render_reach_page() -> None:
         display: flex; flex-wrap: wrap; gap: 6px;
         margin-bottom: 12px;
     }
-.reach-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
-.reach-row-anchor + div[data-testid="stHorizontalBlock"] {
+    /* Queue filter radio → wrapping chips */
+    [data-testid="stRadio"] [role="radiogroup"] {
+        display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    [data-testid="stRadio"] label {
+        border: 1px solid var(--line-soft) !important;
+        border-radius: 999px !important;
+        padding: 5px 13px !important;
+        background: rgba(255,255,255,.72) !important;
+        margin: 0 !important;
+        transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+        cursor: pointer;
+    }
+    [data-testid="stRadio"] label:hover {
+        border-color: rgba(46,139,77,.30) !important;
+        background: #fff !important;
+        box-shadow: 0 4px 12px rgba(15,42,51,.06);
+    }
+    [data-testid="stRadio"] label:has(input:checked) {
+        border-color: var(--green) !important;
+        background: rgba(46,139,77,.10) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+    }
+    [data-testid="stRadio"] label:has(input:checked) p { color: var(--green) !important; font-weight: 700 !important; }
+    [data-testid="stRadio"] label > div:first-child { display: none !important; }  /* hide the radio dot */
+    [data-testid="stRadio"] label p {
+        font-size: 12px !important; font-weight: 600 !important;
+        color: var(--ink-soft) !important; white-space: nowrap !important;
+        line-height: 1.2 !important;
+    }
+div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
+div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stHorizontalBlock"] {
         margin-bottom: 5px;
         animation: cardIn .32s var(--ease-out) both;
     }
-    .reach-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"]:hover .cq-card,
-    .reach-row-anchor + div[data-testid="stHorizontalBlock"]:hover .cq-card {
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"]:hover .cq-card,
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stHorizontalBlock"]:hover .cq-card {
         border-color: rgba(46,139,77,.28);
         background: #fff;
         box-shadow: 0 10px 24px rgba(15,42,51,.08);
         transform: translateY(-1px);
     }
-    .reach-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button,
-    .reach-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button,
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
         min-height: 52px !important;
         border-radius: 0 10px 10px 0 !important;
         border-left: none !important;
@@ -225,8 +255,8 @@ def render_reach_page() -> None:
         box-shadow: 0 4px 14px rgba(15,42,51,.05) !important;
         transform: none !important;
     }
-    .reach-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button,
-    .reach-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button {
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button,
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button {
         background: var(--green) !important;
         color: #fff !important;
         border-color: var(--green) !important;
@@ -303,7 +333,11 @@ def render_reach_page() -> None:
     .empty-state .es-title { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: var(--ink); }
     .empty-state .es-body  { font-size: 12.5px; line-height: 1.55; }
     @keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
+    
+div[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] .reach-row-anchor) {
+    margin: 0 !important; height: 0 !important; min-height: 0 !important; overflow: hidden;
+}
+</style>
     """, unsafe_allow_html=True)
 
     st.markdown(
@@ -344,18 +378,20 @@ def render_reach_page() -> None:
             ("new", f"New {new_n}"),
             ("contacted", f"Contacted {contacted_n}"),
         ]
+        # One wrapping chip row — equal-width columns in this narrow pane would
+        # squeeze each button until its label wraps a letter per line.
         flt = st.session_state.reach_filter
-        fcols = st.columns(len(filter_defs))
-        for col, (key, label) in zip(fcols, filter_defs):
-            with col:
-                if st.button(
-                    label,
-                    key=f"reach_f_{key}",
-                    use_container_width=True,
-                    type="primary" if flt == key else "secondary",
-                ):
-                    st.session_state.reach_filter = key
-                    st.rerun()
+        f_keys = [k for k, _ in filter_defs]
+        f_labels = [lbl for _, lbl in filter_defs]
+        current_idx = f_keys.index(flt) if flt in f_keys else 0
+        picked = st.radio(
+            "Queue filter", f_labels, index=current_idx,
+            horizontal=True, label_visibility="collapsed",
+        )
+        picked_key = f_keys[f_labels.index(picked)]
+        if picked_key != flt:
+            st.session_state.reach_filter = picked_key
+            st.rerun()
 
         filtered = _filter_contacts(contacts, flt)
         filtered = sorted(
