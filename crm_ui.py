@@ -261,10 +261,10 @@ CRM_CSS = """
 /* Ledger header */
 .crm-ledger-head {
     display: grid;
-    grid-template-columns: minmax(0, 2.5fr) minmax(0, 1.8fr) minmax(0, 1.4fr) 36px;
+    grid-template-columns: minmax(0, 2.5fr) minmax(0, 1.8fr) minmax(0, 1.4fr);
     gap: 14px;
-    padding: 0 16px 8px;
-    margin-bottom: 2px;
+    padding: 0 18px 8px;
+    margin-bottom: 4px;
     color: var(--ink-mute);
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
@@ -277,67 +277,120 @@ CRM_CSS = """
     flex: 1;
     background: linear-gradient(90deg, rgba(15,42,51,.12), transparent);
 }
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] {
-    align-items: stretch !important;
-    margin-bottom: 14px;
-    border: 1.5px solid rgba(15,42,51,.12);
-    border-radius: 16px;
-    overflow: hidden;
-    background: linear-gradient(135deg, #ffffff, rgba(253,252,249,.95));
-    box-shadow: 0 3px 12px rgba(15,42,51,.06), 0 10px 28px rgba(15,42,51,.08);
+.crm-lead-hit { margin: 0; }
+.crm-lead-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
     min-height: 76px;
-    padding: 4px;
-    transition: all .24s cubic-bezier(.22,.61,.36,1);
+    border: 1px solid rgba(15,42,51,.08);
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15,42,51,.03);
+    transition: border-color .18s ease, box-shadow .18s ease;
+    pointer-events: none;
     animation: cardIn .28s var(--ease-out) both;
-    cursor: pointer;
 }
-div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-due) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
-div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-due) + div[data-testid="stHorizontalBlock"] {
-    border-color: rgba(183,121,31,.30);
-    background: linear-gradient(90deg, rgba(183,121,31,.07), rgba(255,255,255,.84));
+.crm-lead-card.crm-due {
+    border-color: rgba(183,121,31,.22);
+    background: #fffdf9;
 }
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"]:hover,
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"]:hover {
-    border-color: rgba(46,139,77,.35);
-    background: linear-gradient(135deg, #ffffff, rgba(253,252,249,1));
-    box-shadow: 0 6px 20px rgba(15,42,51,.10), 0 16px 40px rgba(46,139,77,.15);
-    transform: translateY(-3px) scale(1.008);
+.crm-lead-card.crm-active {
+    border-color: rgba(46,139,77,.22);
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(46,139,77,.08);
 }
-div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-active) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
-div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-active) + div[data-testid="stHorizontalBlock"] {
-    border-color: rgba(46,139,77,.34);
-    background: linear-gradient(90deg, rgba(46,139,77,.08), rgba(255,255,255,.92));
-    box-shadow: 0 8px 22px rgba(46,139,77,.10);
+.crm-lead-body {
+    display: grid;
+    grid-template-columns: minmax(0, 2.5fr) minmax(0, 1.8fr) minmax(0, 1.4fr);
+    gap: 14px;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
 }
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"]:hover,
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"]:hover {
-    border-color: rgba(46,139,77,.28);
-    background: #fff;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(15,42,51,.04), 0 14px 32px rgba(15,42,51,.09);
+.crm-lead-chev {
+    flex: none;
+    width: auto;
+    height: auto;
+    padding: 0 2px;
+    border-radius: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1;
+    color: rgba(15,42,51,.28);
+    background: transparent;
+    border: none;
+    transition: color .18s ease, transform .18s ease;
 }
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"],
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    min-height: 68px !important;
-    padding: 12px 8px !important;
-    min-width: 0 !important;
+div[data-testid="stElementContainer"]:has(.crm-lead-hit) {
+    margin-bottom: 0 !important;
+    position: relative;
+    z-index: 0;
 }
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child,
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child {
-    padding-left: 18px !important;
+div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[class*="st-key-crm_open_"],
+div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] {
+    margin-top: -76px !important;
+    margin-bottom: 10px !important;
+    position: relative;
+    z-index: 2;
+    height: 76px !important;
+    min-height: 76px !important;
+    max-height: 76px !important;
+    overflow: hidden !important;
 }
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"],
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] {
-    width: 100%;
-    margin: 0;
-}
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] p,
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] p {
+div[class*="st-key-crm_open_"] [data-testid="stButton"],
+div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] [data-testid="stButton"] {
     margin: 0 !important;
+    height: 76px !important;
+    width: 100% !important;
+}
+div[class*="st-key-crm_open_"] [data-testid="stTooltipIcon"],
+div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] [data-testid="stTooltipIcon"] {
+    display: none !important;
+}
+div[class*="st-key-crm_open_"] button,
+div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] button {
+    width: 100% !important;
+    min-height: 76px !important;
+    height: 76px !important;
+    opacity: 0 !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+div[class*="st-key-crm_open_"] button::after,
+div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] button::after {
+    display: none !important;
+}
+div[class*="st-key-crm_open_"] button:hover,
+div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] button:hover {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-card,
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-card {
+    border-color: rgba(46,139,77,.18);
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(15,42,51,.05);
+}
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-chev,
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-chev {
+    color: rgba(46,139,77,.72);
+    transform: translateX(1px);
 }
 .crm-lead-co-wrap { display: flex; align-items: center; gap: 11px; min-width: 0; width: 100%; }
 .crm-mono {
@@ -391,70 +444,6 @@ div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="st
 .crm-lead-status .crm-pill {
     flex-shrink: 0;
     white-space: nowrap;
-}
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child,
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child {
-    flex: 0 0 36px !important;
-    max-width: 36px !important;
-    min-width: 36px !important;
-    width: 36px !important;
-    padding: 0 !important;
-    justify-content: center !important;
-}
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stButton"],
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stButton"] {
-    margin: 0 !important;
-    width: 36px !important;
-    height: 100% !important;
-}
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button,
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
-    width: 36px !important;
-    min-width: 36px !important;
-    max-width: 36px !important;
-    min-height: 68px !important;
-    height: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-    border-left: 1px solid var(--line-soft) !important;
-    border-radius: 0 !important;
-    font-size: 0 !important;
-    line-height: 0 !important;
-    color: transparent !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    transform: none !important;
-    position: relative !important;
-}
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button::after,
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button::after {
-    content: "›";
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px !important;
-    font-weight: 700 !important;
-    color: var(--ink-mute) !important;
-}
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover,
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover {
-    background: var(--green-bg) !important;
-}
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover::after,
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:hover::after {
-    color: var(--green) !important;
-}
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button,
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button {
-    background: var(--green) !important;
-    border-color: var(--green) !important;
-}
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button::after,
-div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button::after {
-    color: #fff !important;
 }
 
 .crm-pill {
@@ -885,8 +874,21 @@ div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="st
     .crm-snapshot-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .crm-stat { padding: 13px 12px; }
     .crm-ledger-head { display: none; }
+    .crm-lead-body { grid-template-columns: 1fr; gap: 8px; }
     .crm-lead-co, .crm-lead-name { white-space: normal; }
     .crm-lead-status { flex-wrap: wrap; }
+    div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[class*="st-key-crm_open_"],
+    div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] {
+        margin-top: -76px !important;
+        height: 76px !important;
+        min-height: 76px !important;
+        max-height: 76px !important;
+    }
+    div[class*="st-key-crm_open_"] button,
+    div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] button {
+        min-height: 76px !important;
+        height: 76px !important;
+    }
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: column !important;
@@ -3429,27 +3431,19 @@ def _render_lead_detail_view(contact: dict, idx: int, statuses: list[str]) -> No
             _close_lead_detail()
             st.rerun()
 
+    follow_suffix = f" · Next {html.escape(follow)}" if follow else ""
     st.markdown(
-        f"""
-        <div class="crm-detail-shell">
-          <div class="crm-detail-top">
-            <div>
-              <div class="crm-detail-kicker">Lead workspace</div>
-              <h2 class="crm-detail-title">{html.escape(company)}</h2>
-              <div class="crm-detail-sub">
-                {html.escape(name)} · {html.escape(contact_line)} · Owner {html.escape(owner)}
-                {" · Next " + html.escape(follow) if follow else ""}
-              </div>
-              <div class="crm-detail-badges">
-                <span class="crm-pill {html.escape(stage)}">{html.escape(_status_label(stage))}</span>
-                <span class="crm-pill {html.escape(deal_status)}">{html.escape(_deal_status_label(deal_status))}</span>
-                <span class="crm-pill">{html.escape(_source_label(source))}</span>
-                <span class="crm-pill">Value {html.escape(value)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        """,
+        f'<div class="crm-detail-shell">'
+        f'<div class="crm-detail-top"><div>'
+        f'<div class="crm-detail-kicker">Lead workspace</div>'
+        f'<h2 class="crm-detail-title">{html.escape(company)}</h2>'
+        f'<div class="crm-detail-sub">{html.escape(name)} · {html.escape(contact_line)} · Owner {html.escape(owner)}{follow_suffix}</div>'
+        f'<div class="crm-detail-badges">'
+        f'<span class="crm-pill {html.escape(stage)}">{html.escape(_status_label(stage))}</span>'
+        f'<span class="crm-pill {html.escape(deal_status)}">{html.escape(_deal_status_label(deal_status))}</span>'
+        f'<span class="crm-pill">{html.escape(_source_label(source))}</span>'
+        f'<span class="crm-pill">Value {html.escape(value)}</span>'
+        f'</div></div></div></div>',
         unsafe_allow_html=True,
     )
     _render_lead_details(contact, idx, statuses)
@@ -3473,48 +3467,44 @@ def _render_contact_card(
 
     company = (contact.get("company") or "").strip() or "—"
 
-    anchor_cls = "crm-row-anchor"
+    card_cls = "crm-lead-card"
     if is_due:
-        anchor_cls += " crm-row-due"
+        card_cls += " crm-due"
     if selected_id and str(cid) == str(selected_id):
-        anchor_cls += " crm-row-active"
+        card_cls += " crm-active"
 
-    status_html = (
-        f'<div class="crm-lead-status">'
-        f'{due_html}'
-        f'<span class="crm-pill {html.escape(stage)}">{html.escape(stage_label)}</span>'
-        f'<span class="crm-pill {html.escape(deal_status)}">{html.escape(deal_label)}</span>'
-        f'</div>'
-    )
-
-    st.markdown(f'<span class="{anchor_cls}"></span>', unsafe_allow_html=True)
-    co_col, name_col, status_col, open_col = st.columns([2.5, 1.8, 1.4, 0.25], gap="small")
     monogram_src = (contact.get("company") or "").strip() or name
     words = [w for w in monogram_src.replace("—", " ").split() if w[:1].isalnum()]
     initials = "".join(w[0] for w in words[:2]).upper() or "•"
-    with co_col:
-        st.markdown(
-            f'<div class="crm-lead-co-wrap">'
-            f'<span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
-            f'<div class="crm-lead-co">{html.escape(company)}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-    with name_col:
-        st.markdown(f'<div class="crm-lead-name">{html.escape(name)}</div>', unsafe_allow_html=True)
-    with status_col:
-        st.markdown(status_html, unsafe_allow_html=True)
-    with open_col:
-        is_open = selected_id and str(cid) == str(selected_id)
-        if st.button(
-            "→",
-            key=f"crm_open_{cid}",
-            use_container_width=True,
-            type="primary" if is_open else "secondary",
-            help="View details",
-        ):
-            _open_lead_detail(str(cid))
-            st.rerun()
+
+    status_html = (
+        f'{due_html}'
+        f'<span class="crm-pill {html.escape(stage)}">{html.escape(stage_label)}</span>'
+        f'<span class="crm-pill {html.escape(deal_status)}">{html.escape(deal_label)}</span>'
+    )
+
+    st.markdown(
+        f'<div class="crm-lead-hit"><div class="{card_cls}">'
+        f'  <div class="crm-lead-body">'
+        f'    <div class="crm-lead-co-wrap">'
+        f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
+        f'      <div class="crm-lead-co">{html.escape(company)}</div>'
+        f'    </div>'
+        f'    <div class="crm-lead-name">{html.escape(name)}</div>'
+        f'    <div class="crm-lead-status">{status_html}</div>'
+        f'  </div>'
+        f'  <span class="crm-lead-chev" aria-hidden="true">›</span>'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
+    if st.button(
+        " ",
+        key=f"crm_open_{cid}",
+        use_container_width=True,
+        type="secondary",
+    ):
+        _open_lead_detail(str(cid))
+        st.rerun()
 
 
 def render_crm_page() -> None:
@@ -3782,7 +3772,6 @@ def render_crm_page() -> None:
         '<span>Company <span class="line"></span></span>'
         '<span>Contact <span class="line"></span></span>'
         '<span>Status <span class="line"></span></span>'
-        '<span></span>'
         '</div>',
         unsafe_allow_html=True,
     )
