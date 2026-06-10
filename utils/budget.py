@@ -9,7 +9,7 @@ misbehaves or an LLM prompt fans out unexpectedly.
 Design
 ------
   • Process-global counters, guarded by a lock (safe across Streamlit reruns).
-  • Caps are env-overridable: SERPER_BUDGET, GEMINI_BUDGET, HUNTER_BUDGET, …
+  • Caps are env-overridable: SERPER_BUDGET, LLM_BUDGET, HUNTER_BUDGET, …
   • reset() is called at the start of every agent run.
   • allow(service) reserves one unit and returns False once the cap is hit.
     Callers degrade gracefully (return empty / fall back) rather than
@@ -43,7 +43,9 @@ def _read_caps() -> dict[str, int]:
     # tighter, cheaper run — enrichment degrades first, research is protected.
     return {
         "serper": _env_int("SERPER_BUDGET", 200),
-        "gemini": _env_int("GEMINI_BUDGET", 80),
+        # "llm" covers every FocusChain LLM call regardless of engine.
+        # LLM_BUDGET wins; GEMINI_BUDGET is honoured for older deployments.
+        "llm": _env_int("LLM_BUDGET", _env_int("GEMINI_BUDGET", 80)),
         "hunter": _env_int("HUNTER_BUDGET", 20),
         "apollo": _env_int("APOLLO_BUDGET", 40),
         "apify":  _env_int("APIFY_BUDGET", 25),

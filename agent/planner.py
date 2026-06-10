@@ -16,7 +16,7 @@ from datetime import datetime
 
 from utils.rate_limiter import gemini_limiter
 from utils.exceptions import RateLimitError
-from utils.gemini import generate_content_text
+from utils.llm import generate_content_text
 
 
 PLAN_PROMPT = """
@@ -117,7 +117,8 @@ def plan_search(user_prompt: str, base_icp: dict) -> dict:
     if not user_prompt or not user_prompt.strip():
         return _fallback_plan(base_icp)
 
-    if not os.getenv("GEMINI_API_KEY"):
+    from utils.llm import llm_configured
+    if not llm_configured():
         return _fallback_plan(base_icp, user_prompt)
 
     gemini_limiter.wait()
@@ -149,7 +150,7 @@ def plan_search(user_prompt: str, base_icp: dict) -> dict:
             print("  [SKIP] Planner JSON parse failed — using fallback")
             return _fallback_plan(base_icp, user_prompt)
         except Exception as e:
-            _raise_if_rate_limit("gemini", e)
+            _raise_if_rate_limit("llm", e)
             print(f"  [ERROR] Planner call failed: {e}")
             return _fallback_plan(base_icp, user_prompt)
 

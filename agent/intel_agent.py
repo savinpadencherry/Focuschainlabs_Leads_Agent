@@ -21,7 +21,7 @@ from typing import Any, Generator
 
 import requests
 
-from utils.gemini import generate_content_text
+from utils.llm import generate_content_text
 from utils.rate_limiter import serper_limiter
 
 
@@ -162,9 +162,10 @@ def run_intel(
             "headlines": [n.get("title", "")[:90] for n in news[:3]],
         }
 
-        if not os.getenv("GEMINI_API_KEY"):
+        from utils.llm import llm_configured
+        if not llm_configured():
             yield {"type": "error", "company": name,
-                   "error": "GEMINI_API_KEY not configured in secrets"}
+                   "error": "No LLM key configured in secrets (DEEPSEEK_API_KEY or GEMINI_API_KEY)"}
             continue
 
         # ── Gemini Flash analysis — 1 call per company ───────────────────────

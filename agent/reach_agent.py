@@ -17,7 +17,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Any
 
-from utils.gemini import generate_content_text
+from utils.llm import generate_content_text
 
 
 _COMPOSE_PROMPT = """\

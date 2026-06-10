@@ -139,3 +139,60 @@ This comfortably handles 10k records (a few MB of JSON). If a tenant grows past
 that, swap the CRM page's data access to `crm_store_pg.search_contacts(...)`
 directly — it pushes filtering to indexed SQL so only one page of rows ever
 reaches Python. The function is already written and ready for that next step.
+
+## 7. FocusChain LLM layer (engine-agnostic)
+
+All agents call `utils/llm.py` — no agent (or screen) knows which provider is
+underneath. Provider chain:
+
+1. **Primary** — DeepSeek `deepseek-chat` via its OpenAI-compatible API
+   (`DEEPSEEK_API_KEY`). Prepaid credits, roughly **₹25 / million tokens**;
+   a full Scout run uses well under ₹2.
+2. **Fallback** — Gemini Flash (`GEMINI_API_KEY`), used automatically when the
+   primary key is absent or a call fails. Free tier.
+
+One budget guard covers both: `LLM_BUDGET` (default 80 calls per run;
+`GEMINI_BUDGET` still honoured for older deployments).
+
+## 8. WhatsApp → CRM
+
+Streamlit can't receive webhooks, so a tiny FastAPI service
+(`whatsapp_webhook.py`) runs beside the app and does the listening:
+
+```
+Lead's WhatsApp ──▶ Meta Cloud API ──▶ Cloud Run webhook (scales to zero)
+                                         │  find-or-create lead by phone
+                                         │  log message into contact thread
+                                         │  FocusChain LLM refreshes the record
+                                         ▼
+                                   tenant's CRM store (GitHub JSON / Postgres)
+```
+
+### Setup (one-time, ~20 minutes)
+
+1. **Meta app** — developers.facebook.com → Create App → Business → add the
+   **WhatsApp** product. The API Setup page gives you a test number, a
+   temporary access token and the **Phone number ID**.
+2. **Deploy the webhook**:
+   ```bash
+   gcloud run deploy crm-whatsapp \
+     --source . --region asia-south1 --allow-unauthenticated \
+     --set-env-vars "WHATSAPP_VERIFY_TOKEN=...,WHATSAPP_ACCESS_TOKEN=...,WHATSAPP_PHONE_NUMBER_ID=...,GITHUB_TOKEN=...,GITHUB_REPO=...,DEEPSEEK_API_KEY=..."
+   ```
+   (Build uses `Dockerfile.webhook`; set it via `gcloud run deploy --dockerfile`
+   or a `cloudbuild.yaml`.)
+3. **Wire the webhook** — Meta dashboard → WhatsApp → Configuration →
+   Webhook URL `https://<cloud-run-url>/webhook`, Verify token = your
+   `WHATSAPP_VERIFY_TOKEN`, subscribe to the **messages** field.
+4. **Go permanent** — create a System User token (Business Settings → System
+   Users) so the access token doesn't expire, and register your real business
+   number in place of the test number.
+
+### Cost
+
+Meta: **free** for user-initiated ("service") conversations — the exact CRM
+use case. Cloud Run: free tier covers ~2M requests/month; a webhook that
+scales to zero costs **₹0–10/month** in practice.
+
+Per-tenant: deploy one webhook per org (set `WHATSAPP_ORG_ID`), or one shared
+webhook per WhatsApp number — each number maps to one tenant.

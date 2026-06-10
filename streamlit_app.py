@@ -2009,7 +2009,7 @@ if st.session_state.stage == "setup":
                 unsafe_allow_html=True)
 
     missing_keys = []
-    if not os.getenv("GEMINI_API_KEY"): missing_keys.append("GEMINI_API_KEY")
+    if not (os.getenv("DEEPSEEK_API_KEY") or os.getenv("GEMINI_API_KEY")): missing_keys.append("DEEPSEEK_API_KEY (or GEMINI_API_KEY)")
     if not os.getenv("SERPER_API_KEY"): missing_keys.append("SERPER_API_KEY")
     if not (os.getenv("APIFY_API_KEY") or os.getenv("APOLLO_API_KEY")):
         missing_keys.append("APIFY_API_KEY or APOLLO_API_KEY")
@@ -2130,7 +2130,7 @@ elif st.session_state.stage == "running":
     COST_PER_CONTACT_RUN = 0
 
     _SERVICE_META = {
-        "gemini": {"label": "Gemini AI",      "icon": "◆"},
+        "gemini": {"label": "FocusChain LLM", "icon": "◆"},
         "serper": {"label": "Serper Search",  "icon": "◉"},
         "apollo": {"label": "Apollo",         "icon": "◈"},
         "apify":  {"label": "Apify Scraper",  "icon": "◍"},
@@ -2153,7 +2153,7 @@ elif st.session_state.stage == "running":
             f'<div class="api-cost">'
             f'Est. cost this run: <strong>₹{total_est:.1f}</strong> '
             f'<span class="api-cost-note">'
-            f'Gemini ₹{gemini_cost:.2f} · '
+            f'LLM ₹{gemini_cost:.2f} · '
             f'Serper {serper_used}/{serper_cap} calls (₹{serper_cost:.1f}) · '
             f'contacts via Apify/public web'
             f'</span></div>'
@@ -2174,7 +2174,10 @@ elif st.session_state.stage == "running":
                     "apollo": "APOLLO_API_KEY", "apify":  "APIFY_API_KEY",
                     "hunter": "HUNTER_API_KEY",
                 }.get(svc)
-                if key_env and not os.getenv(key_env):
+                if svc == "gemini":
+                    if not (os.getenv("DEEPSEEK_API_KEY") or os.getenv("GEMINI_API_KEY")):
+                        state = "no_key"
+                elif key_env and not os.getenv(key_env):
                     state = "no_key"
 
             cls   = {"ok": "api-ok", "rate_limited": "api-rl",
@@ -2982,16 +2985,16 @@ elif st.session_state.stage == "error":
             "- **Gemini quota**: free tier resets daily; try again later or upgrade.\n"
             "Your brief and template are still selected."
         )
-    elif "gemini" in err_lower or "google" in err_lower:
+    elif "gemini" in err_lower or "google" in err_lower or "deepseek" in err_lower:
         diagnosis = (
-            "**Gemini AI call failed.** The GEMINI_API_KEY may be missing, invalid, or "
+            "**FocusChain LLM call failed.** The DEEPSEEK_API_KEY / GEMINI_API_KEY may be missing, invalid, or "
             "the free-tier quota has been reached.\n\n"
             "Check your key in Streamlit → Settings → Secrets and try again."
         )
     elif "serper_api_key" in err_lower or "api key" in err_lower:
         diagnosis = (
             "**API key missing or invalid.** Check that all required keys "
-            "(SERPER_API_KEY, GEMINI_API_KEY) are set in Streamlit → Settings → Secrets."
+            "(SERPER_API_KEY, DEEPSEEK_API_KEY or GEMINI_API_KEY) are set in Streamlit → Settings → Secrets."
         )
     elif "filenotfounderror" in err_lower or "icp" in err_lower or "config" in err_lower:
         diagnosis = (

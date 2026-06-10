@@ -1,0 +1,10 @@
+# Minimal deps for the WhatsApp webhook service (whatsapp_webhook.py).
+# Deployed separately from the Streamlit app — see docs/DEPLOYMENT.md.
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+# LLM engines (DeepSeek uses plain requests; google-genai only for fallback)
+google-genai>=1.0.0
+# Only needed for Postgres-backend tenants:
+# psycopg[binary]>=3.1

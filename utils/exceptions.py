@@ -7,7 +7,7 @@ class RateLimitError(Exception):
     """Raised when any external API returns a 429 or quota-exceeded error."""
 
     SERVICE_LABELS = {
-        "gemini":   "Gemini (AI model)",
+        "llm":      "FocusChain LLM (AI model)",
         "serper":   "Serper (Google Search)",
         "apollo":   "Apollo (Contacts)",
         "apify":    "Apify (Web scraper)",

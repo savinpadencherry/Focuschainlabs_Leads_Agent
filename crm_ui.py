@@ -287,7 +287,8 @@ CRM_CSS = """
     background: rgba(255,255,255,.80);
     box-shadow: 0 4px 16px rgba(15,42,51,.05);
     min-height: 68px;
-    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    transition: border-color .22s cubic-bezier(.22,.61,.36,1), box-shadow .22s cubic-bezier(.22,.61,.36,1),
+                background .22s ease, transform .22s cubic-bezier(.22,.61,.36,1);
     animation: cardIn .32s var(--ease-out) both;
 }
 .crm-row-anchor.crm-row-due + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
@@ -305,7 +306,8 @@ CRM_CSS = """
 .crm-row-anchor + div[data-testid="stHorizontalBlock"]:hover {
     border-color: rgba(46,139,77,.28);
     background: #fff;
-    box-shadow: 0 10px 26px rgba(15,42,51,.08);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(15,42,51,.04), 0 14px 32px rgba(15,42,51,.09);
 }
 .crm-row-anchor + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"],
 .crm-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
@@ -329,6 +331,26 @@ CRM_CSS = """
 .crm-row-anchor + div[data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] p {
     margin: 0 !important;
 }
+.crm-lead-co-wrap { display: flex; align-items: center; gap: 11px; min-width: 0; width: 100%; }
+.crm-mono {
+    flex: none;
+    width: 34px; height: 34px; border-radius: 11px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 12.5px; font-weight: 800; letter-spacing: .02em;
+    color: var(--ink);
+    background: linear-gradient(145deg, rgba(15,42,51,.08), rgba(15,42,51,.03));
+    border: 1px solid rgba(15,42,51,.10);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+}
+.crm-mono.new       { color: #1d6b39; background: linear-gradient(145deg, rgba(46,139,77,.18), rgba(46,139,77,.06));  border-color: rgba(46,139,77,.22); }
+.crm-mono.contacted { color: #1D4ED8; background: linear-gradient(145deg, rgba(59,130,246,.16), rgba(59,130,246,.05)); border-color: rgba(59,130,246,.22); }
+.crm-mono.qualified { color: #7E22CE; background: linear-gradient(145deg, rgba(168,85,247,.16), rgba(168,85,247,.05)); border-color: rgba(168,85,247,.24); }
+.crm-mono.meeting   { color: #1E40AF; background: linear-gradient(145deg, rgba(59,130,246,.16), rgba(59,130,246,.05)); border-color: rgba(59,130,246,.24); }
+.crm-mono.proposal  { color: #8a5a14; background: linear-gradient(145deg, rgba(183,121,31,.18), rgba(183,121,31,.06)); border-color: rgba(183,121,31,.26); }
+.crm-mono.nurture   { color: var(--ink-mute); }
+.crm-mono.won       { color: #166534; background: linear-gradient(145deg, rgba(46,139,77,.24), rgba(46,139,77,.08));  border-color: rgba(46,139,77,.28); }
+.crm-mono.lost      { color: #A93D3D; background: linear-gradient(145deg, rgba(169,61,61,.16), rgba(169,61,61,.05));  border-color: rgba(169,61,61,.24); }
 .crm-lead-co {
     font-family: 'Bricolage Grotesque', sans-serif;
     font-size: 15px;
@@ -2942,7 +2964,8 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
                 date_str = (item.get("created_at") or "")[:10]
                 body = item.get("body") or ""
                 body = f"{body[:480]}..." if len(body) > 480 else body
-                meta = " / ".join(p for p in ["Note", date_str, author] if p)
+                kind = "WhatsApp" if (item.get("source") or "") == "whatsapp" else "Note"
+                meta = " / ".join(p for p in [kind, date_str, author] if p)
                 items.append(
                     '<div class="crm-thread-item comment">'
                     f'<div class="crm-thread-meta">{html.escape(meta)}</div>'
@@ -3455,8 +3478,17 @@ def _render_contact_card(
 
     st.markdown(f'<span class="{anchor_cls}"></span>', unsafe_allow_html=True)
     co_col, name_col, status_col, open_col = st.columns([2.5, 1.8, 1.4, 0.25], gap="small")
+    monogram_src = (contact.get("company") or "").strip() or name
+    words = [w for w in monogram_src.replace("—", " ").split() if w[:1].isalnum()]
+    initials = "".join(w[0] for w in words[:2]).upper() or "•"
     with co_col:
-        st.markdown(f'<div class="crm-lead-co">{html.escape(company)}</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="crm-lead-co-wrap">'
+            f'<span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
+            f'<div class="crm-lead-co">{html.escape(company)}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
     with name_col:
         st.markdown(f'<div class="crm-lead-name">{html.escape(name)}</div>', unsafe_allow_html=True)
     with status_col:

@@ -43,7 +43,7 @@ from utils.crm_models import (
     to_amount,
     utc_now_iso,
 )
-from utils.gemini import generate_content_text
+from utils.llm import generate_content_text
 
 
 # Currency symbols for display

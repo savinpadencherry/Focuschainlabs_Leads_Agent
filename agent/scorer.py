@@ -15,7 +15,7 @@ import re
 
 from utils.rate_limiter import gemini_limiter
 from utils.exceptions import RateLimitError
-from utils.gemini import generate_content_text
+from utils.llm import generate_content_text
 
 
 SCORING_PROMPT = """
@@ -142,7 +142,7 @@ def score_company(research_bundle: dict, icp_config: dict) -> dict:
                 "one_line_reasoning": "", "score_reasoning": "Scoring failed.",
             }
         except Exception as e:
-            _raise_if_rate_limit("gemini", e)
+            _raise_if_rate_limit("llm", e)
             print(f"  [ERROR] Gemini call failed: {e}")
             return {
                 "total_score": 0, "qualify": False, "error": str(e),

@@ -14,7 +14,7 @@ import re
 
 from utils.rate_limiter import gemini_limiter
 from utils.exceptions import RateLimitError
-from utils.gemini import generate_content_text
+from utils.llm import generate_content_text
 
 
 PITCH_BUNDLE_PROMPT = """
@@ -118,7 +118,7 @@ def generate_pitch_bundle(lead: dict) -> dict:
         return _fallback_bundle(lead)
 
     except Exception as e:
-        _raise_if_rate_limit("gemini", e)
+        _raise_if_rate_limit("llm", e)
         print(f"  [ERROR] Pitch bundle failed for {lead.get('company_name', '')}: {e}")
         return _fallback_bundle(lead)
 
