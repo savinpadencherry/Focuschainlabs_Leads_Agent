@@ -262,6 +262,8 @@ div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="
         border-color: var(--green) !important;
     }
     .cq-card {
+        position: relative;
+        z-index: 1;
         padding: 10px 12px;
         border-radius: 10px 0 0 10px;
         border: 1px solid var(--line-soft);
@@ -299,8 +301,11 @@ div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="
     }
 
     .draft-wrap {
+        position: relative;
+        z-index: 10;
         background: var(--cream-3); border: 1.5px solid var(--line);
         border-radius: 12px; padding: 20px 22px;
+        margin-top: 20px;
     }
     .no-email-box {
         background: var(--amber-bg); border: 1px solid rgba(183,121,31,.3);
@@ -360,7 +365,7 @@ div[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] 
         )
         return
 
-    col_q, col_d = st.columns([1, 1.85], gap="medium")
+    col_q, col_d = st.columns([1, 1.85], gap="large")
 
     # ══════════════════════════════════ LEFT — QUEUE ══════════════════════════
     with col_q:

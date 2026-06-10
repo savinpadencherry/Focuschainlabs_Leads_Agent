@@ -166,7 +166,7 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
 [data-testid="stSidebar"][aria-expanded="true"] {
     display: block !important;
     visibility: visible !important;
-    transform: translateX(0) !important;
+    transform: translateX(0) translateZ(0) !important;
     margin-left: 0 !important;
     position: relative !important;
     min-width: 54px !important;
@@ -177,7 +177,9 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     box-shadow: 4px 0 18px rgba(15,42,51,.05) !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    transition: min-width .30s var(--ease-out), max-width .30s var(--ease-out), width .30s var(--ease-out), box-shadow .30s var(--ease-out) !important;
+    transition: min-width .20s var(--ease-out), max-width .20s var(--ease-out), width .20s var(--ease-out), box-shadow .20s var(--ease-out) !important;
+    will-change: width, box-shadow !important;
+    contain: layout style paint !important;
     z-index: 999 !important;
 }
 [data-testid="stSidebar"]:hover {
@@ -293,11 +295,13 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     margin-bottom: 6px !important;
     pointer-events: auto !important;
     transform: translateX(0);
-    animation: drawerNavIn .34s var(--ease-out) both;
+    transition: opacity .18s ease, transform .18s ease !important;
+    will-change: opacity, transform !important;
+    animation: drawerNavIn .24s var(--ease-out) both;
 }
-[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(2) { animation-delay: .04s; }
-[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(3) { animation-delay: .08s; }
-[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(4) { animation-delay: .12s; }
+[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(2) { animation-delay: .02s; }
+[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(3) { animation-delay: .04s; }
+[data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(4) { animation-delay: .06s; }
 [data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(5) { animation-delay: .16s; }
 [data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(6) { animation-delay: .20s; }
 [data-testid="stSidebar"]:hover [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):nth-child(7) { animation-delay: .24s; }
@@ -1553,7 +1557,7 @@ h1, h2, h3, h4, p, div, span, label {
     from { transform: translate3d(0, 0, 0) scale(1); }
     to   { transform: translate3d(0, -12px, 0) scale(1.02); }
 }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes rise   { to { transform: translateY(0); } }
 @keyframes pulse  { 0%, 100% { box-shadow: 0 0 0 7px rgba(46,139,77,.10); }
                     50%       { box-shadow: 0 0 0 12px rgba(46,139,77,.04); } }

@@ -280,21 +280,29 @@ CRM_CSS = """
 div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
 div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"] {
     align-items: stretch !important;
-    margin-bottom: 8px;
-    border: 1px solid var(--line-soft);
-    border-radius: 12px;
+    margin-bottom: 14px;
+    border: 1.5px solid rgba(15,42,51,.12);
+    border-radius: 16px;
     overflow: hidden;
-    background: rgba(255,255,255,.80);
-    box-shadow: 0 4px 16px rgba(15,42,51,.05);
-    min-height: 68px;
-    transition: border-color .22s cubic-bezier(.22,.61,.36,1), box-shadow .22s cubic-bezier(.22,.61,.36,1),
-                background .22s ease, transform .22s cubic-bezier(.22,.61,.36,1);
-    animation: cardIn .32s var(--ease-out) both;
+    background: linear-gradient(135deg, #ffffff, rgba(253,252,249,.95));
+    box-shadow: 0 3px 12px rgba(15,42,51,.06), 0 10px 28px rgba(15,42,51,.08);
+    min-height: 76px;
+    padding: 4px;
+    transition: all .24s cubic-bezier(.22,.61,.36,1);
+    animation: cardIn .28s var(--ease-out) both;
+    cursor: pointer;
 }
 div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-due) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
 div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-due) + div[data-testid="stHorizontalBlock"] {
     border-color: rgba(183,121,31,.30);
     background: linear-gradient(90deg, rgba(183,121,31,.07), rgba(255,255,255,.84));
+}
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"]:hover,
+div[data-testid="stElementContainer"]:has(.crm-row-anchor) + div[data-testid="stHorizontalBlock"]:hover {
+    border-color: rgba(46,139,77,.35);
+    background: linear-gradient(135deg, #ffffff, rgba(253,252,249,1));
+    box-shadow: 0 6px 20px rgba(15,42,51,.10), 0 16px 40px rgba(46,139,77,.15);
+    transform: translateY(-3px) scale(1.008);
 }
 div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-active) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
 div[data-testid="stElementContainer"]:has(.crm-row-anchor.crm-row-active) + div[data-testid="stHorizontalBlock"] {
@@ -3440,12 +3448,11 @@ def _render_lead_detail_view(contact: dict, idx: int, statuses: list[str]) -> No
               </div>
             </div>
           </div>
-          <div class="crm-detail-panel">
+        </div>
         """,
         unsafe_allow_html=True,
     )
     _render_lead_details(contact, idx, statuses)
-    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 def _render_contact_card(
@@ -3500,10 +3507,11 @@ def _render_contact_card(
     with open_col:
         is_open = selected_id and str(cid) == str(selected_id)
         if st.button(
-            " ",
+            "→",
             key=f"crm_open_{cid}",
             use_container_width=True,
             type="primary" if is_open else "secondary",
+            help="View details",
         ):
             _open_lead_detail(str(cid))
             st.rerun()
