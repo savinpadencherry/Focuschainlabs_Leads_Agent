@@ -603,6 +603,29 @@ h1, h2, h3, h4, p, div, span, label {
 .stButton > button[kind="primary"]:active {
     transform: translateY(0) scale(.98) !important;
 }
+[data-testid="stBaseButton-primary"]:focus-visible,
+.stButton > button[kind="primary"]:focus-visible,
+.stButton > button[data-testid="stBaseButton-primary"]:focus-visible {
+    outline: 2px solid var(--green) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px rgba(46,139,77,.12) !important;
+}
+[data-testid="stBaseButton-primary"]:disabled,
+.stButton > button[kind="primary"]:disabled,
+.stButton > button[data-testid="stBaseButton-primary"]:disabled {
+    background: var(--line-soft) !important;
+    border-color: var(--line-soft) !important;
+    color: var(--ink-mute) !important;
+    -webkit-text-fill-color: var(--ink-mute) !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+[data-testid="stBaseButton-primary"]:disabled::after,
+.stButton > button[kind="primary"]:disabled::after,
+.stButton > button[data-testid="stBaseButton-primary"]:disabled::after {
+    animation: none !important;
+}
 
 /* ── Secondary button — outlined ── */
 [data-testid="stBaseButton-secondary"],
@@ -629,6 +652,22 @@ h1, h2, h3, h4, p, div, span, label {
 .stButton > button:active {
     transform: translateY(0) scale(.98) !important;
 }
+[data-testid="stBaseButton-secondary"]:focus-visible,
+.stButton > button:focus-visible {
+    outline: 2px solid var(--green) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px rgba(46,139,77,.12) !important;
+}
+[data-testid="stBaseButton-secondary"]:disabled,
+.stButton > button:disabled {
+    background: var(--cream-2) !important;
+    border-color: var(--line-soft) !important;
+    color: var(--ink-mute) !important;
+    -webkit-text-fill-color: var(--ink-mute) !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
 
 /* Download button */
 .stDownloadButton > button {
@@ -651,6 +690,19 @@ h1, h2, h3, h4, p, div, span, label {
 }
 .stDownloadButton > button:active {
     transform: translateY(0) scale(.98) !important;
+}
+.stDownloadButton > button:focus-visible {
+    outline: 2px solid var(--green) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px rgba(46,139,77,.12) !important;
+}
+.stDownloadButton > button:disabled {
+    background: var(--line-soft) !important;
+    border-color: var(--line-soft) !important;
+    color: var(--ink-mute) !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    transform: none !important;
 }
 
 /* ── Pills (industry selector) ── */
@@ -678,6 +730,11 @@ h1, h2, h3, h4, p, div, span, label {
 }
 [data-testid="stPills"] button:active {
     transform: translateY(0) scale(.97) !important;
+}
+[data-testid="stPills"] button:focus-visible {
+    outline: 2px solid var(--green) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 3px rgba(46,139,77,.10) !important;
 }
 [data-testid="stPills"] button[aria-checked="true"],
 [data-testid="stPills"] button[data-active="true"] {
@@ -750,6 +807,10 @@ h1, h2, h3, h4, p, div, span, label {
     box-shadow: none !important;
     background: transparent !important;
     outline: none !important;
+}
+.stTextArea textarea:focus-visible {
+    outline: 2px solid var(--green) !important;
+    outline-offset: 2px !important;
 }
 [data-testid="stForm"] .stTextArea textarea::placeholder {
     color: var(--ink-mute) !important;
@@ -829,6 +890,17 @@ h1, h2, h3, h4, p, div, span, label {
 [data-testid="stForm"] [data-testid="stFormSubmitButton"] button:active {
     transform: scale(0.92) !important;
 }
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:focus-visible {
+    outline: 2px solid var(--green) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px rgba(46,139,77,.12) !important;
+}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:disabled {
+    background: var(--line-soft) !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
 
 /* Minimal setup helpers */
 .template-note {
@@ -881,6 +953,11 @@ h1, h2, h3, h4, p, div, span, label {
     border-color: var(--green) !important;
     background: var(--green-bg) !important;
     transform: scale(1.05) !important;
+}
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"]:focus-visible {
+    border-color: var(--green) !important;
+    box-shadow: 0 0 0 3px rgba(46,139,77,.12) !important;
+    outline: none !important;
 }
 [data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"]::after {
     content: "📎";
@@ -952,6 +1029,10 @@ h1, h2, h3, h4, p, div, span, label {
     border-color: var(--green) !important;
     box-shadow: 0 0 0 3px rgba(46,139,77,.10), var(--shadow-sm) !important;
 }
+.stTextInput input:focus-visible {
+    outline: 2px solid var(--green) !important;
+    outline-offset: 2px !important;
+}
 .stTextInput > div { border: none !important; background: transparent !important; }
 
 /* ── Selectbox ── */
@@ -987,6 +1068,11 @@ h1, h2, h3, h4, p, div, span, label {
     transition: color .25s ease !important;
 }
 .stTabs [data-baseweb="tab"]:hover { color: var(--ink) !important; }
+.stTabs [data-baseweb="tab"]:focus-visible {
+    outline: 2px solid var(--green) !important;
+    outline-offset: 2px !important;
+    border-radius: 4px !important;
+}
 .stTabs [aria-selected="true"] {
     color: var(--ink) !important;
     border-bottom: 2px solid var(--green) !important;
@@ -1005,6 +1091,16 @@ h1, h2, h3, h4, p, div, span, label {
     color: var(--ink) !important;
     font-family: 'Bricolage Grotesque', sans-serif !important;
     font-size: 14px !important; font-weight: 600 !important;
+    transition: border-color .2s ease, background .2s ease !important;
+    cursor: pointer !important;
+}
+.streamlit-expanderHeader:hover {
+    background: var(--cream-2) !important;
+    border-color: var(--line-mid) !important;
+}
+.streamlit-expanderHeader:focus-visible {
+    outline: 2px solid var(--green) !important;
+    outline-offset: 2px !important;
 }
 .streamlit-expanderContent {
     background: var(--cream-3) !important;
@@ -1703,6 +1799,37 @@ h1, h2, h3, h4, p, div, span, label {
         word-break: keep-all !important;
         overflow-wrap: normal !important;
     }
+}
+
+/* ── Touch target minimums ── */
+.stButton > button,
+[data-testid="stBaseButton-primary"],
+[data-testid="stBaseButton-secondary"],
+.stDownloadButton > button,
+[data-testid="stPills"] button,
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button,
+[data-testid="stForm"] .stFileUploader [data-testid="stFileUploaderDropzone"] {
+    min-height: 44px !important;
+    min-width: 44px !important;
+}
+
+/* ── Form error state ── */
+.stTextArea textarea[aria-invalid="true"],
+.stTextInput input[aria-invalid="true"] {
+    border-color: var(--red) !important;
+    box-shadow: 0 0 0 3px rgba(169,61,61,.10) !important;
+}
+
+/* ── Loading skeleton ── */
+.skeleton {
+    background: linear-gradient(90deg, var(--cream-2) 25%, var(--cream-3) 50%, var(--cream-2) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--rs);
+}
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 /* ── Misc ── */
