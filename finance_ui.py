@@ -214,6 +214,14 @@ _CSS = """
     font-size: 13.5px; color: var(--ink); line-height: 1.6; margin-bottom: 14px;
 }
 .fin-flash strong { color: var(--green); }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
 </style>
 """
 

@@ -338,6 +338,14 @@ div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="
     .empty-state .es-title { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: var(--ink); }
     .empty-state .es-body  { font-size: 12.5px; line-height: 1.55; }
     @keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
     
 div[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] .reach-row-anchor) {
     margin: 0 !important; height: 0 !important; min-height: 0 !important; overflow: hidden;

@@ -649,6 +649,9 @@ h1, h2, h3, h4, p, div, span, label {
     transform: translateY(-2px) !important;
     box-shadow: 0 8px 22px rgba(46,139,77,.26) !important;
 }
+.stDownloadButton > button:active {
+    transform: translateY(0) scale(.98) !important;
+}
 
 /* ── Pills (industry selector) ── */
 [data-testid="stPills"] {
@@ -672,6 +675,9 @@ h1, h2, h3, h4, p, div, span, label {
     color: var(--green) !important;
     background: var(--green-bg) !important;
     transform: translateY(-1px) !important;
+}
+[data-testid="stPills"] button:active {
+    transform: translateY(0) scale(.97) !important;
 }
 [data-testid="stPills"] button[aria-checked="true"],
 [data-testid="stPills"] button[data-active="true"] {
@@ -1647,6 +1653,21 @@ h1, h2, h3, h4, p, div, span, label {
 
 /* Pipeline progress bar breathing */
 .pipe-flow { animation: flow-pulse 2s ease-in-out infinite; }
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    .stApp::before, .stApp::after { animation: none !important; }
+    .element-container { animation: none !important; }
+    .act-row, .kw-row { animation: none !important; }
+    .run-metric { animation: none !important; }
+    .pipe-flow { animation: none !important; }
+    .drawer-hamburger { transition: none !important; }
+}
 
 @media (max-width: 720px) {
     .block-container {

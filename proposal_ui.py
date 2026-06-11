@@ -147,6 +147,14 @@ _CSS = """
     margin-bottom: 14px;
 }
 .pa-sent strong { color: var(--green); }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
 </style>
 """
 

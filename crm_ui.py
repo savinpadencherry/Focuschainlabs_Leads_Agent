@@ -1840,6 +1840,17 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    .crm-hero-wrap, .crm-card, .crm-detail-panel { animation: none !important; }
+    .ai-thinking-panel, .ai-thinking-panel::before, .ai-thinking-panel::after { animation: none !important; }
+    .ai-save-bar [data-testid="baseButton-primary"]:not(:disabled) { animation: none !important; }
+}
+
 div[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] .crm-row-anchor) {
     margin: 0 !important; height: 0 !important; min-height: 0 !important; overflow: hidden;
 }

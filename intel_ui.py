@@ -502,6 +502,14 @@ _CSS = """
     border-bottom: 1px solid var(--line-soft);
     margin-bottom: 12px;
 }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
 </style>
 """
 
