@@ -24,7 +24,7 @@ import requests
 
 from utils import budget
 
-_DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
+_DEEPSEEK_URL = (os.getenv("DEEPSEEK_BASE_URL") or "https://api.deepseek.com").rstrip("/") + "/chat/completions"
 
 
 def _deepseek_key() -> str:
