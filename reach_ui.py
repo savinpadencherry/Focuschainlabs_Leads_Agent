@@ -72,10 +72,8 @@ def _save(message: str) -> None:
 
 def _badge(label: str, color: str, bg: str) -> str:
     return (
-        f'<span style="font-size:10px;font-weight:700;letter-spacing:.06em;'
-        f'color:{color};background:{bg};padding:2px 8px;border-radius:3px;'
-        f'border:1px solid {color};text-transform:uppercase;white-space:nowrap;">'
-        f"{label}</span>"
+        f'<span class="cq-badge" style="color:{color};background:{bg};'
+        f'border-color:{color};">{html.escape(label)}</span>'
     )
 
 
@@ -234,14 +232,27 @@ def render_reach_page() -> None:
 div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"],
 div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stHorizontalBlock"] {
         margin-bottom: 5px;
-        animation: cardIn .32s var(--ease-out) both;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        animation: reachRowIn .34s var(--ease-out) both;
+        animation-delay: calc(var(--reach-i, 0) * 38ms);
+    }
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child,
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child {
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stMarkdownContainer"],
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] {
+        min-width: 0 !important;
+        overflow: hidden !important;
     }
     div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"]:hover .cq-card,
     div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stHorizontalBlock"]:hover .cq-card {
         border-color: rgba(46,139,77,.28);
         background: #fff;
         box-shadow: 0 10px 24px rgba(15,42,51,.08);
-        transform: translateY(-1px);
+        transform: translateY(-2px);
     }
     div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button,
     div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
@@ -253,7 +264,12 @@ div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="
         color: var(--ink-mute) !important;
         background: rgba(255,255,255,.72) !important;
         box-shadow: 0 4px 14px rgba(15,42,51,.05) !important;
-        transform: none !important;
+        transition: transform .14s var(--ease-out), background .14s var(--ease-out),
+                    box-shadow .14s var(--ease-out), border-color .14s var(--ease-out) !important;
+    }
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:active,
+    div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button:active {
+        transform: scale(.96) !important;
     }
     div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stElementContainer"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button,
     div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button {
@@ -270,22 +286,48 @@ div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="
         border-right: none;
         background: rgba(255,255,255,.68);
         min-height: 52px;
-        transition: all .2s var(--ease-out);
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+        transition: border-color .18s var(--ease-out), background .18s var(--ease-out),
+                    box-shadow .18s var(--ease-out), transform .18s var(--ease-out);
         box-shadow: 0 4px 14px rgba(15,42,51,.05);
     }
     .cq-card-sel {
         border-color: rgba(46,139,77,.34) !important;
         background: linear-gradient(135deg, rgba(46,139,77,.07), rgba(255,255,255,.92)) !important;
         box-shadow: 0 10px 24px rgba(46,139,77,.12) !important;
+        animation: reachSelect .28s var(--ease-out) both;
     }
     .cq-top {
-        display: flex; align-items: flex-start; justify-content: space-between;
-        gap: 8px; margin-bottom: 4px;
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 6px; margin-bottom: 4px;
+        min-width: 0; max-width: 100%;
     }
     .cq-name {
         font-family: 'Bricolage Grotesque', sans-serif;
         font-weight: 800; font-size: 14px; line-height: 1.15;
         color: var(--ink);
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .cq-badge {
+        flex: 0 0 auto;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        padding: 2px 6px;
+        border-radius: 3px;
+        border: 1px solid;
+        line-height: 1.2;
+        max-width: 42%;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .cq-meta {
         font-size: 11px; color: var(--ink-mute); line-height: 1.35;
@@ -300,12 +342,20 @@ div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="
         color: var(--ink-mute); text-transform: uppercase;
     }
 
+    .reach-detail-in {
+        animation: reachDetailIn .34s var(--ease-out) both;
+    }
+    @keyframes reachDetailIn {
+        from { opacity: 0; transform: translateX(10px); }
+        to   { opacity: 1; transform: translateX(0); }
+    }
     .draft-wrap {
         position: relative;
         z-index: 10;
         background: var(--cream-3); border: 1.5px solid var(--line);
         border-radius: 12px; padding: 20px 22px;
         margin-top: 20px;
+        animation: reachDetailIn .34s var(--ease-out) both;
     }
     .no-email-box {
         background: var(--amber-bg); border: 1px solid rgba(183,121,31,.3);
@@ -337,7 +387,15 @@ div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="
     }
     .empty-state .es-title { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: var(--ink); }
     .empty-state .es-body  { font-size: 12.5px; line-height: 1.55; }
-    @keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes reachRowIn {
+        from { opacity: 0; transform: translateY(8px) scale(.985); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes reachSelect {
+        0%   { box-shadow: 0 0 0 0 rgba(46,139,77,.28); }
+        55%  { box-shadow: 0 0 0 4px rgba(46,139,77,.14); }
+        100% { box-shadow: 0 10px 24px rgba(46,139,77,.12); }
+    }
 
     @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after {
@@ -417,7 +475,7 @@ div[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] 
 
         st.markdown("")
 
-        for c in filtered[:60]:
+        for row_i, c in enumerate(filtered[:60]):
             cid        = c.get("id", "")
             is_sel     = st.session_state.reach_sel_id == cid
             email      = c.get("email") or ""
@@ -430,7 +488,10 @@ div[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] 
             card_cls   = "cq-card cq-card-sel" if is_sel else "cq-card"
             score_html = f'<span class="cq-score">Score {score}</span>' if score else ""
 
-            st.markdown('<span class="reach-row-anchor"></span>', unsafe_allow_html=True)
+            st.markdown(
+                f'<span class="reach-row-anchor" style="--reach-i:{row_i}"></span>',
+                unsafe_allow_html=True,
+            )
             row_col, pick_col = st.columns([20, 1.05], gap="small")
             with row_col:
                 st.markdown(f"""
