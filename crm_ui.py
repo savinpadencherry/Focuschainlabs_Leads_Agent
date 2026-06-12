@@ -279,27 +279,39 @@ CRM_CSS = """
 }
 .crm-lead-hit { margin: 0; }
 .crm-lead-card {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 16px 18px;
+    padding: 20px 24px;
     min-height: 76px;
-    border: 1px solid rgba(15,42,51,.08);
+    border: 1px solid var(--line-soft);
     border-radius: 12px;
-    background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15,42,51,.03);
-    transition: border-color .18s ease, box-shadow .18s ease;
+    background: var(--cream-3);
+    box-shadow: var(--shadow-sm);
+    transition: all .2s cubic-bezier(0.16, 1, 0.3, 1);
     pointer-events: none;
-    animation: cardIn .28s var(--ease-out) both;
+    animation: cardIn .42s var(--ease-out) both;
+    overflow: hidden;
+}
+.crm-lead-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    opacity: 0;
+    transform: scaleX(0.4);
+    transition: all .4s var(--ease-out);
 }
 .crm-lead-card.crm-due {
     border-color: rgba(183,121,31,.22);
     background: #fffdf9;
 }
 .crm-lead-card.crm-active {
-    border-color: rgba(46,139,77,.22);
-    background: #ffffff;
-    box-shadow: 0 1px 3px rgba(46,139,77,.08);
+    border-color: var(--green);
+    background: var(--green-bg2);
+    box-shadow: var(--shadow-sm);
 }
 .crm-lead-body {
     display: grid;
@@ -383,9 +395,15 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stEl
 }
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-card,
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-card {
-    border-color: rgba(46,139,77,.18);
-    background: #ffffff;
-    box-shadow: 0 2px 8px rgba(15,42,51,.05);
+    border-color: var(--line);
+    background: var(--cream-3);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-card::before,
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-card::before {
+    opacity: 1;
+    transform: scaleX(1);
 }
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-chev,
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-chev {
