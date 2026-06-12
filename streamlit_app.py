@@ -1736,6 +1736,14 @@ h1, h2, h3, h4, p, div, span, label {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
 }
+@keyframes pageIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes snapIn {
+    from { opacity: 0; transform: scale(.96); }
+    to   { opacity: 1; transform: scale(1); }
+}
 
 /* Slide-in for activity rows and keyword rows */
 .act-row { animation: slideInRow .28s ease both; }
@@ -1750,6 +1758,39 @@ h1, h2, h3, h4, p, div, span, label {
 /* Pipeline progress bar breathing */
 .pipe-flow { animation: flow-pulse 2s ease-in-out infinite; }
 
+/* Sub-page entrance + drawer-aware column shrink */
+[data-testid="stMain"] [data-testid="stMainBlockContainer"] {
+    animation: pageIn .36s var(--ease-out) both;
+}
+[data-testid="stAppViewContainer"]:has([data-testid="stSidebar"]:hover) [data-testid="stMain"] [data-testid="column"],
+[data-testid="stAppViewContainer"]:has([data-testid="stSidebar"]:hover) [data-testid="stMain"] [data-testid="stHorizontalBlock"] {
+    min-width: 0 !important;
+}
+[data-testid="stAppViewContainer"]:has([data-testid="stSidebar"]:hover) [data-testid="stMain"] [data-testid="stMarkdownContainer"] {
+    min-width: 0 !important;
+    overflow: hidden;
+}
+
+/* Snappier interactive feedback */
+.stButton > button,
+[data-testid="stBaseButton-primary"] > button,
+[data-testid="stBaseButton-secondary"] > button {
+    transition: transform .14s var(--ease-out), box-shadow .14s var(--ease-out),
+                background .14s ease, border-color .14s ease, color .14s ease !important;
+}
+.stButton > button:active:not(:disabled),
+[data-testid="stBaseButton-primary"] > button:active:not(:disabled),
+[data-testid="stBaseButton-secondary"] > button:active:not(:disabled) {
+    transform: scale(.98) !important;
+}
+[data-testid="stRadio"] label {
+    transition: border-color .14s var(--ease-out), background .14s var(--ease-out),
+                box-shadow .14s var(--ease-out), transform .14s var(--ease-out) !important;
+}
+[data-testid="stRadio"] label:active {
+    transform: scale(.97) !important;
+}
+
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -1763,6 +1804,7 @@ h1, h2, h3, h4, p, div, span, label {
     .run-metric { animation: none !important; }
     .pipe-flow { animation: none !important; }
     .drawer-hamburger { transition: none !important; }
+    [data-testid="stMain"] [data-testid="stMainBlockContainer"] { animation: none !important; }
 }
 
 @media (max-width: 720px) {
