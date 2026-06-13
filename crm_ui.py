@@ -3559,11 +3559,21 @@ def _render_lead_detail_view(contact: dict, idx: int, statuses: list[str]) -> No
         part for part in [(contact.get("email") or "").strip(), (contact.get("phone") or "").strip()] if part
     ) or "No email or phone"
 
-    back_col, _ = st.columns([1.1, 4.9])
+    back_col, del_col, _ = st.columns([1.2, 1.2, 3.6])
     with back_col:
         if st.button("← Back to list", key="crm_detail_back", use_container_width=True):
             _close_lead_detail()
             st.rerun()
+    with del_col:
+        with st.popover("🗑 Delete", use_container_width=True):
+            st.warning(f"Delete {name} and all its activity? This can't be undone.")
+            if st.button("Yes, delete", key=f"crm_detail_del_{cid}", type="primary", use_container_width=True):
+                contacts = [c for c in st.session_state.crm_db.get("contacts", []) if c.get("id") != cid]
+                st.session_state.crm_db["contacts"] = contacts
+                if persist_crm(f"CRM: delete {name}"):
+                    _close_lead_detail()
+                    st.toast("Lead removed")
+                    st.rerun()
 
     follow_suffix = f" · Next {html.escape(follow)}" if follow else ""
     st.markdown(
