@@ -395,10 +395,10 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stEl
 }
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-card,
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-card {
-    border-color: var(--line);
-    background: var(--cream-3);
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
+    border-color: rgba(46,139,77,.35);
+    background: linear-gradient(135deg, #ffffff, rgba(253,252,249,.95));
+    box-shadow: 0 6px 20px rgba(15,42,51,.10), 0 16px 40px rgba(46,139,77,.15);
+    transform: translateY(-3px) scale(1.008);
 }
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-card::before,
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-card::before {
@@ -1824,7 +1824,7 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="
     border-radius: var(--rl);
     padding: 18px 20px 22px;
     box-shadow: var(--shadow-lg);
-    animation: fadeUp .45s var(--ease-out) both;
+    animation: fadeUp .2s var(--ease-out) both;
     margin: 6px 0 20px;
 }
 .crm-detail-top {
@@ -1853,7 +1853,7 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="
     border: 1px solid var(--line-soft);
     border-radius: var(--r);
     padding: 14px 16px 8px;
-    animation: cardIn .4s var(--ease-out) .08s both;
+    animation: cardIn .2s var(--ease-out) both;
 }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -3527,8 +3527,9 @@ def _render_contact_card(
         unsafe_allow_html=True,
     )
     if st.button(
-        " ",
+        "View details",
         key=f"crm_open_{cid}",
+        help="View details",
         use_container_width=True,
         type="secondary",
     ):
