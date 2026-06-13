@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lead card — redesign preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root{
+  --cream:#F4F0E7; --cream-2:#EFEADE; --cream-3:#FDFCF9;
+  --ink:#0F2A33; --ink-soft:#3C5158; --ink-mute:#6B7F85;
+  --green:#2E8B4D; --green-br:#37A85C; --green-bg:rgba(46,139,77,.09); --green-bg2:rgba(46,139,77,.16);
+  --line:rgba(15,42,51,.16); --line-soft:rgba(15,42,51,.09); --line-mid:rgba(15,42,51,.22);
+  --amber:#B7791F; --red:#A93D3D;
+  --ease-out:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; padding:42px 20px; background:var(--cream); color:var(--ink);
+  font-family:'Bricolage Grotesque',-apple-system,sans-serif;
+}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(130% 100% at 50% -10%,rgba(255,255,255,.6),transparent 55%),
+             radial-gradient(140% 100% at 50% 110%,rgba(15,42,51,.04),transparent 50%);}
+.wrap{max-width:880px;margin:0 auto;position:relative;z-index:1}
+.kick{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-mute);margin:0 4px 6px}
+.note{color:var(--ink-mute);font-size:13px;margin:0 4px 22px}
+.crm-ledger-head{display:flex;gap:16px;padding:0 26px 10px;font-family:'JetBrains Mono',monospace;color:var(--ink-mute);font-size:10px;letter-spacing:.16em;text-transform:uppercase}
+.crm-ledger-head span{display:inline-flex;align-items:center;gap:8px;flex:1}
+.crm-ledger-head .line{height:1px;flex:1;background:linear-gradient(90deg,rgba(15,42,51,.12),transparent)}
+
+/* ── card (mirrors crm_ui.py) ── */
+.row{margin-bottom:10px}
+.crm-lead-card{position:relative;display:flex;align-items:center;gap:14px;padding:0 20px 0 26px;height:92px;
+  border:1px solid var(--line-soft);border-radius:16px;background:linear-gradient(180deg,#fff,var(--cream-3));
+  box-shadow:0 1px 2px rgba(15,42,51,.04),0 8px 18px -12px rgba(15,42,51,.22),inset 0 1px 0 rgba(255,255,255,.75);
+  transition:transform .28s var(--ease-out),box-shadow .28s var(--ease-out),border-color .28s var(--ease-out),background .28s var(--ease-out);
+  overflow:hidden;cursor:pointer}
+.crm-rail{position:absolute;left:0;top:50%;transform:translateY(-50%);width:4px;height:44px;border-radius:0 4px 4px 0;background:var(--line-mid);opacity:.9;transition:height .28s var(--ease-out),opacity .28s var(--ease-out)}
+.crm-rail.new,.crm-rail.won{background:var(--green)} .crm-rail.contacted,.crm-rail.meeting{background:#3B82F6}
+.crm-rail.qualified{background:#A855F7} .crm-rail.proposal{background:var(--amber)} .crm-rail.nurture{background:var(--ink-mute)} .crm-rail.lost{background:var(--red)}
+.crm-lead-card::before{content:'';position:absolute;inset:0;border-radius:16px;background:radial-gradient(135% 150% at 0% 50%,rgba(46,139,77,.06),transparent 45%);opacity:0;transition:opacity .32s var(--ease-out)}
+.crm-lead-card.crm-due{border-color:rgba(183,121,31,.28);background:linear-gradient(180deg,#fffdf8,#fffaef)}
+.crm-lead-body{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(0,1.7fr) minmax(0,1.7fr);gap:16px;align-items:center;flex:1;min-width:0}
+.crm-lead-co-wrap{display:flex;align-items:center;gap:13px;min-width:0;width:100%}
+.crm-mono{flex:none;width:46px;height:46px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;
+  font-family:'Bricolage Grotesque';font-size:15px;font-weight:800;letter-spacing:.01em;color:var(--ink);
+  background:linear-gradient(150deg,rgba(15,42,51,.10),rgba(15,42,51,.03));border:1px solid rgba(15,42,51,.10);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 4px 10px -5px rgba(15,42,51,.28);transition:transform .26s var(--ease-out),box-shadow .26s var(--ease-out)}
+.crm-mono.new{color:#1d6b39;background:linear-gradient(150deg,rgba(46,139,77,.20),rgba(46,139,77,.06));border-color:rgba(46,139,77,.26)}
+.crm-mono.contacted{color:#1D4ED8;background:linear-gradient(150deg,rgba(59,130,246,.18),rgba(59,130,246,.05));border-color:rgba(59,130,246,.26)}
+.crm-mono.qualified{color:#7E22CE;background:linear-gradient(150deg,rgba(168,85,247,.18),rgba(168,85,247,.05));border-color:rgba(168,85,247,.28)}
+.crm-mono.won{color:#166534;background:linear-gradient(150deg,rgba(46,139,77,.26),rgba(46,139,77,.08));border-color:rgba(46,139,77,.30)}
+.crm-mono.lost{color:#A93D3D;background:linear-gradient(150deg,rgba(169,61,61,.18),rgba(169,61,61,.05));border-color:rgba(169,61,61,.26)}
+.crm-lead-co-text,.crm-lead-name-wrap,.crm-lead-status-wrap{display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0}
+.crm-lead-co{font-family:'Bricolage Grotesque';font-size:15px;font-weight:800;color:var(--ink);line-height:1.2;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.crm-lead-name{font-family:'Bricolage Grotesque';font-size:13.5px;font-weight:700;color:var(--ink-soft);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.crm-lead-sub{font-size:11.5px;font-weight:600;color:var(--ink-mute);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.crm-lead-status{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;min-width:0}
+.crm-lead-meta{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;color:var(--ink-mute);letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.crm-lead-chev{flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:rgba(15,42,51,.34);background:rgba(15,42,51,.045);border:1px solid transparent;transition:color .22s var(--ease-out),background .22s var(--ease-out),transform .22s var(--ease-out),border-color .22s var(--ease-out)}
+
+.crm-pill{display:inline-block;padding:4px 9px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:rgba(15,42,51,.06);color:var(--ink-soft)}
+.crm-pill.new{background:rgba(46,139,77,.12);color:var(--green)} .crm-pill.contacted{background:rgba(59,130,246,.12);color:#1D4ED8}
+.crm-pill.qualified{background:rgba(168,85,247,.12);color:#7E22CE} .crm-pill.lost{background:rgba(169,61,61,.12);color:var(--red)}
+.crm-pill.due{background:rgba(183,121,31,.12);color:var(--amber)} .crm-pill.open{background:rgba(59,130,246,.10);color:#1D4ED8}
+.crm-lead-status .crm-pill{flex-shrink:0;white-space:nowrap;display:inline-flex;align-items:center}
+.crm-lead-status .crm-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;margin-right:5px;opacity:.85}
+
+/* hover (simulated — real app uses the invisible-button sibling) */
+.row:hover .crm-lead-card{border-color:rgba(46,139,77,.38);transform:translateY(-3px);
+  box-shadow:0 2px 4px rgba(15,42,51,.05),0 18px 38px -16px rgba(15,42,51,.28),0 24px 52px -20px rgba(46,139,77,.32)}
+.row:hover .crm-lead-card::before{opacity:1}
+.row:hover .crm-rail{height:66px;opacity:1}
+.row:hover .crm-mono{transform:scale(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 6px 14px -4px rgba(15,42,51,.3)}
+.row:hover .crm-lead-chev{color:#fff;background:var(--green);border-color:var(--green);transform:translateX(2px)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="kick">Your list · redesign preview</p>
+  <p class="note">Hover any card to feel the lift. This is a static mock of the new <code>crm_ui.py</code> card — open it on your iPad to compare with the old flat rows.</p>
+
+  <div class="crm-ledger-head"><span>Company <span class="line"></span></span><span>Contact <span class="line"></span></span><span>Status <span class="line"></span></span></div>
+
+  <div class="row"><div class="crm-lead-card crm-due">
+    <span class="crm-rail qualified"></span>
+    <div class="crm-lead-body">
+      <div class="crm-lead-co-wrap"><span class="crm-mono qualified">MD</span>
+        <div class="crm-lead-co-text"><div class="crm-lead-co">MMA design</div><div class="crm-lead-sub">Interior &amp; furniture design</div></div></div>
+      <div class="crm-lead-name-wrap"><div class="crm-lead-name">Aditya Patil</div><div class="crm-lead-sub">Owner · Aditya</div></div>
+      <div class="crm-lead-status-wrap"><div class="crm-lead-status"><span class="crm-pill due">Due</span><span class="crm-pill qualified">Qualified</span><span class="crm-pill open">Open</span></div><div class="crm-lead-meta">Follow-up 2026-06-12</div></div>
+    </div><span class="crm-lead-chev">›</span>
+  </div></div>
+
+  <div class="row"><div class="crm-lead-card">
+    <span class="crm-rail lost"></span>
+    <div class="crm-lead-body">
+      <div class="crm-lead-co-wrap"><span class="crm-mono lost">KD</span>
+        <div class="crm-lead-co-text"><div class="crm-lead-co">KIRAN DIAGNOSTIC CENTER</div><div class="crm-lead-sub">Healthcare · Referral</div></div></div>
+      <div class="crm-lead-name-wrap"><div class="crm-lead-name">Koushik</div></div>
+      <div class="crm-lead-status-wrap"><div class="crm-lead-status"><span class="crm-pill lost">Lost</span><span class="crm-pill lost">Lost</span></div></div>
+    </div><span class="crm-lead-chev">›</span>
+  </div></div>
+
+  <div class="row"><div class="crm-lead-card crm-due">
+    <span class="crm-rail contacted"></span>
+    <div class="crm-lead-body">
+      <div class="crm-lead-co-wrap"><span class="crm-mono contacted">CW</span>
+        <div class="crm-lead-co-text"><div class="crm-lead-co">CADABAMS Wenest</div><div class="crm-lead-sub">Mental health &amp; rehab</div></div></div>
+      <div class="crm-lead-name-wrap"><div class="crm-lead-name">Adithya</div><div class="crm-lead-sub">Owner · Savin</div></div>
+      <div class="crm-lead-status-wrap"><div class="crm-lead-status"><span class="crm-pill due">Due</span><span class="crm-pill contacted">Contacted</span><span class="crm-pill open">Open</span></div><div class="crm-lead-meta">Follow-up 2026-06-14</div></div>
+    </div><span class="crm-lead-chev">›</span>
+  </div></div>
+
+  <div class="row"><div class="crm-lead-card">
+    <span class="crm-rail new"></span>
+    <div class="crm-lead-body">
+      <div class="crm-lead-co-wrap"><span class="crm-mono new">TC</span>
+        <div class="crm-lead-co-text"><div class="crm-lead-co">Techfino capital pvt ltd</div><div class="crm-lead-sub">Financial services</div></div></div>
+      <div class="crm-lead-name-wrap"><div class="crm-lead-name">ratikanta satapathy</div></div>
+      <div class="crm-lead-status-wrap"><div class="crm-lead-status"><span class="crm-pill new">New</span><span class="crm-pill open">Open</span></div></div>
+    </div><span class="crm-lead-chev">›</span>
+  </div></div>
+
+  <div class="row"><div class="crm-lead-card">
+    <span class="crm-rail new"></span>
+    <div class="crm-lead-body">
+      <div class="crm-lead-co-wrap"><span class="crm-mono new">XA</span>
+        <div class="crm-lead-co-text"><div class="crm-lead-co">XYXX Apparels</div><div class="crm-lead-sub">Clothing</div></div></div>
+      <div class="crm-lead-name-wrap"><div class="crm-lead-name">Siddharth Gondal</div><div class="crm-lead-sub">Owner · Srikant</div></div>
+      <div class="crm-lead-status-wrap"><div class="crm-lead-status"><span class="crm-pill new">New</span><span class="crm-pill open">Open</span></div><div class="crm-lead-meta">₹10,00,000</div></div>
+    </div><span class="crm-lead-chev">›</span>
+  </div></div>
+
+</div>
+</body>
+</html>

@@ -61,6 +61,30 @@ def _already_seen(msg_id: str) -> bool:
     return False
 
 
+def _summarize_delivery(payload: dict) -> str:
+    """One-line summary of a webhook delivery, for logs.
+
+    Meta sends *status* receipts (sent/delivered/read) on the same "messages"
+    field as inbound texts. Those carry no message body, so they store nothing —
+    surfacing them here makes it obvious the endpoint is alive and receiving,
+    even when no lead was created. Send an actual text TO the number to test."""
+    statuses = msgs = 0
+    types: set[str] = set()
+    for entry in payload.get("entry") or []:
+        for change in entry.get("changes") or []:
+            value = change.get("value") or {}
+            statuses += len(value.get("statuses") or [])
+            for m in value.get("messages") or []:
+                msgs += 1
+                types.add(m.get("type") or "?")
+    bits = []
+    if msgs:
+        bits.append(f"{msgs} message(s) [{', '.join(sorted(types))}]")
+    if statuses:
+        bits.append(f"{statuses} status update(s)")
+    return "; ".join(bits) or "no messages or statuses"
+
+
 def _org() -> dict | None:
     """Resolve which tenant this WhatsApp number feeds (None = default/GitHub)."""
     org_id = (os.getenv("WHATSAPP_ORG_ID") or "").strip()
@@ -213,6 +237,8 @@ async def receive(request: Request) -> dict:
             print(f"[whatsapp] {action}: {msg['from']} ({len(msg['text'])} chars)")
         except Exception as exc:  # noqa: BLE001
             print(f"[whatsapp] ERROR storing message {msg['id']}: {exc}")
+    if handled == 0:
+        print(f"[whatsapp] delivery received, stored nothing — {_summarize_delivery(payload)}")
     return {"status": "ok", "handled": handled}
 
 

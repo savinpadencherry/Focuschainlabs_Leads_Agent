@@ -1,5 +1,13 @@
 # WhatsApp Integration Guide
 
+> 👉 **Just want a working demo fast?** Follow **[WHATSAPP_DEMO_SETUP.md](WHATSAPP_DEMO_SETUP.md)** —
+> the test-number path on a free **Koyeb** host (no card, no business
+> verification). This guide is the fuller reference.
+>
+> Note: Railway no longer offers a standing free tier; for free **always-on**
+> webhook hosting use **Koyeb** (Render's free tier works too but sleeps when
+> idle, which can make Meta's webhook verification time out).
+
 ## Architecture Overview
 
 ```
