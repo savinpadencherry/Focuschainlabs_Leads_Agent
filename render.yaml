@@ -1,0 +1,30 @@
+# Render Blueprint — deploys the WhatsApp webhook on Render's FREE tier.
+# No credit card required. Render reads this file automatically when you do
+# "New +" -> "Blueprint" and pick this repo.
+#
+# It builds the webhook from the existing Dockerfile.webhook (which already
+# honours Render's $PORT) and health-checks /healthz.
+services:
+  - type: web
+    name: focuschain-whatsapp-webhook
+    runtime: docker
+    dockerfilePath: ./Dockerfile.webhook
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      # sync:false => Render prompts you for the value and keeps it secret
+      # (never stored in the repo).
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        value: savinpadencherry/Focuschainlabs_Leads_Agent
+      - key: GITHUB_BRANCH
+        value: main
+      - key: WHATSAPP_SEND_ACK
+        value: "true"

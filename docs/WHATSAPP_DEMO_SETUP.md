@@ -71,40 +71,52 @@ print `delivery received, stored nothing — 1 status update(s)` vs.
 
 ---
 
-## Step 1 — Host the webhook (free)
+## Step 1 — Host the webhook (free, no credit card)
 
-Streamlit can't do it, so pick one:
+Streamlit can't do it (no custom POST route), so host the tiny webhook
+elsewhere. All three below are free with **no credit card**. (Koyeb used to be
+the pick but now forces payment setup — skip it.)
 
-| Option | Always-on? | Card? | Best for |
+| Option | Sleeps? | Setup | Best for |
 |---|---|---|---|
-| **Koyeb** (recommended) | ✅ no sleep | ❌ none | a demo that must answer instantly |
-| Render (free web service) | ❌ sleeps ~15 min idle | ❌ none | fine if you wake it before verifying |
-| ngrok + run locally | while your machine is on | ❌ none | quickest if you have a laptop |
+| **Hugging Face Spaces** (recommended) | only after 48h idle | paste 2 files | reliable demo, stays warm |
+| Render (Blueprint) | after ~15 min idle | pure clicks (`render.yaml` in repo) | fewest steps |
+| ngrok + run locally | while your machine is on | one command | you have a laptop |
 
-Cold starts matter: Meta's "Verify and Save" times out fast, so a *sleeping*
-Render service often fails verification on the first try. Koyeb has **no sleep**,
-which is why it's the pick. (Render works too — just open the URL once to wake
-it, then immediately verify.)
+Why HF over Render: Meta's "Verify and Save" times out fast, and a *sleeping*
+Render service often fails that first verification. HF Spaces don't sleep on a
+15-min timer, so verification just works.
 
-### Koyeb (uses the repo's `Dockerfile.webhook`)
-1. https://app.koyeb.com → sign in with GitHub (no credit card).
-2. **Create Web Service** → **GitHub** → this repo →
-   branch `claude/focused-einstein-f6aprs` (or `main` after merge).
-3. Builder: **Dockerfile**, path `Dockerfile.webhook`.
-   (It already exposes `$PORT` and runs `uvicorn whatsapp_webhook:app`.)
-4. Add the environment variables from Step 2.
-5. Deploy → copy the public URL, e.g. `https://crm-whatsapp-xxxx.koyeb.app`.
-6. Sanity check: open `https://<url>/healthz` →
+### Option A — Hugging Face Spaces (uses `deploy/huggingface/`)
+Your repo is public, so the Space pulls the code itself — no file juggling.
+1. https://huggingface.co/new-space → name it, **SDK = Docker**, **Blank**,
+   hardware **CPU basic (free)**.
+2. **Files → Add file → Create new file** → name it `Dockerfile`; paste the
+   contents of `deploy/huggingface/Dockerfile` from this repo. Commit.
+3. Open the Space's `README.md`, replace it with `deploy/huggingface/README.md`
+   (the `app_port: 7860` header matters). Commit.
+4. **Settings → Variables and secrets** → add the secrets from Step 2.
+5. The Space rebuilds; your URL is `https://<user>-<space>.hf.space`.
+6. Sanity check: open `https://<user>-<space>.hf.space/healthz` →
    `{"ok": true, "whatsapp_configured": true}`.
 
-### ngrok alternative (laptop)
+### Option B — Render (uses `render.yaml` + `Dockerfile.webhook`)
+1. https://render.com → sign up with GitHub (no card).
+2. **New + → Blueprint** → pick this repo → Render reads `render.yaml`.
+3. Fill the secret values when prompted (Step 2) → **Apply**.
+4. URL is `https://focuschain-whatsapp-webhook.onrender.com`.
+5. It sleeps after 15 min: open `…/healthz` to wake it *before* you verify in
+   Meta, and add a free https://uptimerobot.com monitor pinging `/healthz`
+   every 5 min to keep it warm during the demo.
+
+### Option C — ngrok (laptop)
 ```bash
 pip install -r requirements-webhook.txt
 export WHATSAPP_ACCESS_TOKEN=... WHATSAPP_PHONE_NUMBER_ID=1187318104459166 \
        WHATSAPP_VERIFY_TOKEN=focuschain_demo_123 \
        GITHUB_TOKEN=ghp_... GITHUB_REPO=savinpadencherry/Focuschainlabs_Leads_Agent
 uvicorn whatsapp_webhook:app --port 8080
-ngrok http 8080      # use the https URL it prints (+ a free static domain so it survives restarts)
+ngrok http 8080      # use the https URL it prints
 ```
 
 ---
