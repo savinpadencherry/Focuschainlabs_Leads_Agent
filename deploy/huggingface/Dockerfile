@@ -15,8 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
 
 WORKDIR /app
 
-# Pull the webhook + its helpers. Switch --branch to "main" after PR #17 merges.
-RUN git clone --depth 1 --branch claude/focused-einstein-f6aprs \
+# Pull the webhook + its helpers from the PUBLIC repo's default branch (main).
+# Merge PR #17 into main first so it includes the latest webhook.
+RUN git clone --depth 1 \
     https://github.com/savinpadencherry/Focuschainlabs_Leads_Agent.git .
 
 RUN pip install --no-cache-dir -r requirements-webhook.txt
