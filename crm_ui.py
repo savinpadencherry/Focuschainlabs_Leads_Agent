@@ -282,61 +282,86 @@ CRM_CSS = """
     position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 20px 24px;
-    min-height: 76px;
+    gap: 14px;
+    padding: 0 20px 0 26px;
+    height: 92px;
     border: 1px solid var(--line-soft);
-    border-radius: 12px;
-    background: var(--cream-3);
-    box-shadow: var(--shadow-sm);
-    transition: all .2s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: 16px;
+    background: linear-gradient(180deg, #ffffff, var(--cream-3));
+    box-shadow:
+      0 1px 2px rgba(15,42,51,.04),
+      0 8px 18px -12px rgba(15,42,51,.22),
+      inset 0 1px 0 rgba(255,255,255,.75);
+    transition: transform .28s var(--ease-out), box-shadow .28s var(--ease-out),
+                border-color .28s var(--ease-out), background .28s var(--ease-out);
     pointer-events: none;
     animation: cardIn .42s var(--ease-out) both;
     overflow: hidden;
 }
+/* Left status accent rail — a quiet colour cue for the lead's stage. */
+.crm-rail {
+    position: absolute;
+    left: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 4px; height: 44px;
+    border-radius: 0 4px 4px 0;
+    background: var(--line-mid);
+    opacity: .9;
+    transition: height .28s var(--ease-out), opacity .28s var(--ease-out);
+}
+.crm-rail.new, .crm-rail.won { background: var(--green); }
+.crm-rail.contacted, .crm-rail.meeting { background: #3B82F6; }
+.crm-rail.qualified { background: #A855F7; }
+.crm-rail.proposal { background: var(--amber); }
+.crm-rail.nurture { background: var(--ink-mute); }
+.crm-rail.lost { background: var(--red); }
+/* Soft glow that warms the card on hover. */
 .crm-lead-card::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    inset: 0;
+    border-radius: 16px;
+    background: radial-gradient(135% 150% at 0% 50%, rgba(46,139,77,.06), transparent 45%);
     opacity: 0;
-    transform: scaleX(0.4);
-    transition: all .4s var(--ease-out);
+    transition: opacity .32s var(--ease-out);
+    pointer-events: none;
 }
 .crm-lead-card.crm-due {
-    border-color: rgba(183,121,31,.22);
-    background: #fffdf9;
+    border-color: rgba(183,121,31,.28);
+    background: linear-gradient(180deg, #fffdf8, #fffaef);
 }
 .crm-lead-card.crm-active {
-    border-color: var(--green);
-    background: var(--green-bg2);
-    box-shadow: var(--shadow-sm);
+    border-color: rgba(46,139,77,.45);
+    background: linear-gradient(180deg, #ffffff, var(--green-bg));
+    box-shadow:
+      0 1px 2px rgba(15,42,51,.05),
+      0 12px 26px -14px rgba(46,139,77,.45),
+      inset 0 1px 0 rgba(255,255,255,.8);
 }
 .crm-lead-body {
     display: grid;
-    grid-template-columns: minmax(0, 2.5fr) minmax(0, 1.8fr) minmax(0, 1.4fr);
-    gap: 14px;
+    grid-template-columns: minmax(0, 2.3fr) minmax(0, 1.7fr) minmax(0, 1.7fr);
+    gap: 16px;
     align-items: center;
     flex: 1;
     min-width: 0;
 }
 .crm-lead-chev {
     flex: none;
-    width: auto;
-    height: auto;
-    padding: 0 2px;
-    border-radius: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
-    font-weight: 650;
+    font-size: 17px;
+    font-weight: 700;
     line-height: 1;
-    color: rgba(15,42,51,.28);
-    background: transparent;
-    border: none;
-    transition: color .18s ease, transform .18s ease;
+    color: rgba(15,42,51,.34);
+    background: rgba(15,42,51,.045);
+    border: 1px solid transparent;
+    transition: color .22s var(--ease-out), background .22s var(--ease-out),
+                transform .22s var(--ease-out), border-color .22s var(--ease-out);
 }
 div[data-testid="stElementContainer"]:has(.crm-lead-hit) {
     margin-bottom: 0 !important;
@@ -345,19 +370,19 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit) {
 }
 div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[class*="st-key-crm_open_"],
 div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] {
-    margin-top: -76px !important;
+    margin-top: -92px !important;
     margin-bottom: 10px !important;
     position: relative;
     z-index: 2;
-    height: 76px !important;
-    min-height: 76px !important;
-    max-height: 76px !important;
+    height: 92px !important;
+    min-height: 92px !important;
+    max-height: 92px !important;
     overflow: hidden !important;
 }
 div[class*="st-key-crm_open_"] [data-testid="stButton"],
 div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] [data-testid="stButton"] {
     margin: 0 !important;
-    height: 76px !important;
+    height: 92px !important;
     width: 100% !important;
 }
 div[class*="st-key-crm_open_"] [data-testid="stTooltipIcon"],
@@ -367,8 +392,8 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stEl
 div[class*="st-key-crm_open_"] button,
 div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] button {
     width: 100% !important;
-    min-height: 76px !important;
-    height: 76px !important;
+    min-height: 92px !important;
+    height: 92px !important;
     opacity: 0 !important;
     font-size: 0 !important;
     line-height: 0 !important;
@@ -395,73 +420,124 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stEl
 }
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-card,
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-card {
-    border-color: rgba(46,139,77,.35);
-    background: linear-gradient(135deg, #ffffff, rgba(253,252,249,.95));
-    box-shadow: 0 6px 20px rgba(15,42,51,.10), 0 16px 40px rgba(46,139,77,.15);
-    transform: translateY(-3px) scale(1.008);
+    border-color: rgba(46,139,77,.38);
+    background: linear-gradient(180deg, #ffffff, rgba(253,252,249,.96));
+    box-shadow:
+      0 2px 4px rgba(15,42,51,.05),
+      0 18px 38px -16px rgba(15,42,51,.28),
+      0 24px 52px -20px rgba(46,139,77,.32);
+    transform: translateY(-3px);
 }
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-card::before,
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-card::before {
     opacity: 1;
-    transform: scaleX(1);
+}
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-rail,
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-rail {
+    height: 66px;
+    opacity: 1;
+}
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-mono,
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-mono {
+    transform: scale(1.05);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 6px 14px -4px rgba(15,42,51,.3);
 }
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-chev,
 div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-chev {
-    color: rgba(46,139,77,.72);
-    transform: translateX(1px);
+    color: #fff;
+    background: var(--green);
+    border-color: var(--green);
+    transform: translateX(2px);
 }
-.crm-lead-co-wrap { display: flex; align-items: center; gap: 11px; min-width: 0; width: 100%; }
+.crm-lead-co-wrap { display: flex; align-items: center; gap: 13px; min-width: 0; width: 100%; }
 .crm-mono {
     flex: none;
-    width: 34px; height: 34px; border-radius: 11px;
+    width: 46px; height: 46px; border-radius: 14px;
     display: inline-flex; align-items: center; justify-content: center;
     font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 12.5px; font-weight: 800; letter-spacing: .02em;
+    font-size: 15px; font-weight: 800; letter-spacing: .01em;
     color: var(--ink);
-    background: linear-gradient(145deg, rgba(15,42,51,.08), rgba(15,42,51,.03));
+    background: linear-gradient(150deg, rgba(15,42,51,.10), rgba(15,42,51,.03));
     border: 1px solid rgba(15,42,51,.10);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 4px 10px -5px rgba(15,42,51,.28);
+    transition: transform .26s var(--ease-out), box-shadow .26s var(--ease-out);
 }
-.crm-mono.new       { color: #1d6b39; background: linear-gradient(145deg, rgba(46,139,77,.18), rgba(46,139,77,.06));  border-color: rgba(46,139,77,.22); }
-.crm-mono.contacted { color: #1D4ED8; background: linear-gradient(145deg, rgba(59,130,246,.16), rgba(59,130,246,.05)); border-color: rgba(59,130,246,.22); }
-.crm-mono.qualified { color: #7E22CE; background: linear-gradient(145deg, rgba(168,85,247,.16), rgba(168,85,247,.05)); border-color: rgba(168,85,247,.24); }
-.crm-mono.meeting   { color: #1E40AF; background: linear-gradient(145deg, rgba(59,130,246,.16), rgba(59,130,246,.05)); border-color: rgba(59,130,246,.24); }
-.crm-mono.proposal  { color: #8a5a14; background: linear-gradient(145deg, rgba(183,121,31,.18), rgba(183,121,31,.06)); border-color: rgba(183,121,31,.26); }
+.crm-mono.new       { color: #1d6b39; background: linear-gradient(150deg, rgba(46,139,77,.20), rgba(46,139,77,.06));  border-color: rgba(46,139,77,.26); }
+.crm-mono.contacted { color: #1D4ED8; background: linear-gradient(150deg, rgba(59,130,246,.18), rgba(59,130,246,.05)); border-color: rgba(59,130,246,.26); }
+.crm-mono.qualified { color: #7E22CE; background: linear-gradient(150deg, rgba(168,85,247,.18), rgba(168,85,247,.05)); border-color: rgba(168,85,247,.28); }
+.crm-mono.meeting   { color: #1E40AF; background: linear-gradient(150deg, rgba(59,130,246,.18), rgba(59,130,246,.05)); border-color: rgba(59,130,246,.28); }
+.crm-mono.proposal  { color: #8a5a14; background: linear-gradient(150deg, rgba(183,121,31,.20), rgba(183,121,31,.06)); border-color: rgba(183,121,31,.30); }
 .crm-mono.nurture   { color: var(--ink-mute); }
-.crm-mono.won       { color: #166534; background: linear-gradient(145deg, rgba(46,139,77,.24), rgba(46,139,77,.08));  border-color: rgba(46,139,77,.28); }
-.crm-mono.lost      { color: #A93D3D; background: linear-gradient(145deg, rgba(169,61,61,.16), rgba(169,61,61,.05));  border-color: rgba(169,61,61,.24); }
+.crm-mono.won       { color: #166534; background: linear-gradient(150deg, rgba(46,139,77,.26), rgba(46,139,77,.08));  border-color: rgba(46,139,77,.30); }
+.crm-mono.lost      { color: #A93D3D; background: linear-gradient(150deg, rgba(169,61,61,.18), rgba(169,61,61,.05));  border-color: rgba(169,61,61,.26); }
+/* Each column stacks a primary line over a muted secondary line. */
+.crm-lead-co-text,
+.crm-lead-name-wrap,
+.crm-lead-status-wrap { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; }
 .crm-lead-co {
     font-family: 'Bricolage Grotesque', sans-serif;
     font-size: 15px;
     font-weight: 800;
     color: var(--ink);
-    line-height: 1.25;
+    line-height: 1.2;
+    letter-spacing: -.01em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    width: 100%;
+    max-width: 100%;
 }
 .crm-lead-name {
     font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 700;
     color: var(--ink-soft);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+.crm-lead-sub {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-mute);
     line-height: 1.25;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    width: 100%;
+    max-width: 100%;
 }
 .crm-lead-status {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-wrap: nowrap;
-    width: 100%;
+    min-width: 0;
 }
 .crm-lead-status .crm-pill {
     flex-shrink: 0;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+}
+.crm-lead-status .crm-pill::before {
+    content: '';
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    margin-right: 5px;
+    opacity: .85;
+}
+.crm-lead-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--ink-mute);
+    letter-spacing: .02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
 }
 
 .crm-pill {
@@ -892,20 +968,24 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="
     .crm-snapshot-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .crm-stat { padding: 13px 12px; }
     .crm-ledger-head { display: none; }
-    .crm-lead-body { grid-template-columns: 1fr; gap: 8px; }
+    .crm-lead-card { gap: 11px; padding: 0 14px 0 20px; }
+    .crm-mono { width: 38px; height: 38px; border-radius: 12px; font-size: 13px; }
+    .crm-rail { height: 32px; }
+    .crm-lead-body { grid-template-columns: 1fr; gap: 5px; }
     .crm-lead-co, .crm-lead-name { white-space: normal; }
+    .crm-lead-sub, .crm-lead-meta { display: none; }
     .crm-lead-status { flex-wrap: wrap; }
     div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[class*="st-key-crm_open_"],
     div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] {
-        margin-top: -76px !important;
-        height: 76px !important;
-        min-height: 76px !important;
-        max-height: 76px !important;
+        margin-top: -92px !important;
+        height: 92px !important;
+        min-height: 92px !important;
+        max-height: 92px !important;
     }
     div[class*="st-key-crm_open_"] button,
     div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] button {
-        min-height: 76px !important;
-        height: 76px !important;
+        min-height: 92px !important;
+        height: 92px !important;
     }
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
@@ -1954,6 +2034,31 @@ def _deal_status_label(status: str) -> str:
 def _value_display(value: str) -> str:
     value = str(value or "").strip()
     return value or "—"
+
+
+def _fmt_money(value: str) -> str:
+    """Compact, India-grouped currency for the lead card (e.g. ₹10,00,000).
+
+    Leaves free-form values ("$50k", "10 lakh") untouched so they still render
+    exactly as typed; returns "" for empty so the meta line can be omitted.
+    """
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    cleaned = raw.replace(",", "").replace(" ", "").lstrip("₹$")
+    if not cleaned.replace(".", "", 1).isdigit():
+        return raw
+    s = str(int(float(cleaned)))
+    if len(s) > 3:
+        head, tail = s[:-3], s[-3:]
+        groups = []
+        while len(head) > 2:
+            groups.insert(0, head[-2:])
+            head = head[:-2]
+        if head:
+            groups.insert(0, head)
+        s = ",".join(groups) + "," + tail
+    return f"₹{s}"
 
 
 def _available_statuses(db: dict, contacts: list[dict]) -> list[str]:
@@ -3506,21 +3611,50 @@ def _render_contact_card(
     words = [w for w in monogram_src.replace("—", " ").split() if w[:1].isalnum()]
     initials = "".join(w[0] for w in words[:2]).upper() or "•"
 
+    # Quiet secondary lines that give each column a second dimension of context.
+    industry = (contact.get("industry") or "").strip()
+    source = normalize_source(contact.get("source") or "other")
+    company_sub = industry or _source_label(source)
+    title = (contact.get("title") or "").strip()
+    owner = (contact.get("owner") or "").strip()
+    name_sub = title or (f"Owner · {owner}" if owner else "")
+    money = _fmt_money(contact.get("value") or "")
+    follow = (contact.get("next_follow_up") or "").strip()[:10]
+    if money:
+        meta = money
+    elif follow:
+        meta = f"Follow-up {follow}"
+    else:
+        meta = ""
+
     status_html = (
         f'{due_html}'
         f'<span class="crm-pill {html.escape(stage)}">{html.escape(stage_label)}</span>'
         f'<span class="crm-pill {html.escape(deal_status)}">{html.escape(deal_label)}</span>'
     )
+    co_sub_html = f'<div class="crm-lead-sub">{html.escape(company_sub)}</div>' if company_sub else ""
+    name_sub_html = f'<div class="crm-lead-sub">{html.escape(name_sub)}</div>' if name_sub else ""
+    meta_html = f'<div class="crm-lead-meta">{html.escape(meta)}</div>' if meta else ""
 
     st.markdown(
         f'<div class="crm-lead-hit"><div class="{card_cls}">'
+        f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
         f'  <div class="crm-lead-body">'
         f'    <div class="crm-lead-co-wrap">'
         f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
-        f'      <div class="crm-lead-co">{html.escape(company)}</div>'
+        f'      <div class="crm-lead-co-text">'
+        f'        <div class="crm-lead-co">{html.escape(company)}</div>'
+        f'        {co_sub_html}'
+        f'      </div>'
         f'    </div>'
-        f'    <div class="crm-lead-name">{html.escape(name)}</div>'
-        f'    <div class="crm-lead-status">{status_html}</div>'
+        f'    <div class="crm-lead-name-wrap">'
+        f'      <div class="crm-lead-name">{html.escape(name)}</div>'
+        f'      {name_sub_html}'
+        f'    </div>'
+        f'    <div class="crm-lead-status-wrap">'
+        f'      <div class="crm-lead-status">{status_html}</div>'
+        f'      {meta_html}'
+        f'    </div>'
         f'  </div>'
         f'  <span class="crm-lead-chev" aria-hidden="true">›</span>'
         f'</div></div>',
