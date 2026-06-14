@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-13T20:11:49+00:00",
+  "updated_at": "2026-06-14T09:21:12+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -206,6 +206,50 @@
       "meetings": [],
       "created_at": "2026-06-13T20:11:43+00:00",
       "updated_at": "2026-06-13T20:11:43+00:00",
+      "title": "",
+      "linkedin_url": "",
+      "website": "",
+      "score": 0,
+      "signal": "",
+      "opening_line": "",
+      "agent_run_id": ""
+    },
+    {
+      "id": "9c360636-e195-4ec5-927a-96bd0d1e95f1",
+      "name": "Srikant Patra",
+      "company": "FCL",
+      "industry": "AI product engineering",
+      "phone": "+919073388221",
+      "email": "",
+      "client": "",
+      "owner": "",
+      "value": "",
+      "status": "new",
+      "deal_status": "open",
+      "notes": "We deal in AI product engineering.",
+      "next_follow_up": "",
+      "source": "whatsapp",
+      "tags": [
+        "whatsapp-inbound"
+      ],
+      "email_events": [],
+      "comments": [
+        {
+          "id": "e36d4095-f23a-4db7-86e2-7c69dc571b48",
+          "created_at": "2026-06-14T09:21:08+00:00",
+          "author": "Srikant Patra",
+          "body": "Srikant patra\nCompany FCL\nWe deal in AI product engineering.",
+          "subject": "",
+          "meeting_link": "",
+          "source": "whatsapp",
+          "type": "comment"
+        }
+      ],
+      "contact_people": [],
+      "invoices": [],
+      "meetings": [],
+      "created_at": "2026-06-14T09:21:08+00:00",
+      "updated_at": "2026-06-14T09:21:08+00:00",
       "title": "",
       "linkedin_url": "",
       "website": "",
