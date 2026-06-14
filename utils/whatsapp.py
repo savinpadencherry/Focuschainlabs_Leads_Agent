@@ -91,10 +91,16 @@ def parse_webhook_messages(payload: dict) -> list[dict]:
                 (c.get("wa_id") or ""): ((c.get("profile") or {}).get("name") or "")
                 for c in value.get("contacts") or []
             }
+            # Our own number. In Coexistence, messages the business sends from the
+            # WhatsApp Business app are echoed back here with from == this number.
+            biz = re.sub(r"\D", "", (value.get("metadata") or {}).get("display_phone_number") or "")
             for msg in value.get("messages") or []:
                 if msg.get("type") != "text":
                     continue
                 sender = msg.get("from") or ""
+                # Skip our own echoed/outbound messages so we never self-create a lead.
+                if biz and re.sub(r"\D", "", sender) == biz:
+                    continue
                 out.append({
                     "id": msg.get("id") or "",
                     "from": sender,
