@@ -369,7 +369,8 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit) {
     z-index: 0;
 }
 div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[class*="st-key-crm_open_"],
-div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] {
+div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"],
+div[class*="st-key-crm_open_"] {
     margin-top: -92px !important;
     margin-bottom: 10px !important;
     position: relative;
@@ -448,6 +449,13 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="
     background: var(--green);
     border-color: var(--green);
     transform: translateX(2px);
+}
+/* Tap feedback — a quick press-in so clicking anywhere on the card feels instant. */
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"] button:active) .crm-lead-card,
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"] button:active) .crm-lead-card {
+    transform: translateY(-1px) scale(.992);
+    transition-duration: .08s;
+    box-shadow: 0 1px 2px rgba(15,42,51,.05), 0 10px 22px -14px rgba(15,42,51,.32);
 }
 .crm-lead-co-wrap { display: flex; align-items: center; gap: 13px; min-width: 0; width: 100%; }
 .crm-mono {
@@ -3559,11 +3567,21 @@ def _render_lead_detail_view(contact: dict, idx: int, statuses: list[str]) -> No
         part for part in [(contact.get("email") or "").strip(), (contact.get("phone") or "").strip()] if part
     ) or "No email or phone"
 
-    back_col, _ = st.columns([1.1, 4.9])
+    back_col, del_col, _ = st.columns([1.2, 1.2, 3.6])
     with back_col:
         if st.button("← Back to list", key="crm_detail_back", use_container_width=True):
             _close_lead_detail()
             st.rerun()
+    with del_col:
+        with st.popover("🗑 Delete", use_container_width=True):
+            st.warning(f"Delete {name} and all its activity? This can't be undone.")
+            if st.button("Yes, delete", key=f"crm_detail_del_{cid}", type="primary", use_container_width=True):
+                contacts = [c for c in st.session_state.crm_db.get("contacts", []) if c.get("id") != cid]
+                st.session_state.crm_db["contacts"] = contacts
+                if persist_crm(f"CRM: delete {name}"):
+                    _close_lead_detail()
+                    st.toast("Lead removed")
+                    st.rerun()
 
     follow_suffix = f" · Next {html.escape(follow)}" if follow else ""
     st.markdown(
