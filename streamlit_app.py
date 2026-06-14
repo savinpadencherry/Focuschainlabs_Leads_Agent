@@ -2087,6 +2087,11 @@ def render_agent_hero() -> None:
 
 render_app_drawer()
 
+# A tapped lead card uses a ?lead=<id> link; always route that to the CRM,
+# even if the click triggered a full reload.
+if st.query_params.get("lead"):
+    st.session_state["app_view"] = "crm"
+
 if st.session_state.get("app_view") == "crm":
     render_crm_page()
     st.stop()
