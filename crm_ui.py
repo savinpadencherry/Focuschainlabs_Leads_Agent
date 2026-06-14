@@ -369,7 +369,8 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit) {
     z-index: 0;
 }
 div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[class*="st-key-crm_open_"],
-div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] {
+div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"],
+div[class*="st-key-crm_open_"] {
     margin-top: -92px !important;
     margin-bottom: 10px !important;
     position: relative;
@@ -448,6 +449,13 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="
     background: var(--green);
     border-color: var(--green);
     transform: translateX(2px);
+}
+/* Tap feedback — a quick press-in so clicking anywhere on the card feels instant. */
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"] button:active) .crm-lead-card,
+div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"] button:active) .crm-lead-card {
+    transform: translateY(-1px) scale(.992);
+    transition-duration: .08s;
+    box-shadow: 0 1px 2px rgba(15,42,51,.05), 0 10px 22px -14px rgba(15,42,51,.32);
 }
 .crm-lead-co-wrap { display: flex; align-items: center; gap: 13px; min-width: 0; width: 100%; }
 .crm-mono {
