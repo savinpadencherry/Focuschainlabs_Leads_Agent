@@ -311,6 +311,53 @@ CRM_CSS = """
     transform: translateY(-1px) scale(.992);
     transition-duration: .08s;
 }
+/* Clickable lead card (reliable pattern): premium card markdown + a transparent
+   NATIVE button overlaid via st.container(key). Native button = dependable taps
+   on mobile; absolute positioning = independent of Streamlit's element gaps. */
+div[class*="st-key-crm_card_"] { position: relative; margin-bottom: 10px; }
+div[class*="st-key-crm_cardbtn_"] {
+    position: absolute !important;
+    inset: 0 !important;
+    height: 100% !important;
+    margin: 0 !important;
+    z-index: 6 !important;
+}
+div[class*="st-key-crm_cardbtn_"] [data-testid="stTooltipIcon"] { display: none !important; }
+div[class*="st-key-crm_cardbtn_"] button {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    opacity: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+}
+div[class*="st-key-crm_card_"]:hover .crm-lead-card {
+    border-color: rgba(46,139,77,.38);
+    background: linear-gradient(180deg, #ffffff, rgba(253,252,249,.96));
+    box-shadow:
+      0 2px 4px rgba(15,42,51,.05),
+      0 18px 38px -16px rgba(15,42,51,.28),
+      0 24px 52px -20px rgba(46,139,77,.32);
+    transform: translateY(-3px);
+}
+div[class*="st-key-crm_card_"]:hover .crm-lead-card::before { opacity: 1; }
+div[class*="st-key-crm_card_"]:hover .crm-rail { height: 66px; opacity: 1; }
+div[class*="st-key-crm_card_"]:hover .crm-mono {
+    transform: scale(1.05);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 6px 14px -4px rgba(15,42,51,.3);
+}
+div[class*="st-key-crm_card_"]:hover .crm-lead-chev {
+    color: #fff; background: var(--green); border-color: var(--green);
+    transform: translateX(2px);
+}
+div[class*="st-key-crm_card_"]:active .crm-lead-card {
+    transform: translateY(-1px) scale(.992);
+    transition-duration: .08s;
+}
 .crm-lead-card {
     position: relative;
     display: flex;
@@ -3686,31 +3733,39 @@ def _render_contact_card(
     name_sub_html = f'<div class="crm-lead-sub">{html.escape(name_sub)}</div>' if name_sub else ""
     meta_html = f'<div class="crm-lead-meta">{html.escape(meta)}</div>' if meta else ""
 
-    st.markdown(
-        f'<a class="crm-lead-link" href="?lead={html.escape(str(cid))}" target="_self">'
-        f'<div class="{card_cls}">'
-        f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
-        f'  <div class="crm-lead-body">'
-        f'    <div class="crm-lead-co-wrap">'
-        f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
-        f'      <div class="crm-lead-co-text">'
-        f'        <div class="crm-lead-co">{html.escape(company)}</div>'
-        f'        {co_sub_html}'
-        f'      </div>'
-        f'    </div>'
-        f'    <div class="crm-lead-name-wrap">'
-        f'      <div class="crm-lead-name">{html.escape(name)}</div>'
-        f'      {name_sub_html}'
-        f'    </div>'
-        f'    <div class="crm-lead-status-wrap">'
-        f'      <div class="crm-lead-status">{status_html}</div>'
-        f'      {meta_html}'
-        f'    </div>'
-        f'  </div>'
-        f'  <span class="crm-lead-chev" aria-hidden="true">›</span>'
-        f'</div></a>',
-        unsafe_allow_html=True,
-    )
+    with st.container(key=f"crm_card_{cid}"):
+        st.markdown(
+            f'<div class="{card_cls}">'
+            f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
+            f'  <div class="crm-lead-body">'
+            f'    <div class="crm-lead-co-wrap">'
+            f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
+            f'      <div class="crm-lead-co-text">'
+            f'        <div class="crm-lead-co">{html.escape(company)}</div>'
+            f'        {co_sub_html}'
+            f'      </div>'
+            f'    </div>'
+            f'    <div class="crm-lead-name-wrap">'
+            f'      <div class="crm-lead-name">{html.escape(name)}</div>'
+            f'      {name_sub_html}'
+            f'    </div>'
+            f'    <div class="crm-lead-status-wrap">'
+            f'      <div class="crm-lead-status">{status_html}</div>'
+            f'      {meta_html}'
+            f'    </div>'
+            f'  </div>'
+            f'  <span class="crm-lead-chev" aria-hidden="true">›</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "View details",
+            key=f"crm_cardbtn_{cid}",
+            help="Open this lead",
+            use_container_width=True,
+        ):
+            _open_lead_detail(str(cid))
+            st.rerun()
 
 
 def render_crm_page() -> None:
@@ -3992,6 +4047,8 @@ def render_crm_page() -> None:
         '</div>',
         unsafe_allow_html=True,
     )
+
+    st.caption("👆 Tap anywhere on a card to open it.  ·  build: tap-to-open v3")
 
     for contact in page_slice:
         idx = id_to_idx.get(contact.get("id"))
