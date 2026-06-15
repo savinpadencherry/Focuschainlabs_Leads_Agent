@@ -6,6 +6,7 @@ import html
 import random
 import string
 from datetime import date, datetime, timedelta
+from urllib.parse import quote
 
 import streamlit as st
 
@@ -3733,39 +3734,33 @@ def _render_contact_card(
     name_sub_html = f'<div class="crm-lead-sub">{html.escape(name_sub)}</div>' if name_sub else ""
     meta_html = f'<div class="crm-lead-meta">{html.escape(meta)}</div>' if meta else ""
 
-    with st.container(key=f"crm_card_{cid}"):
-        st.markdown(
-            f'<div class="{card_cls}">'
-            f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
-            f'  <div class="crm-lead-body">'
-            f'    <div class="crm-lead-co-wrap">'
-            f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
-            f'      <div class="crm-lead-co-text">'
-            f'        <div class="crm-lead-co">{html.escape(company)}</div>'
-            f'        {co_sub_html}'
-            f'      </div>'
-            f'    </div>'
-            f'    <div class="crm-lead-name-wrap">'
-            f'      <div class="crm-lead-name">{html.escape(name)}</div>'
-            f'      {name_sub_html}'
-            f'    </div>'
-            f'    <div class="crm-lead-status-wrap">'
-            f'      <div class="crm-lead-status">{status_html}</div>'
-            f'      {meta_html}'
-            f'    </div>'
-            f'  </div>'
-            f'  <span class="crm-lead-chev" aria-hidden="true">›</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        if st.button(
-            "View details",
-            key=f"crm_cardbtn_{cid}",
-            help="Open this lead",
-            use_container_width=True,
-        ):
-            _open_lead_detail(str(cid))
-            st.rerun()
+    lead_url = f"?lead={quote(str(cid), safe='')}"
+    st.markdown(
+        f'<a href="{lead_url}" class="crm-lead-link" aria-label="Open {html.escape(name)}">'
+        f'<div class="{card_cls}">'
+        f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
+        f'  <div class="crm-lead-body">'
+        f'    <div class="crm-lead-co-wrap">'
+        f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
+        f'      <div class="crm-lead-co-text">'
+        f'        <div class="crm-lead-co">{html.escape(company)}</div>'
+        f'        {co_sub_html}'
+        f'      </div>'
+        f'    </div>'
+        f'    <div class="crm-lead-name-wrap">'
+        f'      <div class="crm-lead-name">{html.escape(name)}</div>'
+        f'      {name_sub_html}'
+        f'    </div>'
+        f'    <div class="crm-lead-status-wrap">'
+        f'      <div class="crm-lead-status">{status_html}</div>'
+        f'      {meta_html}'
+        f'    </div>'
+        f'  </div>'
+        f'  <span class="crm-lead-chev" aria-hidden="true">›</span>'
+        f'</div>'
+        f'</a>',
+        unsafe_allow_html=True,
+    )
 
 
 def render_crm_page() -> None:
@@ -4048,7 +4043,7 @@ def render_crm_page() -> None:
         unsafe_allow_html=True,
     )
 
-    st.caption("👆 Tap anywhere on a card to open it.  ·  build: tap-to-open v3")
+    st.caption("👆 Tap anywhere on a card to open it.  ·  build: tap-to-open v4")
 
     for contact in page_slice:
         idx = id_to_idx.get(contact.get("id"))
