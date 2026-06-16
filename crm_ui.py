@@ -312,26 +312,43 @@ CRM_CSS = """
     transform: translateY(-1px) scale(.992);
     transition-duration: .08s;
 }
-/* Lead row — card + native chevron button (same pattern as Reach Agent). */
+/* Lead row — whole card is tappable; chevron sits inside the tile. */
 div[class*="st-key-crm_row_"] {
+    position: relative !important;
     margin-bottom: 10px !important;
 }
-div[class*="st-key-crm_row_"]:has(div[class*="st-key-crm_expand_"]) {
-    margin-bottom: 14px !important;
+div[class*="st-key-crm_row_"] [data-testid="stElementContainer"]:has(.crm-lead-hit) {
+    pointer-events: none !important;
+    margin: 0 !important;
 }
-div[class*="st-key-crm_row_"] div[class*="st-key-crm_expand_"] {
-    margin-top: 0 !important;
+div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 92px !important;
+    min-height: 92px !important;
+    max-height: 92px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 5 !important;
+    overflow: hidden !important;
+    pointer-events: auto !important;
 }
-div[class*="st-key-crm_row_"] .crm-lead-card {
-    border-radius: 16px 0 0 16px;
-    border-right: none;
+div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] [data-testid="stTooltipIcon"] {
+    display: none !important;
 }
-div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] {
-    align-items: stretch !important;
-    margin-bottom: 0 !important;
-    animation: cardIn .34s var(--ease-out) both;
+div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] button {
+    width: 100% !important;
+    min-height: 92px !important;
+    height: 92px !important;
+    opacity: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    cursor: pointer !important;
 }
-div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"]:hover .crm-lead-card {
+div[class*="st-key-crm_row_"]:hover .crm-lead-card {
     border-color: rgba(46,139,77,.38);
     background: linear-gradient(180deg, #ffffff, rgba(253,252,249,.96));
     box-shadow:
@@ -340,28 +357,19 @@ div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"]:hover .crm-lead-
       0 24px 52px -20px rgba(46,139,77,.32);
     transform: translateY(-2px);
 }
-div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"]:hover .crm-lead-card::before {
-    opacity: 1;
+div[class*="st-key-crm_row_"]:hover .crm-lead-card::before { opacity: 1; }
+div[class*="st-key-crm_row_"]:hover .crm-rail { height: 66px; opacity: 1; }
+div[class*="st-key-crm_row_"]:hover .crm-mono {
+    transform: scale(1.05);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 6px 14px -4px rgba(15,42,51,.3);
 }
-div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
-    min-height: 92px !important;
-    height: 92px !important;
-    border-radius: 0 16px 16px 0 !important;
-    border-left: none !important;
-    font-size: 20px !important;
-    font-weight: 800 !important;
-    line-height: 1 !important;
-    box-shadow: 0 8px 18px -12px rgba(15,42,51,.22) !important;
+div[class*="st-key-crm_row_"]:hover .crm-lead-chev {
+    color: #fff; background: var(--green); border-color: var(--green);
+    transform: translateX(2px);
 }
-div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-secondary"] button {
-    color: var(--ink-mute) !important;
-    background: rgba(255,255,255,.82) !important;
-    border-color: var(--line-soft) !important;
-}
-div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button {
-    color: #fff !important;
-    background: var(--green) !important;
-    border-color: var(--green) !important;
+div[class*="st-key-crm_row_"]:has([class*="st-key-crm_open_"] button:active) .crm-lead-card {
+    transform: translateY(-1px) scale(.992);
+    transition-duration: .08s;
 }
 .crm-lead-card {
     position: relative;
@@ -973,7 +981,12 @@ div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] > div[data-testi
     .crm-lead-co, .crm-lead-name { white-space: normal; }
     .crm-lead-sub, .crm-lead-meta { display: none; }
     .crm-lead-status { flex-wrap: wrap; }
-    div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
+    div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] {
+        height: 92px !important;
+        min-height: 92px !important;
+        max-height: 92px !important;
+    }
+    div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] button {
         min-height: 92px !important;
         height: 92px !important;
     }
@@ -1290,7 +1303,17 @@ div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] > div[data-testi
     white-space: pre-wrap;
 }
 .crm-meet-actions {
-    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin: 0; padding: 14px 0 18px;
+    border-top: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line-soft);
+}
+.crm-meet-schedule-spacer { height: 18px; }
+.crm-meet-schedule-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-mute);
+    margin: 4px 0 10px;
 }
 .crm-meet-actions a, .crm-meet-actions span.pill {
     display: inline-flex; align-items: center; gap: 6px;
@@ -1918,45 +1941,10 @@ div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] > div[data-testi
     color: var(--ink-mute); font-size: 13px; margin-top: 6px; line-height: 1.45;
 }
 .crm-detail-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.crm-lead-card.crm-expanded {
-    border-color: rgba(46,139,77,.42);
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    background: linear-gradient(180deg, #ffffff, var(--green-bg));
-    box-shadow:
-      0 1px 2px rgba(15,42,51,.05),
-      0 12px 26px -14px rgba(46,139,77,.35),
-      inset 0 1px 0 rgba(255,255,255,.8);
-}
-.crm-lead-chev-open {
-    color: var(--green) !important;
-    background: rgba(46,139,77,.12) !important;
-    transform: rotate(90deg) !important;
-}
-div[class*="st-key-crm_expand_"] {
-    margin: 0 0 12px !important;
-    padding: 12px 14px 14px !important;
-    border: 1px solid rgba(46,139,77,.20) !important;
-    border-top: none !important;
-    border-radius: 0 0 16px 16px !important;
-    background:
-      linear-gradient(180deg, rgba(255,255,255,.98), rgba(253,252,249,.94)),
-      radial-gradient(120% 140% at 100% 0%, rgba(46,139,77,.06), transparent 55%) !important;
-    box-shadow: 0 14px 32px -20px rgba(15,42,51,.28) !important;
-    animation: crmExpandIn .28s var(--ease-out) both;
-}
-div[class*="st-key-crm_expand_"] .crm-expand-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--line-soft);
-}
-@keyframes crmExpandIn {
-    from { opacity: 0; transform: translateY(-6px); }
-    to { opacity: 1; transform: translateY(0); }
+.crm-detail-back-row { margin: 0 0 14px; }
+.crm-detail-back-row button {
+    max-width: 180px;
+    font-weight: 700 !important;
 }
 .crm-detail-panel {
     background: rgba(255,255,255,.72);
@@ -2258,38 +2246,26 @@ def _reset_crm_filters() -> None:
         "crm_work_filter": "all",
         "crm_sort": "recent",
         "crm_page": 1,
-        "crm_expanded_contact_id": None,
+        "crm_view_mode": "list",
+        "crm_selected_contact_id": None,
     }
     for key, value in defaults.items():
         st.session_state[key] = value
 
 
-def _collapse_lead_expand() -> None:
-    st.session_state.crm_expanded_contact_id = None
+def _open_lead_detail(contact_id: str) -> None:
+    st.session_state.crm_selected_contact_id = str(contact_id)
+    st.session_state.crm_view_mode = "detail"
+
+
+def _close_lead_detail() -> None:
+    st.session_state.crm_view_mode = "list"
+    st.session_state.crm_selected_contact_id = None
 
 
 def _safe_widget_key(raw: str) -> str:
     """Streamlit widget keys must be stable and avoid problematic characters."""
     return re.sub(r"[^a-zA-Z0-9_]", "_", str(raw or "lead"))
-
-
-def _toggle_lead_by_id(contact_id: str) -> None:
-    cid = str(contact_id or "").strip()
-    if not cid:
-        return
-    if st.session_state.get("crm_expanded_contact_id") == cid:
-        st.session_state.crm_expanded_contact_id = None
-    else:
-        st.session_state.crm_expanded_contact_id = cid
-
-
-def _toggle_lead_at_index(idx: int) -> None:
-    contacts = st.session_state.get("crm_db", {}).get("contacts") or []
-    if not (0 <= idx < len(contacts)):
-        return
-    cid = contacts[idx].get("id")
-    if cid:
-        _toggle_lead_by_id(str(cid))
 
 
 def _contact_index_map(contacts: list[dict]) -> dict[str, int]:
@@ -3258,10 +3234,13 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
                     details=meet_notes or contact.get("notes") or "",
                 )
                 st.markdown(
+                    '<div class="crm-meet-schedule-label">Quick links</div>'
                     f'<div class="crm-meet-actions">'
                     f'<a class="meet" href="{html.escape(meet_link)}" target="_blank" rel="noreferrer">Join Meet</a>'
                     f'<a class="cal" href="{html.escape(cal_url)}" target="_blank" rel="noreferrer">Add to Google Calendar</a>'
-                    f'</div>',
+                    f'</div>'
+                    '<div class="crm-meet-schedule-spacer"></div>'
+                    '<div class="crm-meet-schedule-label">Save to CRM</div>',
                     unsafe_allow_html=True,
                 )
 
@@ -3603,36 +3582,69 @@ def _render_lead_details(contact: dict, idx: int, statuses: list[str]) -> None:
             st.caption("No agent data for this lead.")
 
 
-def _render_lead_expand_panel(contact: dict, idx: int, statuses: list[str]) -> None:
+def _render_lead_detail_view(contact: dict, idx: int, statuses: list[str]) -> None:
     cid = contact.get("id", f"row-{idx}")
-    safe_id = _safe_widget_key(cid)
     name = display_name(contact)
+    company = (contact.get("company") or "").strip() or "—"
+    stage = normalize_status(contact.get("status") or "new")
+    deal_status = normalize_deal_status(contact.get("deal_status") or "", stage=stage)
+    source = normalize_source(contact.get("source") or "other")
+    owner = (contact.get("owner") or "").strip() or "—"
+    value = _value_display(contact.get("value") or "")
+    follow = (contact.get("next_follow_up") or "").strip()[:10]
+    contact_line = " · ".join(
+        part for part in [(contact.get("email") or "").strip(), (contact.get("phone") or "").strip()] if part
+    ) or "No email or phone"
 
-    with st.container(key=f"crm_expand_{safe_id}"):
-        tb1, tb2, _ = st.columns([1, 1, 2.2])
-        with tb1:
-            if st.button("Close", key=f"crm_close_{safe_id}", use_container_width=True):
-                st.session_state.crm_expanded_contact_id = None
-                st.rerun()
-        with tb2:
-            with st.popover("Delete", use_container_width=True):
-                st.warning(f"Delete {name} and all its activity? This can't be undone.")
-                if st.button("Yes, delete", key=f"crm_expand_del_{cid}", type="primary", use_container_width=True):
-                    contacts = [c for c in st.session_state.crm_db.get("contacts", []) if c.get("id") != cid]
-                    st.session_state.crm_db["contacts"] = contacts
-                    if persist_crm(f"CRM: delete {name}"):
-                        _collapse_lead_expand()
-                        st.toast("Lead removed")
-                        st.rerun()
-        _render_lead_details(contact, idx, statuses)
+    st.markdown('<div class="crm-detail-back-row">', unsafe_allow_html=True)
+    back_col, del_col, _ = st.columns([1.1, 1, 3.3])
+    with back_col:
+        if st.button("← Back to list", key="crm_detail_back", use_container_width=True):
+            _close_lead_detail()
+            st.rerun()
+    with del_col:
+        with st.popover("Delete lead", use_container_width=True):
+            st.warning(f"Delete {name} and all its activity? This can't be undone.")
+            if st.button("Yes, delete", key=f"crm_detail_del_{cid}", type="primary", use_container_width=True):
+                contacts = [c for c in st.session_state.crm_db.get("contacts", []) if c.get("id") != cid]
+                st.session_state.crm_db["contacts"] = contacts
+                if persist_crm(f"CRM: delete {name}"):
+                    _close_lead_detail()
+                    st.toast("Lead removed")
+                    st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown(
+        f"""
+        <div class="crm-detail-shell">
+          <div class="crm-detail-top">
+            <div>
+              <div class="crm-detail-kicker">Lead workspace</div>
+              <h2 class="crm-detail-title">{html.escape(company)}</h2>
+              <div class="crm-detail-sub">
+                {html.escape(name)} · {html.escape(contact_line)} · Owner {html.escape(owner)}
+                {" · Next " + html.escape(follow) if follow else ""}
+              </div>
+              <div class="crm-detail-badges">
+                <span class="crm-pill {html.escape(stage)}">{html.escape(_status_label(stage))}</span>
+                <span class="crm-pill {html.escape(deal_status)}">{html.escape(_deal_status_label(deal_status))}</span>
+                <span class="crm-pill">{html.escape(_source_label(source))}</span>
+                <span class="crm-pill">Value {html.escape(value)}</span>
+              </div>
+            </div>
+          </div>
+          <div class="crm-detail-panel">
+        """,
+        unsafe_allow_html=True,
+    )
+    _render_lead_details(contact, idx, statuses)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 def _render_contact_card(
     contact: dict,
     idx: int,
     statuses: list[str],
-    *,
-    expanded_id: str | None = None,
 ) -> None:
     cid = contact.get("id", f"row-{idx}")
     safe_id = _safe_widget_key(cid)
@@ -3650,9 +3662,6 @@ def _render_contact_card(
     card_cls = "crm-lead-card"
     if is_due:
         card_cls += " crm-due"
-    is_expanded = bool(expanded_id and cid_str == str(expanded_id))
-    if is_expanded:
-        card_cls += " crm-expanded"
 
     monogram_src = (contact.get("company") or "").strip() or name
     words = [w for w in monogram_src.replace("—", " ").split() if w[:1].isalnum()]
@@ -3682,51 +3691,42 @@ def _render_contact_card(
     name_sub_html = f'<div class="crm-lead-sub">{html.escape(name_sub)}</div>' if name_sub else ""
     meta_html = f'<div class="crm-lead-meta">{html.escape(meta)}</div>' if meta else ""
 
-    # Native Streamlit button (visible chevron) — no invisible overlay hacks.
     with st.container(key=f"crm_row_{safe_id}"):
-        card_col, open_col = st.columns([20, 1.05], gap="small")
-        with card_col:
-            st.markdown(
-                f'<div class="crm-lead-hit">'
-                f'<div class="{card_cls}">'
-                f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
-                f'  <div class="crm-lead-body">'
-                f'    <div class="crm-lead-co-wrap">'
-                f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
-                f'      <div class="crm-lead-co-text">'
-                f'        <div class="crm-lead-co">{html.escape(company)}</div>'
-                f'        {co_sub_html}'
-                f'      </div>'
-                f'    </div>'
-                f'    <div class="crm-lead-name-wrap">'
-                f'      <div class="crm-lead-name">{html.escape(name)}</div>'
-                f'      {name_sub_html}'
-                f'    </div>'
-                f'    <div class="crm-lead-status-wrap">'
-                f'      <div class="crm-lead-status">{status_html}</div>'
-                f'      {meta_html}'
-                f'    </div>'
-                f'  </div>'
-                f'</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-        with open_col:
-            open_lead = st.button(
-                "›",
-                key=f"crm_open_{safe_id}",
-                help="Expand this lead",
+        st.markdown(
+            f'<div class="crm-lead-hit">'
+            f'<div class="{card_cls}">'
+            f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
+            f'  <div class="crm-lead-body">'
+            f'    <div class="crm-lead-co-wrap">'
+            f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
+            f'      <div class="crm-lead-co-text">'
+            f'        <div class="crm-lead-co">{html.escape(company)}</div>'
+            f'        {co_sub_html}'
+            f'      </div>'
+            f'    </div>'
+            f'    <div class="crm-lead-name-wrap">'
+            f'      <div class="crm-lead-name">{html.escape(name)}</div>'
+            f'      {name_sub_html}'
+            f'    </div>'
+            f'    <div class="crm-lead-status-wrap">'
+            f'      <div class="crm-lead-status">{status_html}</div>'
+            f'      {meta_html}'
+            f'    </div>'
+            f'  </div>'
+            f'  <span class="crm-lead-chev" aria-hidden="true">›</span>'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        with st.container(key=f"crm_open_{safe_id}"):
+            if st.button(
+                "Open lead",
+                key=f"crm_openbtn_{safe_id}",
+                help="Open lead workspace",
                 use_container_width=True,
-                type="primary" if is_expanded else "secondary",
-            )
-        if open_lead:
-            if st.session_state.get("crm_expanded_contact_id") == cid_str:
-                st.session_state.crm_expanded_contact_id = None
-            else:
-                st.session_state.crm_expanded_contact_id = cid_str
-            st.rerun()
-        if is_expanded:
-            _render_lead_expand_panel(contact, idx, statuses)
+            ):
+                _open_lead_detail(cid_str)
+                st.rerun()
 
 
 def render_crm_page() -> None:
@@ -3738,7 +3738,7 @@ def render_crm_page() -> None:
         main_keys = [
             "crm_search", "crm_stage_filter", "crm_source_filter",
             "crm_deal_filter", "crm_work_filter", "crm_sort",
-            "crm_page", "crm_page_size", "crm_expanded_contact_id",
+            "crm_page", "crm_page_size", "crm_selected_contact_id", "crm_view_mode",
         ]
         for k in main_keys:
             if k in st.session_state and last_state.get(k) != st.session_state[k]:
@@ -3755,10 +3755,9 @@ def render_crm_page() -> None:
         if interacted_with_main:
             st.session_state.crm_ai_dialog_open = False
 
-    st.session_state.setdefault("crm_expanded_contact_id", None)
-    # Drop legacy page-navigation state from older builds.
-    st.session_state.pop("crm_view_mode", None)
-    st.session_state.pop("crm_selected_contact_id", None)
+    st.session_state.setdefault("crm_view_mode", "list")
+    st.session_state.setdefault("crm_selected_contact_id", None)
+    st.session_state.pop("crm_expanded_contact_id", None)
 
     st.markdown(CRM_CSS, unsafe_allow_html=True)
     tenancy.render_org_switcher()
@@ -3779,6 +3778,8 @@ def render_crm_page() -> None:
     )
     won = sum(1 for c in contacts if normalize_deal_status(c.get("deal_status") or "", stage=normalize_status(c.get("status") or "new")) == "won")
     snapshot_html = _stage_snapshot_html(statuses, contacts)
+    selected_id = st.session_state.get("crm_selected_contact_id")
+    detail_mode = st.session_state.get("crm_view_mode") == "detail"
 
     st.markdown(
         f"""
@@ -3801,6 +3802,20 @@ def render_crm_page() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+    if detail_mode and selected_id and str(selected_id) in {str(c.get("id")) for c in contacts}:
+        sel_idx = id_to_idx.get(str(selected_id))
+        if sel_idx is not None:
+            _render_lead_detail_view(contacts[sel_idx], sel_idx, statuses)
+            toast = st.session_state.pop("crm_save_toast", None)
+            if toast:
+                st.toast(toast)
+            if st.session_state.get("crm_ai_dialog_open"):
+                _ai_add_dialog()
+            return
+    if detail_mode:
+        st.session_state.crm_view_mode = "list"
+        st.session_state.crm_selected_contact_id = None
 
     render_usage_guide("crm")
 
@@ -3984,13 +3999,12 @@ def render_crm_page() -> None:
         unsafe_allow_html=True,
     )
 
-    st.caption("Tap the › button on a lead to expand it. Tap again or Close to collapse.  ·  build: inline-expand v9")
+    st.caption("Tap a lead to open its workspace. Use Back to list to return here.  ·  build: detail-view v10")
 
-    expanded_id = st.session_state.get("crm_expanded_contact_id")
     for contact in page_slice:
         idx = id_to_idx.get(str(contact.get("id")))
         if idx is not None:
-            _render_contact_card(contact, idx, statuses, expanded_id=expanded_id)
+            _render_contact_card(contact, idx, statuses)
 
     toast = st.session_state.pop("crm_save_toast", None)
     if toast:
