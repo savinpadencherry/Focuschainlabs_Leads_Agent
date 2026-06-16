@@ -312,34 +312,42 @@ CRM_CSS = """
     transform: translateY(-1px) scale(.992);
     transition-duration: .08s;
 }
-/* Lead row — whole card is tappable; chevron sits inside the tile. */
+/* Lead row — fused card + real chevron button; body tap via column-scoped overlay. */
 div[class*="st-key-crm_row_"] {
-    position: relative !important;
     margin-bottom: 10px !important;
 }
-div[class*="st-key-crm_row_"] [data-testid="stElementContainer"]:has(.crm-lead-hit) {
+div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] {
+    align-items: stretch !important;
+    margin-bottom: 0 !important;
+    gap: 0 !important;
+}
+div[class*="st-key-crm_row_"] [data-testid="column"]:first-child {
+    position: relative !important;
+    min-width: 0 !important;
+    padding-right: 0 !important;
+}
+div[class*="st-key-crm_row_"] [data-testid="column"]:last-child {
+    flex: 0 0 52px !important;
+    max-width: 52px !important;
+    min-width: 52px !important;
+    padding-left: 0 !important;
+}
+div[class*="st-key-crm_row_"] [data-testid="column"]:first-child [data-testid="stElementContainer"]:has(.crm-lead-hit) {
     pointer-events: none !important;
     margin: 0 !important;
 }
-div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] {
+div[class*="st-key-crm_row_"] [data-testid="column"]:first-child [data-testid="stElementContainer"]:has(.crm-lead-hit) + [data-testid="stElementContainer"] {
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    width: 100% !important;
     height: 92px !important;
-    min-height: 92px !important;
-    max-height: 92px !important;
+    z-index: 4 !important;
     margin: 0 !important;
     padding: 0 !important;
-    z-index: 5 !important;
-    overflow: hidden !important;
     pointer-events: auto !important;
 }
-div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] [data-testid="stTooltipIcon"] {
-    display: none !important;
-}
-div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] button {
+div[class*="st-key-crm_row_"] [data-testid="column"]:first-child [data-testid="stElementContainer"]:has(.crm-lead-hit) + [data-testid="stElementContainer"] button {
     width: 100% !important;
     min-height: 92px !important;
     height: 92px !important;
@@ -347,6 +355,36 @@ div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] button {
     border: none !important;
     background: transparent !important;
     cursor: pointer !important;
+    box-shadow: none !important;
+}
+div[class*="st-key-crm_row_"] [data-testid="column"]:last-child [data-testid="stButton"] {
+    margin: 0 !important;
+    height: 92px !important;
+}
+div[class*="st-key-crm_row_"] [data-testid="column"]:last-child button {
+    width: 100% !important;
+    min-height: 92px !important;
+    height: 92px !important;
+    border-radius: 0 16px 16px 0 !important;
+    border: 1px solid var(--line-soft) !important;
+    border-left: none !important;
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    color: var(--ink-mute) !important;
+    background: linear-gradient(180deg, #ffffff, var(--cream-3)) !important;
+    box-shadow: 0 8px 18px -12px rgba(15,42,51,.22) !important;
+    cursor: pointer !important;
+    transition: color .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease !important;
+}
+div[class*="st-key-crm_row_"] [data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button {
+    color: #fff !important;
+    background: var(--green) !important;
+    border-color: var(--green) !important;
+}
+div[class*="st-key-crm_row_"] .crm-lead-card {
+    border-radius: 16px 0 0 16px;
+    border-right: none;
 }
 div[class*="st-key-crm_row_"]:hover .crm-lead-card {
     border-color: rgba(46,139,77,.38);
@@ -363,11 +401,14 @@ div[class*="st-key-crm_row_"]:hover .crm-mono {
     transform: scale(1.05);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 6px 14px -4px rgba(15,42,51,.3);
 }
-div[class*="st-key-crm_row_"]:hover .crm-lead-chev {
-    color: #fff; background: var(--green); border-color: var(--green);
-    transform: translateX(2px);
+div[class*="st-key-crm_row_"]:hover [data-testid="column"]:last-child button {
+    color: #fff !important;
+    background: var(--green) !important;
+    border-color: var(--green) !important;
+    box-shadow: 0 10px 24px -10px rgba(46,139,77,.45) !important;
 }
-div[class*="st-key-crm_row_"]:has([class*="st-key-crm_open_"] button:active) .crm-lead-card {
+div[class*="st-key-crm_row_"]:has([data-testid="column"]:last-child button:active) .crm-lead-card,
+div[class*="st-key-crm_row_"]:has([data-testid="column"]:first-child button:active) .crm-lead-card {
     transform: translateY(-1px) scale(.992);
     transition-duration: .08s;
 }
@@ -981,12 +1022,13 @@ div[class*="st-key-crm_row_"]:has([class*="st-key-crm_open_"] button:active) .cr
     .crm-lead-co, .crm-lead-name { white-space: normal; }
     .crm-lead-sub, .crm-lead-meta { display: none; }
     .crm-lead-status { flex-wrap: wrap; }
-    div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] {
-        height: 92px !important;
-        min-height: 92px !important;
-        max-height: 92px !important;
+    div[class*="st-key-crm_row_"] [data-testid="column"]:last-child {
+        flex: 0 0 48px !important;
+        max-width: 48px !important;
+        min-width: 48px !important;
     }
-    div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] button {
+    div[class*="st-key-crm_row_"] [data-testid="column"]:last-child button,
+    div[class*="st-key-crm_row_"] [data-testid="column"]:first-child [data-testid="stElementContainer"]:has(.crm-lead-hit) + [data-testid="stElementContainer"] button {
         min-height: 92px !important;
         height: 92px !important;
     }
@@ -3692,41 +3734,50 @@ def _render_contact_card(
     meta_html = f'<div class="crm-lead-meta">{html.escape(meta)}</div>' if meta else ""
 
     with st.container(key=f"crm_row_{safe_id}"):
-        st.markdown(
-            f'<div class="crm-lead-hit">'
-            f'<div class="{card_cls}">'
-            f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
-            f'  <div class="crm-lead-body">'
-            f'    <div class="crm-lead-co-wrap">'
-            f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
-            f'      <div class="crm-lead-co-text">'
-            f'        <div class="crm-lead-co">{html.escape(company)}</div>'
-            f'        {co_sub_html}'
-            f'      </div>'
-            f'    </div>'
-            f'    <div class="crm-lead-name-wrap">'
-            f'      <div class="crm-lead-name">{html.escape(name)}</div>'
-            f'      {name_sub_html}'
-            f'    </div>'
-            f'    <div class="crm-lead-status-wrap">'
-            f'      <div class="crm-lead-status">{status_html}</div>'
-            f'      {meta_html}'
-            f'    </div>'
-            f'  </div>'
-            f'  <span class="crm-lead-chev" aria-hidden="true">›</span>'
-            f'</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        with st.container(key=f"crm_open_{safe_id}"):
-            if st.button(
+        body_col, chev_col = st.columns([20, 1.05], gap="small")
+        with body_col:
+            st.markdown(
+                f'<div class="crm-lead-hit">'
+                f'<div class="{card_cls}">'
+                f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
+                f'  <div class="crm-lead-body">'
+                f'    <div class="crm-lead-co-wrap">'
+                f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
+                f'      <div class="crm-lead-co-text">'
+                f'        <div class="crm-lead-co">{html.escape(company)}</div>'
+                f'        {co_sub_html}'
+                f'      </div>'
+                f'    </div>'
+                f'    <div class="crm-lead-name-wrap">'
+                f'      <div class="crm-lead-name">{html.escape(name)}</div>'
+                f'      {name_sub_html}'
+                f'    </div>'
+                f'    <div class="crm-lead-status-wrap">'
+                f'      <div class="crm-lead-status">{status_html}</div>'
+                f'      {meta_html}'
+                f'    </div>'
+                f'  </div>'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            body_tap = st.button(
                 "Open lead",
-                key=f"crm_openbtn_{safe_id}",
-                help="Open lead workspace",
+                key=f"crm_body_{safe_id}",
+                help=f"Open {company}",
                 use_container_width=True,
-            ):
-                _open_lead_detail(cid_str)
-                st.rerun()
+            )
+        with chev_col:
+            chev_tap = st.button(
+                "›",
+                key=f"crm_open_{safe_id}",
+                help=f"Open {company}",
+                use_container_width=True,
+                type="secondary",
+            )
+        if body_tap or chev_tap:
+            _open_lead_detail(cid_str)
+            st.rerun()
 
 
 def render_crm_page() -> None:
@@ -3999,7 +4050,7 @@ def render_crm_page() -> None:
         unsafe_allow_html=True,
     )
 
-    st.caption("Tap a lead to open its workspace. Use Back to list to return here.  ·  build: detail-view v10")
+    st.caption("Tap a lead or its › control to open the workspace. Back to list returns here.  ·  build: detail-view v11")
 
     for contact in page_slice:
         idx = id_to_idx.get(str(contact.get("id")))
