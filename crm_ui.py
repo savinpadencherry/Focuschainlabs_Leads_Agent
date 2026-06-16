@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import random
+import re
 import string
 from datetime import date, datetime, timedelta
 
@@ -311,9 +312,57 @@ CRM_CSS = """
     transform: translateY(-1px) scale(.992);
     transition-duration: .08s;
 }
-/* Sibling overlay: card markdown and button are direct DOM siblings.
-   The button is pulled up via negative margin to cover the card visually.
-   data-testid attributes are stable across Streamlit versions — no key-class fragility. */
+/* Lead row — card + native chevron button (same pattern as Reach Agent). */
+div[class*="st-key-crm_row_"] {
+    margin-bottom: 10px !important;
+}
+div[class*="st-key-crm_row_"]:has(div[class*="st-key-crm_expand_"]) {
+    margin-bottom: 14px !important;
+}
+div[class*="st-key-crm_row_"] div[class*="st-key-crm_expand_"] {
+    margin-top: 0 !important;
+}
+div[class*="st-key-crm_row_"] .crm-lead-card {
+    border-radius: 16px 0 0 16px;
+    border-right: none;
+}
+div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] {
+    align-items: stretch !important;
+    margin-bottom: 0 !important;
+    animation: cardIn .34s var(--ease-out) both;
+}
+div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"]:hover .crm-lead-card {
+    border-color: rgba(46,139,77,.38);
+    background: linear-gradient(180deg, #ffffff, rgba(253,252,249,.96));
+    box-shadow:
+      0 2px 4px rgba(15,42,51,.05),
+      0 18px 38px -16px rgba(15,42,51,.28),
+      0 24px 52px -20px rgba(46,139,77,.32);
+    transform: translateY(-2px);
+}
+div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"]:hover .crm-lead-card::before {
+    opacity: 1;
+}
+div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
+    min-height: 92px !important;
+    height: 92px !important;
+    border-radius: 0 16px 16px 0 !important;
+    border-left: none !important;
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    box-shadow: 0 8px 18px -12px rgba(15,42,51,.22) !important;
+}
+div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-secondary"] button {
+    color: var(--ink-mute) !important;
+    background: rgba(255,255,255,.82) !important;
+    border-color: var(--line-soft) !important;
+}
+div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child [data-testid="stBaseButton-primary"] button {
+    color: #fff !important;
+    background: var(--green) !important;
+    border-color: var(--green) !important;
+}
 .crm-lead-card {
     position: relative;
     display: flex;
@@ -397,100 +446,6 @@ CRM_CSS = """
     border: 1px solid transparent;
     transition: color .22s var(--ease-out), background .22s var(--ease-out),
                 transform .22s var(--ease-out), border-color .22s var(--ease-out);
-}
-div[data-testid="stElementContainer"]:has(.crm-lead-hit) {
-    margin-bottom: 0 !important;
-    position: relative;
-    z-index: 0;
-}
-div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[class*="st-key-crm_open_"],
-div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] {
-    margin-top: -102px !important;
-    margin-bottom: 10px !important;
-    position: relative;
-    z-index: 2;
-    height: 92px !important;
-    min-height: 92px !important;
-    max-height: 92px !important;
-    overflow: hidden !important;
-    pointer-events: auto;
-}
-div[class*="st-key-crm_open_"] [data-testid="stButton"],
-div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] [data-testid="stButton"] {
-    margin: 0 !important;
-    height: 92px !important;
-    width: 100% !important;
-}
-div[class*="st-key-crm_open_"] [data-testid="stTooltipIcon"],
-div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] [data-testid="stTooltipIcon"] {
-    display: none !important;
-}
-div[class*="st-key-crm_open_"] button,
-div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] button {
-    width: 100% !important;
-    min-height: 92px !important;
-    height: 92px !important;
-    opacity: 0 !important;
-    font-size: 0 !important;
-    line-height: 0 !important;
-    color: transparent !important;
-    -webkit-text-fill-color: transparent !important;
-    border: none !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    transform: none !important;
-    cursor: pointer !important;
-    padding: 0 !important;
-    margin: 0 !important;
-}
-div[class*="st-key-crm_open_"] button::after,
-div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] button::after {
-    display: none !important;
-}
-div[class*="st-key-crm_open_"] button:hover,
-div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] button:hover {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    transform: none !important;
-}
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-card,
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-card {
-    border-color: rgba(46,139,77,.38);
-    background: linear-gradient(180deg, #ffffff, rgba(253,252,249,.96));
-    box-shadow:
-      0 2px 4px rgba(15,42,51,.05),
-      0 18px 38px -16px rgba(15,42,51,.28),
-      0 24px 52px -20px rgba(46,139,77,.32);
-    transform: translateY(-3px);
-}
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-card::before,
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-card::before {
-    opacity: 1;
-}
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-rail,
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-rail {
-    height: 66px;
-    opacity: 1;
-}
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-mono,
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-mono {
-    transform: scale(1.05);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 6px 14px -4px rgba(15,42,51,.3);
-}
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"]:hover) .crm-lead-chev,
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"]:hover) .crm-lead-chev {
-    color: #fff;
-    background: var(--green);
-    border-color: var(--green);
-    transform: translateX(2px);
-}
-/* Tap feedback — a quick press-in so clicking anywhere on the card feels instant. */
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[class*="st-key-crm_open_"] button:active) .crm-lead-card,
-div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="stElementContainer"] button:active) .crm-lead-card {
-    transform: translateY(-1px) scale(.992);
-    transition-duration: .08s;
-    box-shadow: 0 1px 2px rgba(15,42,51,.05), 0 10px 22px -14px rgba(15,42,51,.32);
 }
 .crm-lead-co-wrap { display: flex; align-items: center; gap: 13px; min-width: 0; width: 100%; }
 .crm-mono {
@@ -1018,13 +973,7 @@ div[data-testid="stElementContainer"]:has(.crm-lead-hit):has(+ div[data-testid="
     .crm-lead-co, .crm-lead-name { white-space: normal; }
     .crm-lead-sub, .crm-lead-meta { display: none; }
     .crm-lead-status { flex-wrap: wrap; }
-    div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] {
-        margin-top: -102px !important;
-        height: 92px !important;
-        min-height: 92px !important;
-        max-height: 92px !important;
-    }
-    div[data-testid="stElementContainer"]:has(.crm-lead-hit) + div[data-testid="stElementContainer"] button {
+    div[class*="st-key-crm_row_"] [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child button {
         min-height: 92px !important;
         height: 92px !important;
     }
@@ -2319,18 +2268,28 @@ def _collapse_lead_expand() -> None:
     st.session_state.crm_expanded_contact_id = None
 
 
+def _safe_widget_key(raw: str) -> str:
+    """Streamlit widget keys must be stable and avoid problematic characters."""
+    return re.sub(r"[^a-zA-Z0-9_]", "_", str(raw or "lead"))
+
+
+def _toggle_lead_by_id(contact_id: str) -> None:
+    cid = str(contact_id or "").strip()
+    if not cid:
+        return
+    if st.session_state.get("crm_expanded_contact_id") == cid:
+        st.session_state.crm_expanded_contact_id = None
+    else:
+        st.session_state.crm_expanded_contact_id = cid
+
+
 def _toggle_lead_at_index(idx: int) -> None:
     contacts = st.session_state.get("crm_db", {}).get("contacts") or []
     if not (0 <= idx < len(contacts)):
         return
     cid = contacts[idx].get("id")
-    if not cid:
-        return
-    cid = str(cid)
-    if st.session_state.get("crm_expanded_contact_id") == cid:
-        st.session_state.crm_expanded_contact_id = None
-    else:
-        st.session_state.crm_expanded_contact_id = cid
+    if cid:
+        _toggle_lead_by_id(str(cid))
 
 
 def _contact_index_map(contacts: list[dict]) -> dict[str, int]:
@@ -3646,17 +3605,15 @@ def _render_lead_details(contact: dict, idx: int, statuses: list[str]) -> None:
 
 def _render_lead_expand_panel(contact: dict, idx: int, statuses: list[str]) -> None:
     cid = contact.get("id", f"row-{idx}")
+    safe_id = _safe_widget_key(cid)
     name = display_name(contact)
 
-    with st.container(key=f"crm_expand_{idx}"):
+    with st.container(key=f"crm_expand_{safe_id}"):
         tb1, tb2, _ = st.columns([1, 1, 2.2])
         with tb1:
-            st.button(
-                "Close",
-                key=f"crm_close_{idx}",
-                use_container_width=True,
-                on_click=_collapse_lead_expand,
-            )
+            if st.button("Close", key=f"crm_close_{safe_id}", use_container_width=True):
+                st.session_state.crm_expanded_contact_id = None
+                st.rerun()
         with tb2:
             with st.popover("Delete", use_container_width=True):
                 st.warning(f"Delete {name} and all its activity? This can't be undone.")
@@ -3678,6 +3635,8 @@ def _render_contact_card(
     expanded_id: str | None = None,
 ) -> None:
     cid = contact.get("id", f"row-{idx}")
+    safe_id = _safe_widget_key(cid)
+    cid_str = str(cid)
     name = display_name(contact)
     stage = normalize_status(contact.get("status") or "new")
     stage_label = _status_label(stage)
@@ -3691,10 +3650,9 @@ def _render_contact_card(
     card_cls = "crm-lead-card"
     if is_due:
         card_cls += " crm-due"
-    is_expanded = bool(expanded_id and str(cid) == str(expanded_id))
+    is_expanded = bool(expanded_id and cid_str == str(expanded_id))
     if is_expanded:
         card_cls += " crm-expanded"
-    chev_cls = "crm-lead-chev crm-lead-chev-open" if is_expanded else "crm-lead-chev"
 
     monogram_src = (contact.get("company") or "").strip() or name
     words = [w for w in monogram_src.replace("—", " ").split() if w[:1].isalnum()]
@@ -3724,44 +3682,51 @@ def _render_contact_card(
     name_sub_html = f'<div class="crm-lead-sub">{html.escape(name_sub)}</div>' if name_sub else ""
     meta_html = f'<div class="crm-lead-meta">{html.escape(meta)}</div>' if meta else ""
 
-    # Card visual and button must be direct siblings so the
-    # data-testid sibling CSS selector can overlay the button on the card.
-    st.markdown(
-        f'<div class="crm-lead-hit">'
-        f'<div class="{card_cls}">'
-        f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
-        f'  <div class="crm-lead-body">'
-        f'    <div class="crm-lead-co-wrap">'
-        f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
-        f'      <div class="crm-lead-co-text">'
-        f'        <div class="crm-lead-co">{html.escape(company)}</div>'
-        f'        {co_sub_html}'
-        f'      </div>'
-        f'    </div>'
-        f'    <div class="crm-lead-name-wrap">'
-        f'      <div class="crm-lead-name">{html.escape(name)}</div>'
-        f'      {name_sub_html}'
-        f'    </div>'
-        f'    <div class="crm-lead-status-wrap">'
-        f'      <div class="crm-lead-status">{status_html}</div>'
-        f'      {meta_html}'
-        f'    </div>'
-        f'  </div>'
-        f'  <span class="{chev_cls}" aria-hidden="true">›</span>'
-        f'</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-    st.button(
-        "Open lead",
-        key=f"crm_open_{idx}",
-        help="Expand this lead",
-        use_container_width=True,
-        on_click=_toggle_lead_at_index,
-        kwargs={"idx": idx},
-    )
-    if is_expanded:
-        _render_lead_expand_panel(contact, idx, statuses)
+    # Native Streamlit button (visible chevron) — no invisible overlay hacks.
+    with st.container(key=f"crm_row_{safe_id}"):
+        card_col, open_col = st.columns([20, 1.05], gap="small")
+        with card_col:
+            st.markdown(
+                f'<div class="crm-lead-hit">'
+                f'<div class="{card_cls}">'
+                f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
+                f'  <div class="crm-lead-body">'
+                f'    <div class="crm-lead-co-wrap">'
+                f'      <span class="crm-mono {html.escape(stage)}">{html.escape(initials)}</span>'
+                f'      <div class="crm-lead-co-text">'
+                f'        <div class="crm-lead-co">{html.escape(company)}</div>'
+                f'        {co_sub_html}'
+                f'      </div>'
+                f'    </div>'
+                f'    <div class="crm-lead-name-wrap">'
+                f'      <div class="crm-lead-name">{html.escape(name)}</div>'
+                f'      {name_sub_html}'
+                f'    </div>'
+                f'    <div class="crm-lead-status-wrap">'
+                f'      <div class="crm-lead-status">{status_html}</div>'
+                f'      {meta_html}'
+                f'    </div>'
+                f'  </div>'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with open_col:
+            open_lead = st.button(
+                "›",
+                key=f"crm_open_{safe_id}",
+                help="Expand this lead",
+                use_container_width=True,
+                type="primary" if is_expanded else "secondary",
+            )
+        if open_lead:
+            if st.session_state.get("crm_expanded_contact_id") == cid_str:
+                st.session_state.crm_expanded_contact_id = None
+            else:
+                st.session_state.crm_expanded_contact_id = cid_str
+            st.rerun()
+        if is_expanded:
+            _render_lead_expand_panel(contact, idx, statuses)
 
 
 def render_crm_page() -> None:
@@ -4019,7 +3984,7 @@ def render_crm_page() -> None:
         unsafe_allow_html=True,
     )
 
-    st.caption("👆 Tap a card to expand it in place. Tap again or Close to collapse.  ·  build: inline-expand v7")
+    st.caption("Tap the › button on a lead to expand it. Tap again or Close to collapse.  ·  build: inline-expand v9")
 
     expanded_id = st.session_state.get("crm_expanded_contact_id")
     for contact in page_slice:
