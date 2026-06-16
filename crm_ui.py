@@ -4019,7 +4019,7 @@ def render_crm_page() -> None:
         unsafe_allow_html=True,
     )
 
-    st.caption("👆 Tap a card to expand it in place. Tap again or Close to collapse.  ·  build: inline-expand v6")
+    st.caption("👆 Tap a card to expand it in place. Tap again or Close to collapse.  ·  build: inline-expand v7")
 
     expanded_id = st.session_state.get("crm_expanded_contact_id")
     for contact in page_slice:
