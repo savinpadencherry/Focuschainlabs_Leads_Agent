@@ -3819,14 +3819,15 @@ def _render_contact_card(
             f'</div>',
             unsafe_allow_html=True,
         )
-        st.button(
-            "Open lead",
-            key=f"crm_open_{idx}",
-            help="Expand this lead",
-            use_container_width=True,
-            on_click=_toggle_lead_at_index,
-            kwargs={"idx": idx},
-        )
+        with st.container(key=f"crm_open_{idx}"):
+            st.button(
+                "Open lead",
+                key=f"crm_openbtn_{idx}",
+                help="Expand this lead",
+                use_container_width=True,
+                on_click=_toggle_lead_at_index,
+                kwargs={"idx": idx},
+            )
         if is_expanded:
             _render_lead_expand_panel(contact, idx, statuses)
 
