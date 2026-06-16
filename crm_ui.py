@@ -3603,29 +3603,28 @@ def _render_lead_detail_view(contact: dict, idx: int, statuses: list[str]) -> No
                     st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
+    follow_suffix = f" · Next {html.escape(follow)}" if follow else ""
+    subtitle = (
+        f"{html.escape(name)} · {html.escape(contact_line)} · Owner {html.escape(owner)}{follow_suffix}"
+    )
+    badges_html = (
+        f'<span class="crm-pill {html.escape(stage)}">{html.escape(_status_label(stage))}</span>'
+        f'<span class="crm-pill {html.escape(deal_status)}">{html.escape(_deal_status_label(deal_status))}</span>'
+        f'<span class="crm-pill">{html.escape(_source_label(source))}</span>'
+        f'<span class="crm-pill">Value {html.escape(value)}</span>'
+    )
+
     st.markdown(
-        f"""
-        <div class="crm-detail-shell">
-          <div class="crm-detail-top">
-            <div>
-              <div class="crm-detail-kicker">Lead workspace</div>
-              <h2 class="crm-detail-title">{html.escape(company)}</h2>
-              <div class="crm-detail-sub">
-                {html.escape(name)} · {html.escape(contact_line)} · Owner {html.escape(owner)}
-                {" · Next " + html.escape(follow) if follow else ""}
-              </div>
-              <div class="crm-detail-badges">
-                <span class="crm-pill {html.escape(stage)}">{html.escape(_status_label(stage))}</span>
-                <span class="crm-pill {html.escape(deal_status)}">{html.escape(_deal_status_label(deal_status))}</span>
-                <span class="crm-pill">{html.escape(_source_label(source))}</span>
-                <span class="crm-pill">Value {html.escape(value)}</span>
-              </div>
-            </div>
-          </div>
-          <div class="crm-detail-panel">
-        """,
+        f'<div class="crm-detail-shell">'
+        f'<div class="crm-detail-top"><div>'
+        f'<div class="crm-detail-kicker">Lead workspace</div>'
+        f'<h2 class="crm-detail-title">{html.escape(company)}</h2>'
+        f'<div class="crm-detail-sub">{subtitle}</div>'
+        f'<div class="crm-detail-badges">{badges_html}</div>'
+        f'</div></div>',
         unsafe_allow_html=True,
     )
+    st.markdown('<div class="crm-detail-panel">', unsafe_allow_html=True)
     _render_lead_details(contact, idx, statuses)
     st.markdown("</div></div>", unsafe_allow_html=True)
 
