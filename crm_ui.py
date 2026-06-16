@@ -312,7 +312,7 @@ CRM_CSS = """
     transform: translateY(-1px) scale(.992);
     transition-duration: .08s;
 }
-/* Lead row — whole card is tappable; chevron sits inside the tile. */
+/* Lead row — one invisible tap target over the full card (on_click, no column split). */
 div[class*="st-key-crm_row_"] {
     position: relative !important;
     margin-bottom: 10px !important;
@@ -321,25 +321,22 @@ div[class*="st-key-crm_row_"] [data-testid="stElementContainer"]:has(.crm-lead-h
     pointer-events: none !important;
     margin: 0 !important;
 }
-div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] {
+div[class*="st-key-crm_row_"] [data-testid="stElementContainer"]:has(.crm-lead-hit) + [data-testid="stElementContainer"] {
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    width: 100% !important;
     height: 92px !important;
-    min-height: 92px !important;
-    max-height: 92px !important;
+    z-index: 4 !important;
     margin: 0 !important;
     padding: 0 !important;
-    z-index: 5 !important;
-    overflow: hidden !important;
     pointer-events: auto !important;
 }
-div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] [data-testid="stTooltipIcon"] {
-    display: none !important;
+div[class*="st-key-crm_row_"] [data-testid="stElementContainer"]:has(.crm-lead-hit) + [data-testid="stElementContainer"] [data-testid="stButton"] {
+    margin: 0 !important;
+    height: 92px !important;
 }
-div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] button {
+div[class*="st-key-crm_row_"] [data-testid="stElementContainer"]:has(.crm-lead-hit) + [data-testid="stElementContainer"] button {
     width: 100% !important;
     min-height: 92px !important;
     height: 92px !important;
@@ -347,6 +344,9 @@ div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] button {
     border: none !important;
     background: transparent !important;
     cursor: pointer !important;
+    box-shadow: none !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
 }
 div[class*="st-key-crm_row_"]:hover .crm-lead-card {
     border-color: rgba(46,139,77,.38);
@@ -364,10 +364,13 @@ div[class*="st-key-crm_row_"]:hover .crm-mono {
     box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 6px 14px -4px rgba(15,42,51,.3);
 }
 div[class*="st-key-crm_row_"]:hover .crm-lead-chev {
-    color: #fff; background: var(--green); border-color: var(--green);
+    color: #fff;
+    background: var(--green);
+    border-color: var(--green);
     transform: translateX(2px);
+    box-shadow: 0 10px 24px -10px rgba(46,139,77,.45);
 }
-div[class*="st-key-crm_row_"]:has([class*="st-key-crm_open_"] button:active) .crm-lead-card {
+div[class*="st-key-crm_row_"]:has(button:active) .crm-lead-card {
     transform: translateY(-1px) scale(.992);
     transition-duration: .08s;
 }
@@ -981,23 +984,9 @@ div[class*="st-key-crm_row_"]:has([class*="st-key-crm_open_"] button:active) .cr
     .crm-lead-co, .crm-lead-name { white-space: normal; }
     .crm-lead-sub, .crm-lead-meta { display: none; }
     .crm-lead-status { flex-wrap: wrap; }
-    div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] {
-        height: 92px !important;
-        min-height: 92px !important;
-        max-height: 92px !important;
-    }
-    div[class*="st-key-crm_row_"] [class*="st-key-crm_open_"] button {
+    div[class*="st-key-crm_row_"] [data-testid="stElementContainer"]:has(.crm-lead-hit) + [data-testid="stElementContainer"] button {
         min-height: 92px !important;
         height: 92px !important;
-    }
-    [data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 10px !important;
-    }
-    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
-        width: 100% !important;
-        flex: 1 1 auto !important;
     }
     [data-testid="stForm"] [data-testid="stHorizontalBlock"] {
         display: flex !important;
@@ -3718,15 +3707,14 @@ def _render_contact_card(
             f'</div>',
             unsafe_allow_html=True,
         )
-        with st.container(key=f"crm_open_{safe_id}"):
-            if st.button(
-                "Open lead",
-                key=f"crm_openbtn_{safe_id}",
-                help="Open lead workspace",
-                use_container_width=True,
-            ):
-                _open_lead_detail(cid_str)
-                st.rerun()
+        st.button(
+            "Open lead",
+            key=f"crm_open_{safe_id}",
+            help=f"Open {company}",
+            use_container_width=True,
+            on_click=_open_lead_detail,
+            kwargs={"contact_id": cid_str},
+        )
 
 
 def render_crm_page() -> None:
@@ -3999,7 +3987,7 @@ def render_crm_page() -> None:
         unsafe_allow_html=True,
     )
 
-    st.caption("Tap a lead to open its workspace. Use Back to list to return here.  ·  build: detail-view v10")
+    st.caption("Tap any lead to open its workspace. Back to list returns here.  ·  build: detail-view v12")
 
     for contact in page_slice:
         idx = id_to_idx.get(str(contact.get("id")))
