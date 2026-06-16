@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-14T09:21:12+00:00",
+  "updated_at": "2026-06-16T09:09:42+00:00",
   "contacts": [
     {
       "id": "b974ed05-10d3-4475-b848-e93b63501c03",
@@ -169,50 +169,6 @@
       "signal": "",
       "opening_line": "",
       "agent_run_id": "excel_upload_20260609_130201"
-    },
-    {
-      "id": "c75e8800-179d-4a9f-ba77-1b3c4ab2e4b0",
-      "name": "Webhook Test",
-      "company": "",
-      "industry": "",
-      "phone": "+910000000001",
-      "email": "",
-      "client": "",
-      "owner": "",
-      "value": "",
-      "status": "new",
-      "deal_status": "open",
-      "notes": "Direct webhook test",
-      "next_follow_up": "",
-      "source": "whatsapp",
-      "tags": [
-        "whatsapp-inbound"
-      ],
-      "email_events": [],
-      "comments": [
-        {
-          "id": "68224cf1-2f70-445f-be73-d3c28c0c2921",
-          "created_at": "2026-06-13T20:11:43+00:00",
-          "author": "Webhook Test",
-          "body": "Direct webhook test",
-          "subject": "",
-          "meeting_link": "",
-          "source": "whatsapp",
-          "type": "comment"
-        }
-      ],
-      "contact_people": [],
-      "invoices": [],
-      "meetings": [],
-      "created_at": "2026-06-13T20:11:43+00:00",
-      "updated_at": "2026-06-13T20:11:43+00:00",
-      "title": "",
-      "linkedin_url": "",
-      "website": "",
-      "score": 0,
-      "signal": "",
-      "opening_line": "",
-      "agent_run_id": ""
     },
     {
       "id": "9c360636-e195-4ec5-927a-96bd0d1e95f1",
