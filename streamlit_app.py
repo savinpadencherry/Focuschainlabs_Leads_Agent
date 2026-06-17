@@ -19,6 +19,7 @@ from reach_ui import render_reach_page
 from intel_ui import render_intel_page
 from proposal_ui import render_proposal_page
 from finance_ui import render_finance_page
+from utils.feedback_ui import render_feedback_floater
 from utils.usage_guide import render_usage_guide
 
 # ── Environment ──────────────────────────────────────────────────────────────
@@ -2089,22 +2090,27 @@ render_app_drawer()
 
 if st.session_state.get("app_view") == "crm":
     render_crm_page()
+    render_feedback_floater("crm")
     st.stop()
 
 if st.session_state.get("app_view") == "reach":
     render_reach_page()
+    render_feedback_floater("reach")
     st.stop()
 
 if st.session_state.get("app_view") == "intel":
     render_intel_page()
+    render_feedback_floater("intel")
     st.stop()
 
 if st.session_state.get("app_view") == "proposal":
     render_proposal_page()
+    render_feedback_floater("proposal")
     st.stop()
 
 if st.session_state.get("app_view") == "finance":
     render_finance_page()
+    render_feedback_floater("finance")
     st.stop()
 
 render_agent_hero()
@@ -3258,3 +3264,5 @@ elif st.session_state.stage == "error":
             st.session_state.run_traceback = ""
             st.session_state.run_warnings  = []
             st.rerun()
+
+render_feedback_floater("agent")

@@ -1,0 +1,280 @@
+"""Global feedback floater — available on every FocusChain Labs screen."""
+
+from __future__ import annotations
+
+import html
+
+import streamlit as st
+
+from utils.feedback_store import (
+    CATEGORY_LABELS,
+    FEEDBACK_CATEGORIES,
+    append_feedback,
+    load_feedback,
+    save_feedback,
+)
+
+PAGE_LABELS: dict[str, str] = {
+    "agent": "Agent",
+    "reach": "Reach",
+    "intel": "Intel",
+    "proposal": "Proposal",
+    "finance": "Finance",
+    "crm": "CRM",
+}
+
+FEEDBACK_CSS = """
+<style>
+/* Premium feedback floater — fixed bottom-right on every screen */
+div[class*="st-key-fcl_feedback_floater"] {
+    position: fixed !important;
+    bottom: 78px !important;
+    right: 26px !important;
+    z-index: 1001 !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    pointer-events: auto !important;
+}
+div[class*="st-key-fcl_feedback_floater"] [data-testid="stButton"] {
+    margin: 0 !important;
+    position: relative !important;
+}
+div[class*="st-key-fcl_feedback_floater"] [data-testid="stButton"]::before {
+    content: '';
+    position: absolute;
+    inset: -7px;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 200deg,
+        rgba(46,139,77,0),
+        rgba(46,139,77,.55),
+        rgba(212,175,95,.45),
+        rgba(46,139,77,.55),
+        rgba(46,139,77,0)
+    );
+    animation: fclGlowSpin 5s linear infinite;
+    z-index: -2;
+    filter: blur(.4px);
+}
+div[class*="st-key-fcl_feedback_floater"] [data-testid="stButton"]::after {
+    content: '';
+    position: absolute;
+    inset: -14px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(46,139,77,.22), transparent 68%);
+    z-index: -3;
+    animation: fclGlowPulse 2.8s ease-in-out infinite;
+}
+div[class*="st-key-fcl_feedback_floater"] button {
+    width: 62px !important;
+    min-width: 62px !important;
+    height: 62px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    color: transparent !important;
+    border: 1.5px solid rgba(255,255,255,.32) !important;
+    background:
+        radial-gradient(120% 120% at 28% 18%, rgba(255,255,255,.38), transparent 52%),
+        linear-gradient(148deg, #3cb868 0%, #2E8B4D 42%, #1a5c34 100%) !important;
+    box-shadow:
+        0 0 0 1px rgba(46,139,77,.18),
+        0 16px 42px -14px rgba(46,139,77,.72),
+        0 8px 22px -10px rgba(15,42,51,.38),
+        inset 0 2px 0 rgba(255,255,255,.36),
+        inset 0 -4px 10px rgba(0,0,0,.14) !important;
+    transition: transform .2s var(--ease-out), box-shadow .2s var(--ease-out) !important;
+    position: relative !important;
+    overflow: visible !important;
+}
+div[class*="st-key-fcl_feedback_floater"] button::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 24px;
+    height: 24px;
+    transform: translate(-50%, -52%);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M5 18.5V6.8c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v7.4c0 1.1-.9 2-2 2H9.6L5 18.5Z' fill='white' fill-opacity='.95'/%3E%3Ccircle cx='9' cy='11' r='1.1' fill='%232E8B4D'/%3E%3Ccircle cx='12' cy='11' r='1.1' fill='%232E8B4D'/%3E%3Ccircle cx='15' cy='11' r='1.1' fill='%232E8B4D'/%3E%3C/svg%3E");
+    pointer-events: none;
+}
+div[class*="st-key-fcl_feedback_floater"] button:hover {
+    transform: translateY(-3px) scale(1.05) !important;
+    box-shadow:
+        0 0 0 1px rgba(46,139,77,.24),
+        0 22px 50px -14px rgba(46,139,77,.82),
+        0 10px 26px -10px rgba(15,42,51,.42),
+        inset 0 2px 0 rgba(255,255,255,.42),
+        inset 0 -4px 10px rgba(0,0,0,.12) !important;
+}
+div[class*="st-key-fcl_feedback_floater"] button:active {
+    transform: translateY(-1px) scale(1.02) !important;
+}
+@keyframes fclGlowSpin {
+    to { transform: rotate(360deg); }
+}
+@keyframes fclGlowPulse {
+    0%, 100% { opacity: .55; transform: scale(.92); }
+    50% { opacity: 1; transform: scale(1.06); }
+}
+
+.fcl-feedback-dialog-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; font-weight: 700; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--green); margin-bottom: 6px;
+}
+.fcl-feedback-dialog-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 22px; font-weight: 800; color: var(--ink); margin: 0 0 6px;
+}
+.fcl-feedback-dialog-sub {
+    color: var(--ink-mute); font-size: 13px; line-height: 1.45; margin-bottom: 14px;
+}
+.fcl-feedback-page-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--green); background: var(--green-bg);
+    border: 1px solid rgba(46,139,77,.22); margin-bottom: 12px;
+}
+</style>
+"""
+
+
+def page_label(page: str) -> str:
+    return PAGE_LABELS.get(page, page.replace("_", " ").title() or "App")
+
+
+def inject_feedback_css() -> None:
+    if st.session_state.get("_feedback_css_injected"):
+        return
+    st.markdown(FEEDBACK_CSS, unsafe_allow_html=True)
+    st.session_state._feedback_css_injected = True
+
+
+def ensure_feedback_loaded(*, force: bool = False) -> None:
+    if force or "feedback_db" not in st.session_state:
+        db, meta = load_feedback(force_remote=force)
+        st.session_state.feedback_db = db
+        st.session_state.feedback_meta = meta
+        st.session_state.feedback_sha = meta.get("sha")
+
+
+def persist_feedback(message: str = "App: product feedback") -> bool:
+    db = st.session_state.get("feedback_db") or {"entries": []}
+    result = save_feedback(db, sha=st.session_state.get("feedback_sha"), message=message)
+    st.session_state.feedback_meta = result
+    if result.get("committed") or result.get("source") == "local":
+        st.session_state.feedback_sha = result.get("sha")
+        return True
+    if result.get("conflict"):
+        st.warning("Someone else updated feedback — close and try again.")
+        return False
+    if result.get("saved_locally"):
+        st.warning(result.get("error", "Saved locally — GitHub sync unavailable."))
+        return True
+    if result.get("error"):
+        st.error(result.get("error"))
+        return False
+    st.session_state.feedback_sha = result.get("sha")
+    return True
+
+
+def _open_feedback_dialog(page: str) -> None:
+    st.session_state.feedback_open = True
+    st.session_state.feedback_page = page
+
+
+@st.dialog("Share feedback", width="small")
+def _feedback_dialog() -> None:
+    page = st.session_state.get("feedback_page") or st.session_state.get("app_view", "agent")
+    label = page_label(page)
+    ensure_feedback_loaded()
+
+    st.markdown(
+        f'<div class="fcl-feedback-dialog-kicker">FocusChain Labs</div>'
+        f'<div class="fcl-feedback-dialog-title">Help us improve {html.escape(label)}</div>'
+        f'<div class="fcl-feedback-page-pill">Screen · {html.escape(label)}</div>'
+        f'<div class="fcl-feedback-dialog-sub">'
+        f"Tell us what's working, what's broken, or what you'd like next on "
+        f"<strong>{html.escape(label)}</strong>. Feedback is saved to the repo so the team "
+        f"can prioritise by screen."
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+    category = st.selectbox(
+        "Type",
+        FEEDBACK_CATEGORIES,
+        format_func=lambda c: CATEGORY_LABELS.get(c, c.title()),
+        key=f"feedback_category_{page}",
+    )
+    message = st.text_area(
+        "Your feedback",
+        placeholder=f"e.g. On {label}, it would help if…",
+        height=120,
+        key=f"feedback_message_{page}",
+    )
+    submitted_by = st.text_input(
+        "Your name (optional)",
+        placeholder="Who should we thank?",
+        key=f"feedback_name_{page}",
+    )
+    submit_col, cancel_col = st.columns(2)
+    with submit_col:
+        if st.button("Send feedback", type="primary", use_container_width=True, key=f"feedback_submit_{page}"):
+            text = (message or "").strip()
+            if not text:
+                st.error("Please add a short message before sending.")
+                return
+            db = st.session_state.get("feedback_db") or {"entries": []}
+            db, outcome = append_feedback(
+                db,
+                message=text,
+                category=category,
+                page=page,
+                page_label=label,
+                submitted_by=(submitted_by or "").strip(),
+            )
+            if not outcome.get("ok"):
+                st.error(outcome.get("error", "Couldn't save feedback."))
+                return
+            st.session_state.feedback_db = db
+            commit_msg = f"Feedback: {label} — {category}"
+            if persist_feedback(commit_msg):
+                st.session_state.feedback_open = False
+                st.session_state.feedback_toast = f"Thanks — saved for {label}"
+                st.rerun()
+    with cancel_col:
+        if st.button("Cancel", use_container_width=True, key=f"feedback_cancel_{page}"):
+            st.session_state.feedback_open = False
+            st.rerun()
+
+
+def render_feedback_floater(page: str | None = None) -> None:
+    """Render the global feedback floater for the active screen."""
+    inject_feedback_css()
+    active_page = page or st.session_state.get("app_view", "agent")
+    label = page_label(active_page)
+
+    with st.container(key="fcl_feedback_floater"):
+        if st.button(
+            "Feedback",
+            key=f"fcl_feedback_open_{active_page}",
+            help=f"Share feedback about {label}",
+            on_click=_open_feedback_dialog,
+            kwargs={"page": active_page},
+        ):
+            pass
+
+    toast = st.session_state.pop("feedback_toast", None)
+    if toast:
+        st.toast(toast)
+
+    if st.session_state.get("feedback_open"):
+        _feedback_dialog()

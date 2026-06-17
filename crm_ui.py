@@ -13,13 +13,6 @@ import streamlit as st
 import utils.crm_models as crm_models
 import utils.tenancy as tenancy
 from utils.crm_store import github_configured, import_leads_to_crm, load_crm, save_crm
-from utils.feedback_store import (
-    CATEGORY_LABELS,
-    FEEDBACK_CATEGORIES,
-    append_feedback,
-    load_feedback,
-    save_feedback,
-)
 from utils.usage_guide import render_usage_guide
 
 
@@ -2004,50 +1997,6 @@ div[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] 
 div[class*="st-key-crm_row_"].crm-select-mode [data-testid="stElementContainer"]:has(.crm-lead-hit) + [data-testid="stElementContainer"] button {
     cursor: pointer !important;
 }
-
-/* Feedback floater */
-div[class*="st-key-crm_feedback_floater"] {
-    position: fixed !important;
-    bottom: 22px !important;
-    right: 22px !important;
-    z-index: 1000 !important;
-    width: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    pointer-events: auto !important;
-}
-div[class*="st-key-crm_feedback_floater"] [data-testid="stButton"] { margin: 0 !important; }
-div[class*="st-key-crm_feedback_floater"] button {
-    width: 56px !important; min-width: 56px !important; height: 56px !important;
-    border-radius: 50% !important; padding: 0 !important;
-    font-size: 22px !important; line-height: 1 !important;
-    background: linear-gradient(145deg, #2E8B4D, #236b3c) !important;
-    color: #fff !important; border: none !important;
-    box-shadow:
-      0 10px 28px -8px rgba(46,139,77,.55),
-      0 4px 12px -4px rgba(15,42,51,.25),
-      inset 0 1px 0 rgba(255,255,255,.22) !important;
-    transition: transform .18s var(--ease-out), box-shadow .18s var(--ease-out) !important;
-}
-div[class*="st-key-crm_feedback_floater"] button:hover {
-    transform: translateY(-2px) scale(1.03) !important;
-    box-shadow:
-      0 16px 36px -10px rgba(46,139,77,.62),
-      0 6px 16px -6px rgba(15,42,51,.28),
-      inset 0 1px 0 rgba(255,255,255,.28) !important;
-}
-.crm-feedback-dialog-kicker {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px; font-weight: 700; letter-spacing: .18em;
-    text-transform: uppercase; color: var(--green); margin-bottom: 6px;
-}
-.crm-feedback-dialog-title {
-    font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 22px; font-weight: 800; color: var(--ink); margin: 0 0 6px;
-}
-.crm-feedback-dialog-sub {
-    color: var(--ink-mute); font-size: 13px; line-height: 1.45; margin-bottom: 14px;
-}
 </style>
 """
 
@@ -2425,101 +2374,6 @@ def _render_selection_toolbar(*, filtered_ids: list[str], page_ids: list[str]) -
                 _bulk_delete_selected()
                 st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
-
-
-def ensure_feedback_loaded(*, force: bool = False) -> None:
-    if force or "crm_feedback_db" not in st.session_state:
-        db, meta = load_feedback(force_remote=force)
-        st.session_state.crm_feedback_db = db
-        st.session_state.crm_feedback_meta = meta
-        st.session_state.crm_feedback_sha = meta.get("sha")
-
-
-def persist_feedback(message: str = "CRM: add product feedback") -> bool:
-    db = st.session_state.get("crm_feedback_db") or {"entries": []}
-    result = save_feedback(db, sha=st.session_state.get("crm_feedback_sha"), message=message)
-    st.session_state.crm_feedback_meta = result
-    if result.get("committed") or result.get("source") == "local":
-        st.session_state.crm_feedback_sha = result.get("sha")
-        return True
-    if result.get("conflict"):
-        st.warning("Someone else updated feedback — close and try again.")
-        return False
-    if result.get("saved_locally"):
-        st.warning(result.get("error", "Saved locally — GitHub sync unavailable."))
-        return True
-    if result.get("error"):
-        st.error(result.get("error"))
-        return False
-    st.session_state.crm_feedback_sha = result.get("sha")
-    return True
-
-
-@st.dialog("Share feedback", width="small")
-def _crm_feedback_dialog() -> None:
-    ensure_feedback_loaded()
-    st.markdown(
-        '<div class="crm-feedback-dialog-kicker">FocusChain Labs</div>'
-        '<div class="crm-feedback-dialog-title">Help us improve CRM</div>'
-        '<div class="crm-feedback-dialog-sub">'
-        "Tell us what's working, what's broken, or what you'd like next. "
-        "Feedback is saved to the repo so the team can act on it."
-        "</div>",
-        unsafe_allow_html=True,
-    )
-    category = st.selectbox(
-        "Type",
-        FEEDBACK_CATEGORIES,
-        format_func=lambda c: CATEGORY_LABELS.get(c, c.title()),
-        key="crm_feedback_category",
-    )
-    message = st.text_area(
-        "Your feedback",
-        placeholder="e.g. Bulk delete saved us time — would love export to CSV too.",
-        height=120,
-        key="crm_feedback_message",
-    )
-    submitted_by = st.text_input(
-        "Your name (optional)",
-        placeholder="Who should we thank?",
-        key="crm_feedback_name",
-    )
-    submit_col, cancel_col = st.columns(2)
-    with submit_col:
-        if st.button("Send feedback", type="primary", use_container_width=True, key="crm_feedback_submit"):
-            text = (message or "").strip()
-            if not text:
-                st.error("Please add a short message before sending.")
-                return
-            db = st.session_state.get("crm_feedback_db") or {"entries": []}
-            db, outcome = append_feedback(
-                db,
-                message=text,
-                category=category,
-                page="crm",
-                submitted_by=(submitted_by or "").strip(),
-            )
-            if not outcome.get("ok"):
-                st.error(outcome.get("error", "Couldn't save feedback."))
-                return
-            st.session_state.crm_feedback_db = db
-            if persist_feedback("CRM: product feedback"):
-                st.session_state.crm_feedback_open = False
-                st.session_state.crm_save_toast = "Thanks — feedback saved"
-                st.rerun()
-    with cancel_col:
-        if st.button("Cancel", use_container_width=True, key="crm_feedback_cancel"):
-            st.session_state.crm_feedback_open = False
-            st.rerun()
-
-
-def _render_crm_feedback_floater() -> None:
-    with st.container(key="crm_feedback_floater"):
-        if st.button("💬", key="crm_feedback_open_btn", help="Share feedback with FocusChain Labs"):
-            st.session_state.crm_feedback_open = True
-            st.rerun()
-    if st.session_state.get("crm_feedback_open"):
-        _crm_feedback_dialog()
 
 
 def _open_lead_detail(contact_id: str) -> None:
@@ -4100,7 +3954,6 @@ def render_crm_page() -> None:
             toast = st.session_state.pop("crm_save_toast", None)
             if toast:
                 st.toast(toast)
-            _render_crm_feedback_floater()
             if st.session_state.get("crm_ai_dialog_open"):
                 _ai_add_dialog()
             return
@@ -4243,7 +4096,6 @@ def render_crm_page() -> None:
             f'<div class="crm-empty">{empty_msg}</div>',
             unsafe_allow_html=True,
         )
-        _render_crm_feedback_floater()
         return
 
     # ── Pagination — never render thousands of cards at once ──────────────────
@@ -4318,8 +4170,6 @@ def render_crm_page() -> None:
     toast = st.session_state.pop("crm_save_toast", None)
     if toast:
         st.toast(toast)
-
-    _render_crm_feedback_floater()
 
     # Save main page state at the end of the page render to detect changes in the next run
     last_state = {}

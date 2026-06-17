@@ -234,12 +234,15 @@ def normalize_entry(raw: dict[str, Any]) -> dict[str, Any]:
     category = (raw.get("category") or "other").strip().lower()
     if category not in FEEDBACK_CATEGORIES:
         category = "other"
+    page = (raw.get("page") or "app").strip() or "app"
+    page_label = (raw.get("page_label") or "").strip()
     return {
         "id": str(raw.get("id") or uuid.uuid4()),
         "created_at": raw.get("created_at") or utc_now_iso(),
         "message": (raw.get("message") or "").strip(),
         "category": category,
-        "page": (raw.get("page") or "crm").strip() or "crm",
+        "page": page,
+        "page_label": page_label,
         "submitted_by": (raw.get("submitted_by") or "").strip(),
     }
 
@@ -249,13 +252,15 @@ def append_feedback(
     *,
     message: str,
     category: str = "other",
-    page: str = "crm",
+    page: str = "app",
+    page_label: str = "",
     submitted_by: str = "",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     entry = normalize_entry({
         "message": message,
         "category": category,
         "page": page,
+        "page_label": page_label,
         "submitted_by": submitted_by,
     })
     if not entry["message"]:
