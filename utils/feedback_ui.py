@@ -25,102 +25,56 @@ PAGE_LABELS: dict[str, str] = {
 
 FEEDBACK_CSS = """
 <style>
-/* Premium feedback floater — fixed bottom-right on every screen */
+/* Clean premium feedback floater — bottom-right, lifted clear of forms + Manage app */
 div[class*="st-key-fcl_feedback_floater"] {
     position: fixed !important;
-    bottom: 78px !important;
-    right: 26px !important;
-    z-index: 1001 !important;
-    width: auto !important;
+    bottom: 96px !important;
+    right: 24px !important;
+    left: auto !important;
+    z-index: 9999 !important;
+    width: 56px !important;
+    height: 56px !important;
     margin: 0 !important;
     padding: 0 !important;
     pointer-events: auto !important;
 }
+div[class*="st-key-fcl_feedback_floater"] [data-testid="stVerticalBlock"],
+div[class*="st-key-fcl_feedback_floater"] [data-testid="stElementContainer"] {
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 56px !important;
+    height: 56px !important;
+}
 div[class*="st-key-fcl_feedback_floater"] [data-testid="stButton"] {
     margin: 0 !important;
-    position: relative !important;
-}
-div[class*="st-key-fcl_feedback_floater"] [data-testid="stButton"]::before {
-    content: '';
-    position: absolute;
-    inset: -7px;
-    border-radius: 50%;
-    background: conic-gradient(
-        from 200deg,
-        rgba(46,139,77,0),
-        rgba(46,139,77,.55),
-        rgba(212,175,95,.45),
-        rgba(46,139,77,.55),
-        rgba(46,139,77,0)
-    );
-    animation: fclGlowSpin 5s linear infinite;
-    z-index: -2;
-    filter: blur(.4px);
-}
-div[class*="st-key-fcl_feedback_floater"] [data-testid="stButton"]::after {
-    content: '';
-    position: absolute;
-    inset: -14px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(46,139,77,.22), transparent 68%);
-    z-index: -3;
-    animation: fclGlowPulse 2.8s ease-in-out infinite;
 }
 div[class*="st-key-fcl_feedback_floater"] button {
-    width: 62px !important;
-    min-width: 62px !important;
-    height: 62px !important;
+    width: 56px !important;
+    min-width: 56px !important;
+    height: 56px !important;
     border-radius: 50% !important;
     padding: 0 !important;
-    font-size: 0 !important;
-    line-height: 0 !important;
-    color: transparent !important;
-    border: 1.5px solid rgba(255,255,255,.32) !important;
-    background:
-        radial-gradient(120% 120% at 28% 18%, rgba(255,255,255,.38), transparent 52%),
-        linear-gradient(148deg, #3cb868 0%, #2E8B4D 42%, #1a5c34 100%) !important;
+    font-size: 22px !important;
+    line-height: 1 !important;
+    background: linear-gradient(145deg, #2E8B4D, #236b3c) !important;
+    color: #fff !important;
+    border: none !important;
     box-shadow:
-        0 0 0 1px rgba(46,139,77,.18),
-        0 16px 42px -14px rgba(46,139,77,.72),
-        0 8px 22px -10px rgba(15,42,51,.38),
-        inset 0 2px 0 rgba(255,255,255,.36),
-        inset 0 -4px 10px rgba(0,0,0,.14) !important;
-    transition: transform .2s var(--ease-out), box-shadow .2s var(--ease-out) !important;
-    position: relative !important;
-    overflow: visible !important;
-}
-div[class*="st-key-fcl_feedback_floater"] button::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 24px;
-    height: 24px;
-    transform: translate(-50%, -52%);
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M5 18.5V6.8c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v7.4c0 1.1-.9 2-2 2H9.6L5 18.5Z' fill='white' fill-opacity='.95'/%3E%3Ccircle cx='9' cy='11' r='1.1' fill='%232E8B4D'/%3E%3Ccircle cx='12' cy='11' r='1.1' fill='%232E8B4D'/%3E%3Ccircle cx='15' cy='11' r='1.1' fill='%232E8B4D'/%3E%3C/svg%3E");
-    pointer-events: none;
+      0 10px 28px -8px rgba(46,139,77,.55),
+      0 4px 12px -4px rgba(15,42,51,.25),
+      inset 0 1px 0 rgba(255,255,255,.22) !important;
+    transition: transform .18s var(--ease-out), box-shadow .18s var(--ease-out) !important;
 }
 div[class*="st-key-fcl_feedback_floater"] button:hover {
-    transform: translateY(-3px) scale(1.05) !important;
+    transform: translateY(-2px) scale(1.03) !important;
     box-shadow:
-        0 0 0 1px rgba(46,139,77,.24),
-        0 22px 50px -14px rgba(46,139,77,.82),
-        0 10px 26px -10px rgba(15,42,51,.42),
-        inset 0 2px 0 rgba(255,255,255,.42),
-        inset 0 -4px 10px rgba(0,0,0,.12) !important;
+      0 16px 36px -10px rgba(46,139,77,.62),
+      0 6px 16px -6px rgba(15,42,51,.28),
+      inset 0 1px 0 rgba(255,255,255,.28) !important;
 }
 div[class*="st-key-fcl_feedback_floater"] button:active {
-    transform: translateY(-1px) scale(1.02) !important;
-}
-@keyframes fclGlowSpin {
-    to { transform: rotate(360deg); }
-}
-@keyframes fclGlowPulse {
-    0%, 100% { opacity: .55; transform: scale(.92); }
-    50% { opacity: 1; transform: scale(1.06); }
+    transform: translateY(0) scale(.98) !important;
 }
 
 .fcl-feedback-dialog-kicker {
@@ -263,14 +217,13 @@ def render_feedback_floater(page: str | None = None) -> None:
     label = page_label(active_page)
 
     with st.container(key="fcl_feedback_floater"):
-        if st.button(
-            "Feedback",
-            key=f"fcl_feedback_open_{active_page}",
+        st.button(
+            "💬",
+            key="fcl_feedback_open",
             help=f"Share feedback about {label}",
             on_click=_open_feedback_dialog,
             kwargs={"page": active_page},
-        ):
-            pass
+        )
 
     toast = st.session_state.pop("feedback_toast", None)
     if toast:

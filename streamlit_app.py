@@ -2088,29 +2088,22 @@ def render_agent_hero() -> None:
 
 render_app_drawer()
 
-if st.session_state.get("app_view") == "crm":
+_active_view = st.session_state.get("app_view", "agent")
+_MODULE_VIEWS = frozenset({"crm", "reach", "intel", "proposal", "finance"})
+
+if _active_view == "crm":
     render_crm_page()
-    render_feedback_floater("crm")
-    st.stop()
-
-if st.session_state.get("app_view") == "reach":
+elif _active_view == "reach":
     render_reach_page()
-    render_feedback_floater("reach")
-    st.stop()
-
-if st.session_state.get("app_view") == "intel":
+elif _active_view == "intel":
     render_intel_page()
-    render_feedback_floater("intel")
-    st.stop()
-
-if st.session_state.get("app_view") == "proposal":
+elif _active_view == "proposal":
     render_proposal_page()
-    render_feedback_floater("proposal")
-    st.stop()
-
-if st.session_state.get("app_view") == "finance":
+elif _active_view == "finance":
     render_finance_page()
-    render_feedback_floater("finance")
+
+if _active_view in _MODULE_VIEWS:
+    render_feedback_floater(_active_view)
     st.stop()
 
 render_agent_hero()
@@ -3265,4 +3258,4 @@ elif st.session_state.stage == "error":
             st.session_state.run_warnings  = []
             st.rerun()
 
-render_feedback_floater("agent")
+render_feedback_floater(_active_view)
