@@ -19,7 +19,7 @@ from reach_ui import render_reach_page
 from intel_ui import render_intel_page
 from proposal_ui import render_proposal_page
 from finance_ui import render_finance_page
-from utils.feedback_ui import render_feedback_floater
+from utils.feedback_ui import close_feedback_on_view_change, render_feedback_floater
 from utils.usage_guide import render_usage_guide
 
 # ── Environment ──────────────────────────────────────────────────────────────
@@ -2045,6 +2045,7 @@ APP_NAV = [
 
 def render_app_drawer() -> None:
     current = st.session_state.get("app_view", "agent")
+    close_feedback_on_view_change()
     with st.sidebar:
         st.markdown(
             """
@@ -2065,6 +2066,7 @@ def render_app_drawer() -> None:
                 use_container_width=True,
                 type="primary" if current == view_id else "secondary",
             ):
+                st.session_state.feedback_open = False
                 st.session_state.app_view = view_id
                 st.rerun()
 

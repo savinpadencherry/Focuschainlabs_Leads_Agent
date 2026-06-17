@@ -49,6 +49,9 @@ div[class*="st-key-fcl_feedback_floater"] [data-testid="stElementContainer"] {
 div[class*="st-key-fcl_feedback_floater"] [data-testid="stButton"] {
     margin: 0 !important;
 }
+div[class*="st-key-fcl_feedback_floater"] .stButton > button,
+div[class*="st-key-fcl_feedback_floater"] [data-testid="stBaseButton-primary"],
+div[class*="st-key-fcl_feedback_floater"] [data-testid="stBaseButton-secondary"],
 div[class*="st-key-fcl_feedback_floater"] button {
     width: 56px !important;
     min-width: 56px !important;
@@ -57,22 +60,30 @@ div[class*="st-key-fcl_feedback_floater"] button {
     padding: 0 !important;
     font-size: 22px !important;
     line-height: 1 !important;
-    background: linear-gradient(145deg, #2E8B4D, #236b3c) !important;
+    background: linear-gradient(145deg, #3cb868 0%, #2E8B4D 48%, #1f6b3a 100%) !important;
+    background-color: #2E8B4D !important;
     color: #fff !important;
-    border: none !important;
+    border: 1.5px solid rgba(255,255,255,.28) !important;
     box-shadow:
-      0 10px 28px -8px rgba(46,139,77,.55),
+      0 10px 28px -8px rgba(46,139,77,.58),
       0 4px 12px -4px rgba(15,42,51,.25),
-      inset 0 1px 0 rgba(255,255,255,.22) !important;
+      inset 0 1px 0 rgba(255,255,255,.28) !important;
     transition: transform .18s var(--ease-out), box-shadow .18s var(--ease-out) !important;
 }
+div[class*="st-key-fcl_feedback_floater"] .stButton > button:hover,
+div[class*="st-key-fcl_feedback_floater"] [data-testid="stBaseButton-primary"]:hover,
+div[class*="st-key-fcl_feedback_floater"] [data-testid="stBaseButton-secondary"]:hover,
 div[class*="st-key-fcl_feedback_floater"] button:hover {
+    background: linear-gradient(145deg, #45c472 0%, #32a05a 48%, #247a42 100%) !important;
+    background-color: #32a05a !important;
+    color: #fff !important;
     transform: translateY(-2px) scale(1.03) !important;
     box-shadow:
-      0 16px 36px -10px rgba(46,139,77,.62),
+      0 16px 36px -10px rgba(46,139,77,.65),
       0 6px 16px -6px rgba(15,42,51,.28),
-      inset 0 1px 0 rgba(255,255,255,.28) !important;
+      inset 0 1px 0 rgba(255,255,255,.32) !important;
 }
+div[class*="st-key-fcl_feedback_floater"] .stButton > button:active,
 div[class*="st-key-fcl_feedback_floater"] button:active {
     transform: translateY(0) scale(.98) !important;
 }
@@ -140,6 +151,19 @@ def persist_feedback(message: str = "App: product feedback") -> bool:
     return True
 
 
+def _close_feedback_dialog() -> None:
+    st.session_state.feedback_open = False
+
+
+def close_feedback_on_view_change() -> None:
+    """Close feedback dialog when the user navigates to a different module."""
+    current = st.session_state.get("app_view", "agent")
+    prev = st.session_state.get("_feedback_tracked_view")
+    if prev is not None and prev != current:
+        st.session_state.feedback_open = False
+    st.session_state._feedback_tracked_view = current
+
+
 def _open_feedback_dialog(page: str) -> None:
     st.session_state.feedback_open = True
     st.session_state.feedback_page = page
@@ -201,18 +225,19 @@ def _feedback_dialog() -> None:
             st.session_state.feedback_db = db
             commit_msg = f"Feedback: {label} — {category}"
             if persist_feedback(commit_msg):
-                st.session_state.feedback_open = False
+                _close_feedback_dialog()
                 st.session_state.feedback_toast = f"Thanks — saved for {label}"
                 st.rerun()
     with cancel_col:
         if st.button("Cancel", use_container_width=True, key=f"feedback_cancel_{page}"):
-            st.session_state.feedback_open = False
+            _close_feedback_dialog()
             st.rerun()
 
 
 def render_feedback_floater(page: str | None = None) -> None:
     """Render the global feedback floater for the active screen."""
     inject_feedback_css()
+    close_feedback_on_view_change()
     active_page = page or st.session_state.get("app_view", "agent")
     label = page_label(active_page)
 
@@ -220,6 +245,7 @@ def render_feedback_floater(page: str | None = None) -> None:
         st.button(
             "💬",
             key="fcl_feedback_open",
+            type="primary",
             help=f"Share feedback about {label}",
             on_click=_open_feedback_dialog,
             kwargs={"page": active_page},
@@ -229,5 +255,9 @@ def render_feedback_floater(page: str | None = None) -> None:
     if toast:
         st.toast(toast)
 
-    if st.session_state.get("feedback_open"):
+    should_open = (
+        st.session_state.get("feedback_open")
+        and st.session_state.get("feedback_page") == active_page
+    )
+    if should_open:
         _feedback_dialog()
