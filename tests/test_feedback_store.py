@@ -35,10 +35,13 @@ def test_append_feedback_appends_entry():
         message="Bulk delete is handy",
         category="praise",
         page="crm",
+        page_label="CRM",
         submitted_by="Tester",
     )
     assert outcome["ok"] is True
     assert len(updated["entries"]) == 1
     assert updated["entries"][0]["message"] == "Bulk delete is handy"
     assert updated["entries"][0]["category"] == "praise"
+    assert updated["entries"][0]["page"] == "crm"
+    assert updated["entries"][0]["page_label"] == "CRM"
     assert updated["entries"][0]["submitted_by"] == "Tester"
