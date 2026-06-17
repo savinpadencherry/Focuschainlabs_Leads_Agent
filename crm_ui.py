@@ -13,6 +13,13 @@ import streamlit as st
 import utils.crm_models as crm_models
 import utils.tenancy as tenancy
 from utils.crm_store import github_configured, import_leads_to_crm, load_crm, save_crm
+from utils.feedback_store import (
+    CATEGORY_LABELS,
+    FEEDBACK_CATEGORIES,
+    append_feedback,
+    load_feedback,
+    save_feedback,
+)
 from utils.usage_guide import render_usage_guide
 
 
@@ -1959,6 +1966,88 @@ div[class*="st-key-crm_row_"]:has(button:active) .crm-lead-card {
 div[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] .crm-row-anchor) {
     margin: 0 !important; height: 0 !important; min-height: 0 !important; overflow: hidden;
 }
+
+/* Multi-select toolbar */
+.crm-select-toolbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    flex-wrap: wrap; margin: 0 0 12px; padding: 12px 14px;
+    background: linear-gradient(180deg, #ffffff, var(--cream-3));
+    border: 1px solid var(--line-soft); border-radius: 14px;
+    box-shadow: 0 8px 22px -16px rgba(15,42,51,.22);
+}
+.crm-select-toolbar .crm-sel-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--green);
+}
+.crm-lead-card.crm-selected {
+    border-color: rgba(46,139,77,.52);
+    background: linear-gradient(180deg, #ffffff, var(--green-bg));
+    box-shadow:
+      0 1px 2px rgba(15,42,51,.05),
+      0 12px 26px -14px rgba(46,139,77,.42),
+      inset 0 1px 0 rgba(255,255,255,.8);
+}
+.crm-sel-mark {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    width: 22px; height: 22px; border-radius: 7px;
+    border: 2px solid rgba(15,42,51,.18);
+    background: rgba(255,255,255,.9);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; color: #fff;
+    transition: background .2s var(--ease-out), border-color .2s var(--ease-out), transform .2s var(--ease-out);
+}
+.crm-lead-card.crm-selected .crm-sel-mark {
+    background: var(--green); border-color: var(--green); transform: translateY(-50%) scale(1.04);
+}
+.crm-lead-card.crm-selectable { padding-left: 42px; }
+div[class*="st-key-crm_row_"].crm-select-mode [data-testid="stElementContainer"]:has(.crm-lead-hit) + [data-testid="stElementContainer"] button {
+    cursor: pointer !important;
+}
+
+/* Feedback floater */
+div[class*="st-key-crm_feedback_floater"] {
+    position: fixed !important;
+    bottom: 22px !important;
+    right: 22px !important;
+    z-index: 1000 !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    pointer-events: auto !important;
+}
+div[class*="st-key-crm_feedback_floater"] [data-testid="stButton"] { margin: 0 !important; }
+div[class*="st-key-crm_feedback_floater"] button {
+    width: 56px !important; min-width: 56px !important; height: 56px !important;
+    border-radius: 50% !important; padding: 0 !important;
+    font-size: 22px !important; line-height: 1 !important;
+    background: linear-gradient(145deg, #2E8B4D, #236b3c) !important;
+    color: #fff !important; border: none !important;
+    box-shadow:
+      0 10px 28px -8px rgba(46,139,77,.55),
+      0 4px 12px -4px rgba(15,42,51,.25),
+      inset 0 1px 0 rgba(255,255,255,.22) !important;
+    transition: transform .18s var(--ease-out), box-shadow .18s var(--ease-out) !important;
+}
+div[class*="st-key-crm_feedback_floater"] button:hover {
+    transform: translateY(-2px) scale(1.03) !important;
+    box-shadow:
+      0 16px 36px -10px rgba(46,139,77,.62),
+      0 6px 16px -6px rgba(15,42,51,.28),
+      inset 0 1px 0 rgba(255,255,255,.28) !important;
+}
+.crm-feedback-dialog-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; font-weight: 700; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--green); margin-bottom: 6px;
+}
+.crm-feedback-dialog-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 22px; font-weight: 800; color: var(--ink); margin: 0 0 6px;
+}
+.crm-feedback-dialog-sub {
+    color: var(--ink-mute); font-size: 13px; line-height: 1.45; margin-bottom: 14px;
+}
 </style>
 """
 
@@ -2237,9 +2326,200 @@ def _reset_crm_filters() -> None:
         "crm_page": 1,
         "crm_view_mode": "list",
         "crm_selected_contact_id": None,
+        "crm_select_mode": False,
+        "crm_sel_ids": set(),
     }
     for key, value in defaults.items():
         st.session_state[key] = value
+
+
+def _toggle_crm_sel(contact_id: str) -> None:
+    sel: set = set(st.session_state.get("crm_sel_ids") or set())
+    cid = str(contact_id)
+    if cid in sel:
+        sel.discard(cid)
+    else:
+        sel.add(cid)
+    st.session_state.crm_sel_ids = sel
+
+
+def _exit_crm_select_mode() -> None:
+    st.session_state.crm_select_mode = False
+    st.session_state.crm_sel_ids = set()
+
+
+def _select_crm_ids(contact_ids: list[str]) -> None:
+    st.session_state.crm_sel_ids = {str(cid) for cid in contact_ids if cid}
+
+
+def _clear_crm_selection() -> None:
+    st.session_state.crm_sel_ids = set()
+
+
+def _bulk_delete_selected() -> None:
+    sel = {str(cid) for cid in (st.session_state.get("crm_sel_ids") or set())}
+    if not sel:
+        return
+    contacts = [
+        c for c in st.session_state.crm_db.get("contacts", [])
+        if str(c.get("id")) not in sel
+    ]
+    n = len(sel)
+    st.session_state.crm_db["contacts"] = contacts
+    if persist_crm(f"CRM: bulk delete {n} leads"):
+        st.session_state.crm_sel_ids = set()
+        st.session_state.crm_select_mode = False
+        st.session_state.crm_save_toast = f"Removed {n} lead{'s' if n != 1 else ''}"
+
+
+def _render_selection_toolbar(*, filtered_ids: list[str], page_ids: list[str]) -> None:
+    st.session_state.setdefault("crm_sel_ids", set())
+    st.session_state.setdefault("crm_select_mode", False)
+    sel_ids: set = set(st.session_state.get("crm_sel_ids") or set())
+    select_mode = bool(st.session_state.crm_select_mode)
+    n_sel = len(sel_ids)
+
+    if not select_mode and n_sel == 0:
+        if st.button("Select leads", key="crm_enter_select", type="secondary"):
+            st.session_state.crm_select_mode = True
+            st.rerun()
+        return
+
+    st.markdown('<div class="crm-select-toolbar">', unsafe_allow_html=True)
+    left, right = st.columns([2.4, 1.2])
+    with left:
+        mode_col, page_col, all_col, clear_col = st.columns(4)
+        with mode_col:
+            label = "Done selecting" if select_mode else "Select leads"
+            if st.button(label, key="crm_toggle_select_mode", use_container_width=True, type="primary" if select_mode else "secondary"):
+                if select_mode:
+                    _exit_crm_select_mode()
+                else:
+                    st.session_state.crm_select_mode = True
+                st.rerun()
+        with page_col:
+            if st.button("Select page", key="crm_sel_page", use_container_width=True, disabled=not page_ids):
+                merged = sel_ids | {str(cid) for cid in page_ids}
+                st.session_state.crm_sel_ids = merged
+                st.session_state.crm_select_mode = True
+                st.rerun()
+        with all_col:
+            if st.button("Select all", key="crm_sel_all", use_container_width=True, disabled=not filtered_ids):
+                st.session_state.crm_sel_ids = {str(cid) for cid in filtered_ids}
+                st.session_state.crm_select_mode = True
+                st.rerun()
+        with clear_col:
+            if st.button("Clear", key="crm_sel_clear", use_container_width=True, disabled=n_sel == 0):
+                _clear_crm_selection()
+                st.rerun()
+    with right:
+        if n_sel:
+            st.markdown(
+                f'<div class="crm-sel-count" style="text-align:right;margin-top:10px;">'
+                f'{n_sel} selected</div>',
+                unsafe_allow_html=True,
+            )
+        with st.popover(f"Delete {n_sel} selected", use_container_width=True, disabled=n_sel == 0):
+            st.warning(f"Delete {n_sel} lead{'s' if n_sel != 1 else ''} and all related activity? This can't be undone.")
+            if st.button("Yes, delete selected", key="crm_bulk_delete_confirm", type="primary", use_container_width=True):
+                _bulk_delete_selected()
+                st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def ensure_feedback_loaded(*, force: bool = False) -> None:
+    if force or "crm_feedback_db" not in st.session_state:
+        db, meta = load_feedback(force_remote=force)
+        st.session_state.crm_feedback_db = db
+        st.session_state.crm_feedback_meta = meta
+        st.session_state.crm_feedback_sha = meta.get("sha")
+
+
+def persist_feedback(message: str = "CRM: add product feedback") -> bool:
+    db = st.session_state.get("crm_feedback_db") or {"entries": []}
+    result = save_feedback(db, sha=st.session_state.get("crm_feedback_sha"), message=message)
+    st.session_state.crm_feedback_meta = result
+    if result.get("committed") or result.get("source") == "local":
+        st.session_state.crm_feedback_sha = result.get("sha")
+        return True
+    if result.get("conflict"):
+        st.warning("Someone else updated feedback — close and try again.")
+        return False
+    if result.get("saved_locally"):
+        st.warning(result.get("error", "Saved locally — GitHub sync unavailable."))
+        return True
+    if result.get("error"):
+        st.error(result.get("error"))
+        return False
+    st.session_state.crm_feedback_sha = result.get("sha")
+    return True
+
+
+@st.dialog("Share feedback", width="small")
+def _crm_feedback_dialog() -> None:
+    ensure_feedback_loaded()
+    st.markdown(
+        '<div class="crm-feedback-dialog-kicker">FocusChain Labs</div>'
+        '<div class="crm-feedback-dialog-title">Help us improve CRM</div>'
+        '<div class="crm-feedback-dialog-sub">'
+        "Tell us what's working, what's broken, or what you'd like next. "
+        "Feedback is saved to the repo so the team can act on it."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    category = st.selectbox(
+        "Type",
+        FEEDBACK_CATEGORIES,
+        format_func=lambda c: CATEGORY_LABELS.get(c, c.title()),
+        key="crm_feedback_category",
+    )
+    message = st.text_area(
+        "Your feedback",
+        placeholder="e.g. Bulk delete saved us time — would love export to CSV too.",
+        height=120,
+        key="crm_feedback_message",
+    )
+    submitted_by = st.text_input(
+        "Your name (optional)",
+        placeholder="Who should we thank?",
+        key="crm_feedback_name",
+    )
+    submit_col, cancel_col = st.columns(2)
+    with submit_col:
+        if st.button("Send feedback", type="primary", use_container_width=True, key="crm_feedback_submit"):
+            text = (message or "").strip()
+            if not text:
+                st.error("Please add a short message before sending.")
+                return
+            db = st.session_state.get("crm_feedback_db") or {"entries": []}
+            db, outcome = append_feedback(
+                db,
+                message=text,
+                category=category,
+                page="crm",
+                submitted_by=(submitted_by or "").strip(),
+            )
+            if not outcome.get("ok"):
+                st.error(outcome.get("error", "Couldn't save feedback."))
+                return
+            st.session_state.crm_feedback_db = db
+            if persist_feedback("CRM: product feedback"):
+                st.session_state.crm_feedback_open = False
+                st.session_state.crm_save_toast = "Thanks — feedback saved"
+                st.rerun()
+    with cancel_col:
+        if st.button("Cancel", use_container_width=True, key="crm_feedback_cancel"):
+            st.session_state.crm_feedback_open = False
+            st.rerun()
+
+
+def _render_crm_feedback_floater() -> None:
+    with st.container(key="crm_feedback_floater"):
+        if st.button("💬", key="crm_feedback_open_btn", help="Share feedback with FocusChain Labs"):
+            st.session_state.crm_feedback_open = True
+            st.rerun()
+    if st.session_state.get("crm_feedback_open"):
+        _crm_feedback_dialog()
 
 
 def _open_lead_detail(contact_id: str) -> None:
@@ -3633,6 +3913,9 @@ def _render_contact_card(
     contact: dict,
     idx: int,
     statuses: list[str],
+    *,
+    select_mode: bool = False,
+    is_selected: bool = False,
 ) -> None:
     cid = contact.get("id", f"row-{idx}")
     safe_id = _safe_widget_key(cid)
@@ -3650,6 +3933,10 @@ def _render_contact_card(
     card_cls = "crm-lead-card"
     if is_due:
         card_cls += " crm-due"
+    if select_mode:
+        card_cls += " crm-selectable"
+        if is_selected:
+            card_cls += " crm-selected"
 
     monogram_src = (contact.get("company") or "").strip() or name
     words = [w for w in monogram_src.replace("—", " ").split() if w[:1].isalnum()]
@@ -3678,11 +3965,17 @@ def _render_contact_card(
     co_sub_html = f'<div class="crm-lead-sub">{html.escape(company_sub)}</div>' if company_sub else ""
     name_sub_html = f'<div class="crm-lead-sub">{html.escape(name_sub)}</div>' if name_sub else ""
     meta_html = f'<div class="crm-lead-meta">{html.escape(meta)}</div>' if meta else ""
+    sel_mark_html = ""
+    if select_mode:
+        mark = "✓" if is_selected else ""
+        sel_mark_html = f'<span class="crm-sel-mark" aria-hidden="true">{mark}</span>'
 
-    with st.container(key=f"crm_row_{safe_id}"):
+    row_key = f"crm_row_{safe_id}"
+    with st.container(key=row_key):
         st.markdown(
             f'<div class="crm-lead-hit">'
             f'<div class="{card_cls}">'
+            f'  {sel_mark_html}'
             f'  <span class="crm-rail {html.escape(stage)}" aria-hidden="true"></span>'
             f'  <div class="crm-lead-body">'
             f'    <div class="crm-lead-co-wrap">'
@@ -3706,14 +3999,24 @@ def _render_contact_card(
             f'</div>',
             unsafe_allow_html=True,
         )
-        st.button(
-            "Open lead",
-            key=f"crm_open_{safe_id}",
-            help=f"Open {company}",
-            use_container_width=True,
-            on_click=_open_lead_detail,
-            kwargs={"contact_id": cid_str},
-        )
+        if select_mode:
+            st.button(
+                "Toggle select",
+                key=f"crm_sel_{safe_id}",
+                help=f"{'Deselect' if is_selected else 'Select'} {company}",
+                use_container_width=True,
+                on_click=_toggle_crm_sel,
+                kwargs={"contact_id": cid_str},
+            )
+        else:
+            st.button(
+                "Open lead",
+                key=f"crm_open_{safe_id}",
+                help=f"Open {company}",
+                use_container_width=True,
+                on_click=_open_lead_detail,
+                kwargs={"contact_id": cid_str},
+            )
 
 
 def render_crm_page() -> None:
@@ -3797,6 +4100,7 @@ def render_crm_page() -> None:
             toast = st.session_state.pop("crm_save_toast", None)
             if toast:
                 st.toast(toast)
+            _render_crm_feedback_floater()
             if st.session_state.get("crm_ai_dialog_open"):
                 _ai_add_dialog()
             return
@@ -3939,6 +4243,7 @@ def render_crm_page() -> None:
             f'<div class="crm-empty">{empty_msg}</div>',
             unsafe_allow_html=True,
         )
+        _render_crm_feedback_floater()
         return
 
     # ── Pagination — never render thousands of cards at once ──────────────────
@@ -3949,6 +4254,12 @@ def render_crm_page() -> None:
     start = (page - 1) * page_size
     page_slice = filtered[start:start + page_size]
     end = start + len(page_slice)
+    filtered_ids = [str(c.get("id")) for c in filtered if c.get("id")]
+    page_ids = [str(c.get("id")) for c in page_slice if c.get("id")]
+    select_mode = bool(st.session_state.get("crm_select_mode"))
+    sel_ids: set = set(st.session_state.get("crm_sel_ids") or set())
+
+    _render_selection_toolbar(filtered_ids=filtered_ids, page_ids=page_ids)
 
     st.markdown(
         f'<div class="crm-filter-summary">Showing <strong>{start + 1 if total else 0}–{end}</strong> of '
@@ -3986,16 +4297,29 @@ def render_crm_page() -> None:
         unsafe_allow_html=True,
     )
 
-    st.caption("Tap any lead to open its workspace. Back to list returns here.  ·  build: detail-view v12")
+    st.caption(
+        "Tap any lead to open its workspace. Use Select leads to pick multiple records for bulk delete."
+        if not select_mode
+        else "Tap leads to toggle selection, then delete from the toolbar above."
+    )
 
     for contact in page_slice:
         idx = id_to_idx.get(str(contact.get("id")))
         if idx is not None:
-            _render_contact_card(contact, idx, statuses)
+            cid = str(contact.get("id"))
+            _render_contact_card(
+                contact,
+                idx,
+                statuses,
+                select_mode=select_mode,
+                is_selected=cid in sel_ids,
+            )
 
     toast = st.session_state.pop("crm_save_toast", None)
     if toast:
         st.toast(toast)
+
+    _render_crm_feedback_floater()
 
     # Save main page state at the end of the page render to detect changes in the next run
     last_state = {}
