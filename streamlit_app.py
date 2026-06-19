@@ -359,8 +359,9 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     box-shadow: 0 6px 16px rgba(46,139,77,.22) !important;
 }
 
-/* ── Mobile drawer — touch-friendly overlay (replaces hover-only rail) ── */
+/* ── Mobile drawer — touch-friendly overlay ── */
 @media (max-width: 720px), ((max-width: 960px) and (hover: none)) {
+    /* Full-width content — sidebar hidden until menu opens */
     [data-testid="stAppViewContainer"] > section[data-testid="stSidebar"] {
         flex: 0 0 0 !important;
         width: 0 !important;
@@ -379,67 +380,15 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         width: 0 !important;
         transform: translateX(-100%) !important;
         transition: transform .24s var(--ease-out), width .24s var(--ease-out), max-width .24s var(--ease-out), box-shadow .24s var(--ease-out) !important;
-        z-index: 10001 !important;
+        z-index: 10002 !important;
         border-right: none !important;
         box-shadow: none !important;
-        overflow: visible !important;
+        overflow: hidden !important;
+        contain: none !important;
     }
     .drawer-hamburger { display: none !important; }
-    /* Real toggle button — fixed, always tappable */
-    [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:first-child:has(.stButton) {
-        position: fixed !important;
-        top: 10px !important;
-        left: 8px !important;
-        z-index: 10003 !important;
-        width: 44px !important;
-        height: 44px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        opacity: 1 !important;
-        max-height: none !important;
-        overflow: visible !important;
-        pointer-events: auto !important;
-        transform: none !important;
-        touch-action: manipulation;
-    }
-    [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:first-child .stButton {
-        width: 44px !important;
-        margin: 0 !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:first-child .stButton > button {
-        width: 44px !important;
-        min-width: 44px !important;
-        height: 44px !important;
-        min-height: 44px !important;
-        padding: 0 !important;
-        border-radius: 10px !important;
-        font-size: 20px !important;
-        line-height: 1 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        background: rgba(255,255,255,.96) !important;
-        border: 1px solid rgba(15,42,51,.10) !important;
-        box-shadow: 0 6px 18px rgba(15,42,51,.08), inset 0 1px 0 rgba(255,255,255,.95) !important;
-        color: var(--ink-soft) !important;
-        -webkit-text-fill-color: var(--ink-soft) !important;
-        touch-action: manipulation;
-    }
-    /* Closed: hide nav items except toggle */
-    .stApp:has(#mobile-drawer-state.drawer-state-closed) [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):not(:first-child) {
-        opacity: 0 !important;
-        max-height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-        pointer-events: none !important;
-    }
-    .stApp:has(#mobile-drawer-state.drawer-state-closed) .drawer-hero {
-        opacity: 0 !important;
-        max-height: 0 !important;
-        pointer-events: none !important;
-    }
-    /* Open: slide-in panel + visible nav */
+
+    /* Open: slide-in nav panel */
     .stApp:has(#mobile-drawer-state.drawer-state-open) [data-testid="stSidebar"] {
         min-width: 260px !important;
         max-width: 260px !important;
@@ -447,9 +396,10 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         transform: translateX(0) !important;
         box-shadow: 10px 0 40px rgba(15,42,51,.18) !important;
         border-right: 1px solid var(--line-soft) !important;
+        overflow-y: auto !important;
     }
     .stApp:has(#mobile-drawer-state.drawer-state-open) [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
-        padding: 56px 12px 16px !important;
+        padding: 16px 12px 24px !important;
         background: linear-gradient(180deg, rgba(253,252,249,.98) 0%, rgba(239,234,222,.92) 100%) !important;
         border-radius: 0 16px 16px 0 !important;
     }
@@ -469,11 +419,69 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         pointer-events: auto !important;
         border-bottom: 1px solid var(--line-soft);
     }
-    /* Backdrop button container */
+    /* Closed: hide all sidebar nav */
+    .stApp:has(#mobile-drawer-state.drawer-state-closed) [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton) {
+        opacity: 0 !important;
+        max-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+    }
+    .stApp:has(#mobile-drawer-state.drawer-state-closed) .drawer-hero {
+        opacity: 0 !important;
+        max-height: 0 !important;
+        pointer-events: none !important;
+    }
+
+    /* Fixed hamburger — lives in MAIN content, always visible */
+    div[class*="st-key-mobile_nav_toggle"] {
+        position: fixed !important;
+        top: max(10px, env(safe-area-inset-top, 0px)) !important;
+        left: max(10px, env(safe-area-inset-left, 0px)) !important;
+        z-index: 10005 !important;
+        width: 44px !important;
+        height: 44px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        pointer-events: auto !important;
+    }
+    div[class*="st-key-mobile_nav_toggle"] [data-testid="stVerticalBlock"],
+    div[class*="st-key-mobile_nav_toggle"] [data-testid="stElementContainer"] {
+        width: 44px !important;
+        height: 44px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    div[class*="st-key-mobile_nav_toggle"] .stButton {
+        margin: 0 !important;
+        width: 44px !important;
+    }
+    div[class*="st-key-mobile_nav_toggle"] .stButton > button {
+        width: 44px !important;
+        min-width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        padding: 0 !important;
+        border-radius: 10px !important;
+        font-size: 22px !important;
+        line-height: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: rgba(255,255,255,.98) !important;
+        border: 1px solid rgba(15,42,51,.12) !important;
+        box-shadow: 0 4px 14px rgba(15,42,51,.12) !important;
+        color: var(--ink) !important;
+        -webkit-text-fill-color: var(--ink) !important;
+        touch-action: manipulation;
+    }
+
+    /* Backdrop */
     div[class*="st-key-drawer_backdrop_btn"] {
         position: fixed !important;
         inset: 0 !important;
-        z-index: 10000 !important;
+        z-index: 10001 !important;
         width: 100% !important;
         height: 100% !important;
         margin: 0 !important;
@@ -497,7 +505,7 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         padding: 0 !important;
         border: none !important;
         border-radius: 0 !important;
-        background: rgba(15,42,51,.42) !important;
+        background: rgba(15,42,51,.45) !important;
         box-shadow: none !important;
         opacity: 1 !important;
         color: transparent !important;
@@ -505,14 +513,55 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         touch-action: manipulation;
     }
     [data-testid="stMain"] { margin-left: 0 !important; }
+
+    /* Keep specific rows horizontal */
+    div[class*="st-key-agent_template_row"] [data-testid="stHorizontalBlock"],
+    div[class*="st-key-agent_upload_row"] [data-testid="stHorizontalBlock"],
+    div[class*="st-key-agent_results_actions"] [data-testid="stHorizontalBlock"] {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+    div[class*="st-key-agent_template_row"] [data-testid="column"] {
+        flex: 1 1 0 !important;
+        width: auto !important;
+        min-width: 0 !important;
+    }
+    div[class*="st-key-agent_template_row"] .stButton > button {
+        font-size: 11px !important;
+        padding: 10px 6px !important;
+        min-height: 42px !important;
+        white-space: normal !important;
+        line-height: 1.25 !important;
+    }
+    div[class*="st-key-agent_upload_row"] [data-testid="column"]:first-child { flex: 0 0 44px !important; width: 44px !important; }
+    div[class*="st-key-agent_upload_row"] [data-testid="column"]:nth-child(2) { flex: 1 1 auto !important; }
+    div[class*="st-key-agent_upload_row"] [data-testid="column"]:last-child { flex: 0 0 44px !important; width: 44px !important; }
+
+    /* Stack wide split layouts only where marked */
+    div[class*="st-key-mobile_stack"] [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+    div[class*="st-key-mobile_stack"] [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+    .crm-toolbar [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    .crm-toolbar [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+    }
 }
 
 @media (min-width: 721px) {
-    /* Desktop: hide mobile toggle, keep decorative hamburger + hover rail */
-    [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:first-child:has(.stButton) {
-        display: none !important;
-    }
     #mobile-drawer-state { display: none !important; }
+    div[class*="st-key-mobile_nav_toggle"] { display: none !important; }
     div[class*="st-key-drawer_backdrop_btn"] { display: none !important; }
 }
 
@@ -1967,56 +2016,54 @@ h1, h2, h3, h4, p, div, span, label {
 
 @media (max-width: 720px) {
     .block-container {
-        padding-top: 56px !important;
+        padding-top: 60px !important;
         padding-left: 16px !important;
         padding-right: 16px !important;
-        padding-bottom: 80px !important;
+        padding-bottom: 88px !important;
         max-width: 100% !important;
     }
     .eyebrow {
         gap: 8px;
         font-size: 9px;
-        letter-spacing: .24em;
+        letter-spacing: .18em;
         white-space: normal;
         flex-wrap: wrap;
         justify-content: center;
         text-align: center;
     }
-    .eyebrow .dash { width: 18px; }
+    .eyebrow .dash { width: 14px; }
     .wordmark {
-        font-size: 36px;
+        font-size: 34px;
         line-height: 1.05;
-        margin-top: 12px;
+        margin-top: 8px;
     }
     .tagline {
-        font-size: 11px;
-        line-height: 1.7;
-        margin-bottom: 22px;
+        font-size: 10px;
+        line-height: 1.65;
+        margin-bottom: 18px;
         word-break: break-word;
     }
     .stButton > button,
     [data-testid="stBaseButton-primary"],
     [data-testid="stBaseButton-secondary"] {
-        min-height: 46px !important;
-        padding: 11px 14px !important;
-        white-space: normal !important;
-        word-break: break-word !important;
-        overflow-wrap: anywhere !important;
+        min-height: 44px !important;
+        padding: 10px 12px !important;
     }
-    /* Stack multi-column layouts across all modules */
-    [data-testid="stMain"] [data-testid="stHorizontalBlock"] {
-        flex-direction: column !important;
-        gap: 12px !important;
+    .steps {
+        flex-wrap: nowrap;
+        font-size: 8px;
+        letter-spacing: .14em;
+        margin-bottom: 14px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
-    [data-testid="stMain"] [data-testid="stHorizontalBlock"] > [data-testid="column"] {
-        width: 100% !important;
-        flex: 1 1 auto !important;
-        min-width: 0 !important;
-    }
-    .steps { flex-wrap: wrap; gap: 8px; justify-content: center; }
-    .step { font-size: 11px; padding: 8px 12px; }
+    .steps .seg { margin: 0 6px; flex: 1 1 12px; min-width: 10px; }
+    .steps .step { gap: 6px; }
+    .steps .step .num { width: 22px; height: 22px; font-size: 9px; }
     .pg-hero { padding: 20px 16px !important; }
     .pg-hero h1 { font-size: 26px !important; }
+    .stTextArea textarea { min-height: 160px !important; }
+    .composer-hint { font-size: 11px !important; line-height: 1.4 !important; word-break: break-word; }
 }
 
 /* ── Touch target minimums ── */
@@ -2219,22 +2266,10 @@ APP_NAV = [
 
 
 def render_app_drawer() -> None:
-    st.session_state.setdefault("drawer_open", False)
     current = st.session_state.get("app_view", "agent")
     close_feedback_on_view_change()
 
-    drawer_state = "open" if st.session_state.drawer_open else "closed"
-    st.markdown(
-        f'<div id="mobile-drawer-state" class="drawer-state-{drawer_state}" aria-hidden="true"></div>',
-        unsafe_allow_html=True,
-    )
-
     with st.sidebar:
-        toggle_icon = "✕" if st.session_state.drawer_open else "☰"
-        if st.button(toggle_icon, key="drawer_toggle", help="Open menu"):
-            st.session_state.drawer_open = not st.session_state.drawer_open
-            st.rerun()
-
         st.markdown(
             """
             <div class="drawer-hamburger" aria-hidden="true">
@@ -2258,6 +2293,20 @@ def render_app_drawer() -> None:
                 st.session_state.drawer_open = False
                 st.session_state.app_view = view_id
                 st.rerun()
+
+
+def render_mobile_nav_shell() -> None:
+    """Fixed hamburger in main content — always visible on touch screens."""
+    st.session_state.setdefault("drawer_open", False)
+    drawer_state = "open" if st.session_state.drawer_open else "closed"
+    st.markdown(
+        f'<div id="mobile-drawer-state" class="drawer-state-{drawer_state}" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    toggle_icon = "✕" if st.session_state.drawer_open else "☰"
+    if st.button(toggle_icon, key="mobile_nav_toggle", help="Open menu"):
+        st.session_state.drawer_open = not st.session_state.drawer_open
+        st.rerun()
 
 
 def render_mobile_drawer_backdrop() -> None:
@@ -2287,6 +2336,7 @@ def render_agent_hero() -> None:
 
 
 render_app_drawer()
+render_mobile_nav_shell()
 render_mobile_drawer_backdrop()
 
 _active_view = st.session_state.get("app_view", "agent")
@@ -2363,29 +2413,30 @@ if st.session_state.stage == "setup":
     st.markdown('<div class="sec">Template <span class="line"></span></div>',
                 unsafe_allow_html=True)
 
-    t_col1, t_col2, t_col3 = st.columns(3, gap="medium")
-    template_options = [
-        ("FocusChainLabs", "FocusChainLabs", t_col1),
-        ("Cadabams", "Cadabams", t_col2),
-        ("SNRealtors", "SN Realtors", t_col3),
-    ]
-    for template_key, label, col in template_options:
-        target_label = resolve_client_label(template_key)
-        is_sel = st.session_state.selected_client == target_label
-        with col:
-            if st.button(
-                label,
-                key=f"template_{template_key}",
-                use_container_width=True,
-                type="primary" if is_sel else "secondary",
-            ):
-                st.session_state.selected_client = target_label
-                st.session_state.prompt_text = DEFAULT_PROMPTS[template_key]
-                # Force the brief box for this client to re-seed with its default
-                st.session_state[f"brief_box::{target_label}"] = DEFAULT_PROMPTS[template_key]
-                st.session_state.industries = []
-                st.session_state.titles = []
-                st.rerun()
+    with st.container(key="agent_template_row"):
+        t_col1, t_col2, t_col3 = st.columns(3, gap="small")
+        template_options = [
+            ("FocusChainLabs", "FocusChainLabs", t_col1),
+            ("Cadabams", "Cadabams", t_col2),
+            ("SNRealtors", "SN Realtors", t_col3),
+        ]
+        for template_key, label, col in template_options:
+            target_label = resolve_client_label(template_key)
+            is_sel = st.session_state.selected_client == target_label
+            with col:
+                if st.button(
+                    label,
+                    key=f"template_{template_key}",
+                    use_container_width=True,
+                    type="primary" if is_sel else "secondary",
+                ):
+                    st.session_state.selected_client = target_label
+                    st.session_state.prompt_text = DEFAULT_PROMPTS[template_key]
+                    # Force the brief box for this client to re-seed with its default
+                    st.session_state[f"brief_box::{target_label}"] = DEFAULT_PROMPTS[template_key]
+                    st.session_state.industries = []
+                    st.session_state.titles = []
+                    st.rerun()
 
     client_choice = st.session_state.selected_client or focus_label
     base_icp = ICPS[client_choice]["data"]
@@ -2434,24 +2485,25 @@ if st.session_state.stage == "setup":
             key=brief_key,
             label_visibility="collapsed",
         )
-        upload_col, hint_col, _btn = st.columns([0.10, 0.78, 0.12])
-        with upload_col:
-            uploaded_file = st.file_uploader(
-                " ",
-                type=["xlsx", "csv"],
-                key="previous_list_upload",
-                label_visibility="collapsed",
-            )
-        with hint_col:
-            upload_name = (
-                uploaded_file.name if uploaded_file
-                else st.session_state.exclusion_name
-                or "Optional: upload previous list"
-            )
-            st.markdown(f'<div class="composer-hint">{upload_name}</div>',
-                        unsafe_allow_html=True)
-        with _btn:
-            run = st.form_submit_button("↑")
+        with st.container(key="agent_upload_row"):
+            upload_col, hint_col, _btn = st.columns([0.10, 0.78, 0.12])
+            with upload_col:
+                uploaded_file = st.file_uploader(
+                    " ",
+                    type=["xlsx", "csv"],
+                    key="previous_list_upload",
+                    label_visibility="collapsed",
+                )
+            with hint_col:
+                upload_name = (
+                    uploaded_file.name if uploaded_file
+                    else st.session_state.exclusion_name
+                    or "Optional: upload previous list"
+                )
+                st.markdown(f'<div class="composer-hint">{upload_name}</div>',
+                            unsafe_allow_html=True)
+            with _btn:
+                run = st.form_submit_button("↑")
 
     if run:
         if not prompt.strip():

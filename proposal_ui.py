@@ -163,6 +163,14 @@ _CSS = """
     .pa-co-card.sel { transform: none; }
     .pa-preview-wrap { padding: 16px; }
     .pa-sent { font-size: 13px; padding: 12px 14px; }
+    div[class*="st-key-proposal_main_split"] [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 16px !important;
+    }
+    div[class*="st-key-proposal_main_split"] [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+    }
 }
 </style>
 """
@@ -217,198 +225,199 @@ def _render_setup() -> None:
                       if (c.get("status") or "new") in active_stages
                       and (c.get("status") or "new") not in proposal_stages]
 
-    col_sel, col_cfg = st.columns([1.4, 1.6], gap="large")
+    with st.container(key="proposal_main_split"):
+        col_sel, col_cfg = st.columns([1.4, 1.6], gap="large")
 
-    # ── Left: contact picker ──────────────────────────────────────────────────
-    with col_sel:
-        st.markdown('<div class="pa-sec">Select client contact</div>', unsafe_allow_html=True)
+        # ── Left: contact picker ──────────────────────────────────────────────────
+        with col_sel:
+            st.markdown('<div class="pa-sec">Select client contact</div>', unsafe_allow_html=True)
 
-        sel_id: str = st.session_state.pa_sel_id
+            sel_id: str = st.session_state.pa_sel_id
 
-        def _contact_card(c: dict) -> None:
-            nonlocal sel_id
-            cid   = c.get("id", "")
-            cstage = c.get("status") or "new"
-            name  = c.get("company") or c.get("name") or "Unnamed"
-            person = c.get("name", "") if c.get("company") else ""
-            sub   = " · ".join(
-                p for p in [person, c.get("industry", ""), c.get("title", "")] if p
+            def _contact_card(c: dict) -> None:
+                nonlocal sel_id
+                cid   = c.get("id", "")
+                cstage = c.get("status") or "new"
+                name  = c.get("company") or c.get("name") or "Unnamed"
+                person = c.get("name", "") if c.get("company") else ""
+                sub   = " · ".join(
+                    p for p in [person, c.get("industry", ""), c.get("title", "")] if p
+                )
+                is_sel = cid == sel_id
+
+                stage_colors = {
+                    "qualified": "#1a6b3c",
+                    "proposal":  "#1a3a6b",
+                    "contacted": "#B7791F",
+                    "new":       "#6B7F85",
+                    "won":       "#2E8B4D",
+                }
+                sc = stage_colors.get(cstage, "#6B7F85")
+                card_cls = "pa-co-card sel" if is_sel else "pa-co-card"
+
+                st.markdown(f"""
+                <div class="{card_cls}">
+                  <div class="pa-co-name">{_e(name)}</div>
+                  <div class="pa-co-meta">
+                    {_e(sub)}&nbsp;&nbsp;·&nbsp;&nbsp;
+                    <span style="color:{sc};font-weight:700;font-size:10.5px;
+                                 text-transform:uppercase;letter-spacing:.06em;">{cstage}</span>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                lbl  = "✓ Selected" if is_sel else "Select"
+                kind = "primary" if is_sel else "secondary"
+                if st.button(lbl, key=f"psel_{cid}", use_container_width=True, type=kind):
+                    st.session_state.pa_sel_id = cid
+                    st.rerun()
+
+            for group_label, group in [
+                ("Qualified & proposal stage", priority_conts),
+                ("Active contacts",            active_conts),
+            ]:
+                if not group:
+                    continue
+                st.caption(group_label)
+                for c in sorted(group, key=lambda x: -int(x.get("score") or 0))[:30]:
+                    _contact_card(c)
+
+        # ── Right: configuration form ─────────────────────────────────────────────
+        with col_cfg:
+            sel_contact = next((c for c in contacts if c.get("id") == sel_id), None)
+
+            if sel_contact:
+                company = sel_contact.get("company") or sel_contact.get("name") or "Client"
+                st.markdown(
+                    f'<div class="pa-sec">Configure proposal for '
+                    f'<span style="color:var(--green);">{_e(company)}</span></div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown('<div class="pa-sec">Configure proposal</div>', unsafe_allow_html=True)
+                st.info("Select a contact on the left to continue.")
+                return
+
+            service_type = st.text_input(
+                "Service / Engagement type",
+                key="pa_service_type",
+                value=st.session_state.get("pa_service_type",
+                                           "B2B AI Automation & Workflow Optimisation"),
+                placeholder="e.g. B2B AI Automation & CRM Integration",
             )
-            is_sel = cid == sel_id
 
-            stage_colors = {
-                "qualified": "#1a6b3c",
-                "proposal":  "#1a3a6b",
-                "contacted": "#B7791F",
-                "new":       "#6B7F85",
-                "won":       "#2E8B4D",
-            }
-            sc = stage_colors.get(cstage, "#6B7F85")
-            card_cls = "pa-co-card sel" if is_sel else "pa-co-card"
+            deliverables_raw = st.text_area(
+                "Deliverables (one per line)",
+                key="pa_deliverables_raw",
+                value=st.session_state.get("pa_deliverables_raw", ""),
+                placeholder=(
+                    "AI-powered lead qualification pipeline\n"
+                    "CRM integration and workflow automation\n"
+                    "Weekly progress reports and KPI dashboard\n"
+                    "3 months of onboarding support"
+                ),
+                height=120,
+            )
 
-            st.markdown(f"""
-            <div class="{card_cls}">
-              <div class="pa-co-name">{_e(name)}</div>
-              <div class="pa-co-meta">
-                {_e(sub)}&nbsp;&nbsp;·&nbsp;&nbsp;
-                <span style="color:{sc};font-weight:700;font-size:10.5px;
-                             text-transform:uppercase;letter-spacing:.06em;">{cstage}</span>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+            pc1, pc2 = st.columns(2)
+            with pc1:
+                price = st.text_input(
+                    "Investment amount",
+                    key="pa_price",
+                    value=st.session_state.get("pa_price", ""),
+                    placeholder="e.g. 1,50,000",
+                )
+            with pc2:
+                currency = st.selectbox(
+                    "Currency",
+                    options=["INR", "USD", "EUR", "GBP", "AED"],
+                    index=0,
+                    key="pa_currency",
+                )
 
-            lbl  = "✓ Selected" if is_sel else "Select"
-            kind = "primary" if is_sel else "secondary"
-            if st.button(lbl, key=f"psel_{cid}", use_container_width=True, type=kind):
-                st.session_state.pa_sel_id = cid
+            payment_terms = st.text_input(
+                "Payment terms",
+                key="pa_payment_terms",
+                value=st.session_state.get("pa_payment_terms", "50% upfront, 50% on delivery"),
+            )
+
+            td1, td2 = st.columns(2)
+            with td1:
+                duration = st.text_input(
+                    "Duration",
+                    key="pa_duration",
+                    value=st.session_state.get("pa_duration", "4–6 weeks"),
+                )
+            with td2:
+                start_date_val = st.date_input(
+                    "Proposed start date",
+                    value=date.today(),
+                    key="pa_start_date",
+                )
+
+            st.markdown('<div class="pa-sec" style="margin-top:4px;">Sender details</div>',
+                        unsafe_allow_html=True)
+
+            sn1, sn2 = st.columns(2)
+            with sn1:
+                sender_name = st.text_input(
+                    "Your name",
+                    key="pa_sender_name",
+                    value=st.session_state.get("pa_sender_name",
+                                               os.getenv("SENDER_NAME", "")),
+                )
+            with sn2:
+                sender_title = st.text_input(
+                    "Your title",
+                    key="pa_sender_title",
+                    value=st.session_state.get("pa_sender_title",
+                                               os.getenv("SENDER_TITLE", "")),
+                )
+
+            sender_company = st.text_input(
+                "Your company",
+                key="pa_sender_company",
+                value=st.session_state.get("pa_sender_company",
+                                           os.getenv("SENDER_COMPANY", "FocusChain Labs")),
+            )
+
+            st.markdown("")
+
+            can_gen = bool(
+                sel_id
+                and service_type.strip()
+                and price.strip()
+                and os.getenv("GEMINI_API_KEY")
+            )
+            if not os.getenv("GEMINI_API_KEY"):
+                st.warning("GEMINI_API_KEY not configured — needed for proposal generation.")
+
+            if st.button(
+                "Generate Proposal with AI",
+                type="primary",
+                use_container_width=True,
+                disabled=not can_gen,
+            ):
+                config = {
+                    "service_type":   service_type.strip(),
+                    "deliverables":   [l.strip() for l in deliverables_raw.splitlines()
+                                       if l.strip()],
+                    "price":          price.strip(),
+                    "currency":       currency,
+                    "payment_terms":  payment_terms.strip(),
+                    "duration":       duration.strip(),
+                    "start_date":     str(start_date_val),
+                    "sender_name":    sender_name.strip(),
+                    "sender_title":   sender_title.strip(),
+                    "sender_company": sender_company.strip(),
+                }
+                st.session_state.proposal_contact = sel_contact
+                st.session_state.proposal_config  = config
+                st.session_state.proposal_stage   = "generating"
                 st.rerun()
 
-        for group_label, group in [
-            ("Qualified & proposal stage", priority_conts),
-            ("Active contacts",            active_conts),
-        ]:
-            if not group:
-                continue
-            st.caption(group_label)
-            for c in sorted(group, key=lambda x: -int(x.get("score") or 0))[:30]:
-                _contact_card(c)
 
-    # ── Right: configuration form ─────────────────────────────────────────────
-    with col_cfg:
-        sel_contact = next((c for c in contacts if c.get("id") == sel_id), None)
-
-        if sel_contact:
-            company = sel_contact.get("company") or sel_contact.get("name") or "Client"
-            st.markdown(
-                f'<div class="pa-sec">Configure proposal for '
-                f'<span style="color:var(--green);">{_e(company)}</span></div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown('<div class="pa-sec">Configure proposal</div>', unsafe_allow_html=True)
-            st.info("Select a contact on the left to continue.")
-            return
-
-        service_type = st.text_input(
-            "Service / Engagement type",
-            key="pa_service_type",
-            value=st.session_state.get("pa_service_type",
-                                       "B2B AI Automation & Workflow Optimisation"),
-            placeholder="e.g. B2B AI Automation & CRM Integration",
-        )
-
-        deliverables_raw = st.text_area(
-            "Deliverables (one per line)",
-            key="pa_deliverables_raw",
-            value=st.session_state.get("pa_deliverables_raw", ""),
-            placeholder=(
-                "AI-powered lead qualification pipeline\n"
-                "CRM integration and workflow automation\n"
-                "Weekly progress reports and KPI dashboard\n"
-                "3 months of onboarding support"
-            ),
-            height=120,
-        )
-
-        pc1, pc2 = st.columns(2)
-        with pc1:
-            price = st.text_input(
-                "Investment amount",
-                key="pa_price",
-                value=st.session_state.get("pa_price", ""),
-                placeholder="e.g. 1,50,000",
-            )
-        with pc2:
-            currency = st.selectbox(
-                "Currency",
-                options=["INR", "USD", "EUR", "GBP", "AED"],
-                index=0,
-                key="pa_currency",
-            )
-
-        payment_terms = st.text_input(
-            "Payment terms",
-            key="pa_payment_terms",
-            value=st.session_state.get("pa_payment_terms", "50% upfront, 50% on delivery"),
-        )
-
-        td1, td2 = st.columns(2)
-        with td1:
-            duration = st.text_input(
-                "Duration",
-                key="pa_duration",
-                value=st.session_state.get("pa_duration", "4–6 weeks"),
-            )
-        with td2:
-            start_date_val = st.date_input(
-                "Proposed start date",
-                value=date.today(),
-                key="pa_start_date",
-            )
-
-        st.markdown('<div class="pa-sec" style="margin-top:4px;">Sender details</div>',
-                    unsafe_allow_html=True)
-
-        sn1, sn2 = st.columns(2)
-        with sn1:
-            sender_name = st.text_input(
-                "Your name",
-                key="pa_sender_name",
-                value=st.session_state.get("pa_sender_name",
-                                           os.getenv("SENDER_NAME", "")),
-            )
-        with sn2:
-            sender_title = st.text_input(
-                "Your title",
-                key="pa_sender_title",
-                value=st.session_state.get("pa_sender_title",
-                                           os.getenv("SENDER_TITLE", "")),
-            )
-
-        sender_company = st.text_input(
-            "Your company",
-            key="pa_sender_company",
-            value=st.session_state.get("pa_sender_company",
-                                       os.getenv("SENDER_COMPANY", "FocusChain Labs")),
-        )
-
-        st.markdown("")
-
-        can_gen = bool(
-            sel_id
-            and service_type.strip()
-            and price.strip()
-            and os.getenv("GEMINI_API_KEY")
-        )
-        if not os.getenv("GEMINI_API_KEY"):
-            st.warning("GEMINI_API_KEY not configured — needed for proposal generation.")
-
-        if st.button(
-            "Generate Proposal with AI",
-            type="primary",
-            use_container_width=True,
-            disabled=not can_gen,
-        ):
-            config = {
-                "service_type":   service_type.strip(),
-                "deliverables":   [l.strip() for l in deliverables_raw.splitlines()
-                                   if l.strip()],
-                "price":          price.strip(),
-                "currency":       currency,
-                "payment_terms":  payment_terms.strip(),
-                "duration":       duration.strip(),
-                "start_date":     str(start_date_val),
-                "sender_name":    sender_name.strip(),
-                "sender_title":   sender_title.strip(),
-                "sender_company": sender_company.strip(),
-            }
-            st.session_state.proposal_contact = sel_contact
-            st.session_state.proposal_config  = config
-            st.session_state.proposal_stage   = "generating"
-            st.rerun()
-
-
-# ── Generating phase ──────────────────────────────────────────────────────────
+    # ── Generating phase ──────────────────────────────────────────────────────────
 
 def _render_generating() -> None:
     contact = st.session_state.proposal_contact or {}

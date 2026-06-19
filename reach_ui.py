@@ -411,8 +411,14 @@ div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="
         .cq-card { padding: 12px 14px; }
         .cq-card.sel { transform: none; }
         .draft-wrap { padding: 16px; margin-top: 12px; }
-        .filter-pills { flex-wrap: wrap; gap: 6px; }
-        .filter-pills button { font-size: 11px !important; padding: 6px 10px !important; }
+        div[class*="st-key-reach_main_split"] [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+            gap: 16px !important;
+        }
+        div[class*="st-key-reach_main_split"] [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 auto !important;
+        }
         div[class*="st-key-reach_row_"] [data-testid="stHorizontalBlock"] {
             flex-direction: row !important;
             align-items: center !important;
@@ -457,333 +463,332 @@ div[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] 
         )
         return
 
-    col_q, col_d = st.columns([1, 1.85], gap="large")
+    with st.container(key="reach_main_split"):
+        col_q, col_d = st.columns([1, 1.85], gap="large")
 
-    # ══════════════════════════════════ LEFT — QUEUE ══════════════════════════
-    with col_q:
-        st.markdown("**Contact queue**")
+        # ══════════════════════════════════ LEFT — QUEUE ══════════════════════════
+        with col_q:
+            st.markdown("**Contact queue**")
 
-        has_email_n  = sum(1 for c in contacts if c.get("email"))
-        no_email_n   = len(contacts) - has_email_n
-        new_n        = sum(1 for c in contacts if c.get("status") == "new")
-        contacted_n  = sum(1 for c in contacts if c.get("status") == "contacted")
+            has_email_n  = sum(1 for c in contacts if c.get("email"))
+            no_email_n   = len(contacts) - has_email_n
+            new_n        = sum(1 for c in contacts if c.get("status") == "new")
+            contacted_n  = sum(1 for c in contacts if c.get("status") == "contacted")
 
-        filter_defs = [
-            ("all", f"All {len(contacts)}"),
-            ("has_email", f"Email {has_email_n}"),
-            ("no_email", f"No email {no_email_n}"),
-            ("new", f"New {new_n}"),
-            ("contacted", f"Contacted {contacted_n}"),
-        ]
-        # One wrapping chip row — equal-width columns in this narrow pane would
-        # squeeze each button until its label wraps a letter per line.
-        flt = st.session_state.reach_filter
-        f_keys = [k for k, _ in filter_defs]
-        f_labels = [lbl for _, lbl in filter_defs]
-        current_idx = f_keys.index(flt) if flt in f_keys else 0
-        picked = st.radio(
-            "Queue filter", f_labels, index=current_idx,
-            horizontal=True, label_visibility="collapsed",
-        )
-        picked_key = f_keys[f_labels.index(picked)]
-        if picked_key != flt:
-            st.session_state.reach_filter = picked_key
-            st.rerun()
-
-        filtered = _filter_contacts(contacts, flt)
-        filtered = sorted(
-            filtered,
-            key=lambda c: (-int(c.get("score") or 0), (c.get("company") or c.get("name") or "").lower()),
-        )
-
-        if not filtered:
-            st.caption("No contacts match this filter.")
-
-        st.markdown("")
-
-        for row_i, c in enumerate(filtered[:60]):
-            cid        = c.get("id", "")
-            is_sel     = st.session_state.reach_sel_id == cid
-            email      = c.get("email") or ""
-            score      = int(c.get("score") or 0)
-            stage      = c.get("status") or "new"
-            name_disp  = c.get("company") or c.get("name") or "Unnamed"
-            sub_disp   = c.get("name") if c.get("name") != name_disp else ""
-            email_disp = email if email else "No email"
-            email_col  = "var(--ink-soft)" if email else "var(--amber)"
-            card_cls   = "cq-card cq-card-sel" if is_sel else "cq-card"
-            score_html = f'<span class="cq-score">Score {score}</span>' if score else ""
-
-            st.markdown(
-                f'<span class="reach-row-anchor" style="--reach-i:{row_i}"></span>',
-                unsafe_allow_html=True,
+            filter_defs = [
+                ("all", f"All {len(contacts)}"),
+                ("has_email", f"Email {has_email_n}"),
+                ("no_email", f"No email {no_email_n}"),
+                ("new", f"New {new_n}"),
+                ("contacted", f"Contacted {contacted_n}"),
+            ]
+            flt = st.session_state.reach_filter
+            f_keys = [k for k, _ in filter_defs]
+            f_labels = [lbl for _, lbl in filter_defs]
+            current_idx = f_keys.index(flt) if flt in f_keys else 0
+            picked = st.radio(
+                "Queue filter", f_labels, index=current_idx,
+                horizontal=True, label_visibility="collapsed",
             )
-            row_col, pick_col = st.columns([20, 1.05], gap="small")
-            with row_col:
-                st.markdown(f"""
-                <div class="{card_cls}">
-                  <div class="cq-top">
-                    <div class="cq-name">{html.escape(name_disp)}</div>
-                    {_stage_badge(stage)}
-                  </div>
-                  <div class="cq-meta">
-                    {"<span>" + html.escape(sub_disp) + " · </span>" if sub_disp else ""}
-                    <span style="color:{email_col};">{html.escape(email_disp)}</span>
-                  </div>
-                  <div class="cq-foot">{score_html}</div>
+            picked_key = f_keys[f_labels.index(picked)]
+            if picked_key != flt:
+                st.session_state.reach_filter = picked_key
+                st.rerun()
+
+            filtered = _filter_contacts(contacts, flt)
+            filtered = sorted(
+                filtered,
+                key=lambda c: (-int(c.get("score") or 0), (c.get("company") or c.get("name") or "").lower()),
+            )
+
+            if not filtered:
+                st.caption("No contacts match this filter.")
+
+            st.markdown("")
+
+            for row_i, c in enumerate(filtered[:60]):
+                cid        = c.get("id", "")
+                is_sel     = st.session_state.reach_sel_id == cid
+                email      = c.get("email") or ""
+                score      = int(c.get("score") or 0)
+                stage      = c.get("status") or "new"
+                name_disp  = c.get("company") or c.get("name") or "Unnamed"
+                sub_disp   = c.get("name") if c.get("name") != name_disp else ""
+                email_disp = email if email else "No email"
+                email_col  = "var(--ink-soft)" if email else "var(--amber)"
+                card_cls   = "cq-card cq-card-sel" if is_sel else "cq-card"
+                score_html = f'<span class="cq-score">Score {score}</span>' if score else ""
+
+                st.markdown(
+                    f'<span class="reach-row-anchor" style="--reach-i:{row_i}"></span>',
+                    unsafe_allow_html=True,
+                )
+                row_col, pick_col = st.columns([20, 1.05], gap="small")
+                with row_col:
+                    st.markdown(f"""
+                    <div class="{card_cls}">
+                      <div class="cq-top">
+                        <div class="cq-name">{html.escape(name_disp)}</div>
+                        {_stage_badge(stage)}
+                      </div>
+                      <div class="cq-meta">
+                        {"<span>" + html.escape(sub_disp) + " · </span>" if sub_disp else ""}
+                        <span style="color:{email_col};">{html.escape(email_disp)}</span>
+                      </div>
+                      <div class="cq-foot">{score_html}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with pick_col:
+                    if st.button(
+                        "›",
+                        key=f"selb_{cid}",
+                        use_container_width=True,
+                        type="primary" if is_sel else "secondary",
+                    ):
+                        st.session_state.reach_sel_id   = cid
+                        st.session_state.reach_draft    = None
+                        st.session_state.reach_sent_msg = None
+                        st.session_state.reach_find_error = None
+                        st.rerun()
+
+        # ══════════════════════════════════ RIGHT — DRAFT ═════════════════════════
+        with col_d:
+            sel_id = st.session_state.reach_sel_id
+            if not sel_id:
+                st.markdown("""
+                <div class="empty-state">
+                  <div class="es-kicker">Outreach workspace</div>
+                  <div class="es-title">Select a contact to start</div>
+                  <div class="es-body">AI writes a personalised 3-email sequence<br>using Scout-Agent signals.</div>
                 </div>
                 """, unsafe_allow_html=True)
-            with pick_col:
-                if st.button(
-                    "›",
-                    key=f"selb_{cid}",
-                    use_container_width=True,
-                    type="primary" if is_sel else "secondary",
-                ):
-                    st.session_state.reach_sel_id   = cid
-                    st.session_state.reach_draft    = None
-                    st.session_state.reach_sent_msg = None
-                    st.session_state.reach_find_error = None
+                return
+
+            contact = next((c for c in contacts if c.get("id") == sel_id), None)
+            if not contact:
+                st.warning("Contact not found — please refresh.")
+                if st.button("Reload", key="reload_reach"):
+                    _invalidate()
                     st.rerun()
+                return
 
-    # ══════════════════════════════════ RIGHT — DRAFT ═════════════════════════
-    with col_d:
-        sel_id = st.session_state.reach_sel_id
-        if not sel_id:
-            st.markdown("""
-            <div class="empty-state">
-              <div class="es-kicker">Outreach workspace</div>
-              <div class="es-title">Select a contact to start</div>
-              <div class="es-body">AI writes a personalised 3-email sequence<br>using Scout-Agent signals.</div>
-            </div>
-            """, unsafe_allow_html=True)
-            return
+            name    = contact.get("company") or contact.get("name") or "Contact"
+            subname = contact.get("name") if contact.get("name") != name else ""
+            email   = contact.get("email") or ""
+            stage   = contact.get("status") or "new"
+            conf    = contact.get("email_confidence") or ""
 
-        contact = next((c for c in contacts if c.get("id") == sel_id), None)
-        if not contact:
-            st.warning("Contact not found — please refresh.")
-            if st.button("Reload", key="reload_reach"):
-                _invalidate()
-                st.rerun()
-            return
+            # Contact summary
+            c1, c2 = st.columns([2, 1])
+            with c1:
+                st.markdown(f"**{name}**")
+                if subname:
+                    st.caption(subname + ((" · " + contact["title"]) if contact.get("title") else ""))
+                if contact.get("industry"):
+                    st.caption(contact["industry"])
+            with c2:
+                badges = _stage_badge(stage)
+                if email and conf:
+                    badges += "&nbsp;" + _confidence_badge(conf)
+                st.markdown(badges, unsafe_allow_html=True)
+                if email:
+                    st.caption(email)
 
-        name    = contact.get("company") or contact.get("name") or "Contact"
-        subname = contact.get("name") if contact.get("name") != name else ""
-        email   = contact.get("email") or ""
-        stage   = contact.get("status") or "new"
-        conf    = contact.get("email_confidence") or ""
+            st.divider()
 
-        # Contact summary
-        c1, c2 = st.columns([2, 1])
-        with c1:
-            st.markdown(f"**{name}**")
-            if subname:
-                st.caption(subname + ((" · " + contact["title"]) if contact.get("title") else ""))
-            if contact.get("industry"):
-                st.caption(contact["industry"])
-        with c2:
-            badges = _stage_badge(stage)
-            if email and conf:
-                badges += "&nbsp;" + _confidence_badge(conf)
-            st.markdown(badges, unsafe_allow_html=True)
-            if email:
-                st.caption(email)
+            # ── No email: find / manual entry ────────────────────────────────────
+            if not email:
+                st.markdown("""
+                <div class="no-email-box">
+                  ⚠️ <strong>No email for this contact.</strong>
+                  Use Hunter.io to look one up, or enter it manually.
+                </div>
+                """, unsafe_allow_html=True)
 
-        st.divider()
+                if st.session_state.reach_find_error:
+                    st.error(st.session_state.reach_find_error)
 
-        # ── No email: find / manual entry ────────────────────────────────────
-        if not email:
-            st.markdown("""
-            <div class="no-email-box">
-              ⚠️ <strong>No email for this contact.</strong>
-              Use Hunter.io to look one up, or enter it manually.
-            </div>
-            """, unsafe_allow_html=True)
+                fa, fb = st.columns([1, 1], gap="medium")
+                with fa:
+                    hunter_key = os.getenv("HUNTER_API_KEY", "")
+                    if st.button(
+                        "Find Email (Hunter.io)",
+                        key="find_email_btn",
+                        use_container_width=True,
+                        type="primary",
+                        disabled=not bool(contact.get("name")),
+                        help="Requires HUNTER_API_KEY in Streamlit secrets (free 25/month at hunter.io)",
+                    ):
+                        with st.spinner("Looking up email…"):
+                            found = _try_find_email(contact, meta)
+                        if found:
+                            st.session_state.reach_find_error = None
+                            st.success(f"Found: **{found}**")
+                            st.rerun()
+                        else:
+                            st.session_state.reach_find_error = (
+                                "Couldn't find an email automatically. "
+                                "Try entering it manually or check LinkedIn."
+                            )
+                            st.rerun()
 
-            if st.session_state.reach_find_error:
-                st.error(st.session_state.reach_find_error)
+                    if not hunter_key:
+                        st.caption("Add HUNTER_API_KEY to secrets to enable this.")
 
-            fa, fb = st.columns([1, 1], gap="medium")
-            with fa:
-                hunter_key = os.getenv("HUNTER_API_KEY", "")
-                if st.button(
-                    "Find Email (Hunter.io)",
-                    key="find_email_btn",
-                    use_container_width=True,
-                    type="primary",
-                    disabled=not bool(contact.get("name")),
-                    help="Requires HUNTER_API_KEY in Streamlit secrets (free 25/month at hunter.io)",
-                ):
-                    with st.spinner("Looking up email…"):
-                        found = _try_find_email(contact, meta)
-                    if found:
-                        st.session_state.reach_find_error = None
-                        st.success(f"Found: **{found}**")
+                with fb:
+                    st.markdown("**Enter manually**")
+                    manual = st.text_input(
+                        "Email address",
+                        placeholder="name@company.com",
+                        key="manual_email",
+                        label_visibility="collapsed",
+                    )
+                    if st.button("Save", key="save_manual_email") and manual and "@" in manual:
+                        db = st.session_state.reach_db
+                        for c in db.get("contacts", []):
+                            if c.get("id") == sel_id:
+                                c["email"]            = manual.strip().lower()
+                                c["email_confidence"] = "guess"
+                                c["updated_at"]       = utc_now_iso()
+                                break
+                        _save(f"Reach: manual email for {name}")
+                        _invalidate()
                         st.rerun()
-                    else:
-                        st.session_state.reach_find_error = (
-                            "Couldn't find an email automatically. "
-                            "Try entering it manually or check LinkedIn."
-                        )
-                        st.rerun()
 
-                if not hunter_key:
-                    st.caption("Add HUNTER_API_KEY to secrets to enable this.")
+                return
 
-            with fb:
-                st.markdown("**Enter manually**")
-                manual = st.text_input(
-                    "Email address",
-                    placeholder="name@company.com",
-                    key="manual_email",
-                    label_visibility="collapsed",
+            # ── Sender details ────────────────────────────────────────────────────
+            with st.expander("Sender details & pitch context", expanded=False):
+                scol1, scol2 = st.columns(2)
+                with scol1:
+                    sender_name  = st.text_input("Your name",  key="r_sname",  value=os.getenv("SENDER_NAME", ""))
+                    sender_title = st.text_input("Your title", key="r_stitle", value=os.getenv("SENDER_TITLE", ""))
+                with scol2:
+                    sender_co    = st.text_input("Your company", key="r_sco",  value=os.getenv("SENDER_COMPANY", "FocusChain Labs"))
+
+                offering = st.text_area(
+                    "What you're pitching (1-2 sentences)",
+                    key="r_offering",
+                    value=os.getenv("SENDER_OFFERING", contact.get("notes") or ""),
+                    height=60,
+                    placeholder="e.g. We help D2C brands automate their lead generation and outreach using AI agents.",
                 )
-                if st.button("Save", key="save_manual_email") and manual and "@" in manual:
-                    db = st.session_state.reach_db
-                    for c in db.get("contacts", []):
-                        if c.get("id") == sel_id:
-                            c["email"]            = manual.strip().lower()
-                            c["email_confidence"] = "guess"
-                            c["updated_at"]       = utc_now_iso()
-                            break
-                    _save(f"Reach: manual email for {name}")
+
+            # ── Generate draft ────────────────────────────────────────────────────
+            draft = st.session_state.reach_draft
+            gcol1, gcol2 = st.columns([1.5, 1])
+            with gcol1:
+                gen_label = "Generate Email Sequence" if not draft else "↺ Regenerate Sequence"
+                if st.button(gen_label, key="gen_draft", use_container_width=True, type="primary"):
+                    with st.spinner("Composing personalised sequence…"):
+                        try:
+                            st.session_state.reach_draft = compose_outreach(
+                                contact,
+                                sender_name    = st.session_state.get("r_sname", ""),
+                                sender_title   = st.session_state.get("r_stitle", ""),
+                                sender_company = st.session_state.get("r_sco", "FocusChain Labs"),
+                                offering       = st.session_state.get("r_offering", ""),
+                            )
+                            draft = st.session_state.reach_draft
+                        except Exception as exc:
+                            st.error(f"Draft generation failed: {exc}")
+            with gcol2:
+                if st.button("Reload CRM", key="reload_reach2", use_container_width=True):
                     _invalidate()
                     st.rerun()
 
-            return
+            if not draft:
+                st.caption("Click **Generate Email Sequence** to compose a personalised 3-email sequence.")
+                return
 
-        # ── Sender details ────────────────────────────────────────────────────
-        with st.expander("Sender details & pitch context", expanded=False):
-            scol1, scol2 = st.columns(2)
-            with scol1:
-                sender_name  = st.text_input("Your name",  key="r_sname",  value=os.getenv("SENDER_NAME", ""))
-                sender_title = st.text_input("Your title", key="r_stitle", value=os.getenv("SENDER_TITLE", ""))
-            with scol2:
-                sender_co    = st.text_input("Your company", key="r_sco",  value=os.getenv("SENDER_COMPANY", "FocusChain Labs"))
+            # ── Email sequence tabs ───────────────────────────────────────────────
+            t1, t2, t3 = st.tabs(["1 · Cold email", "2 · Day-3 follow-up", "3 · Day-7 close"])
 
-            offering = st.text_area(
-                "What you're pitching (1-2 sentences)",
-                key="r_offering",
-                value=os.getenv("SENDER_OFFERING", contact.get("notes") or ""),
-                height=60,
-                placeholder="e.g. We help D2C brands automate their lead generation and outreach using AI agents.",
-            )
+            seq_items = [
+                (t1, "e1", "email_1", draft.get("subject", ""), False),
+                (t2, "e2", "email_2", f"Re: {draft.get('subject', '')}", True),
+                (t3, "e3", "email_3", f"Re: {draft.get('subject', '')}", True),
+            ]
 
-        # ── Generate draft ────────────────────────────────────────────────────
-        draft = st.session_state.reach_draft
-        gcol1, gcol2 = st.columns([1.5, 1])
-        with gcol1:
-            gen_label = "Generate Email Sequence" if not draft else "↺ Regenerate Sequence"
-            if st.button(gen_label, key="gen_draft", use_container_width=True, type="primary"):
-                with st.spinner("Composing personalised sequence…"):
-                    try:
-                        st.session_state.reach_draft = compose_outreach(
-                            contact,
-                            sender_name    = st.session_state.get("r_sname", ""),
-                            sender_title   = st.session_state.get("r_stitle", ""),
-                            sender_company = st.session_state.get("r_sco", "FocusChain Labs"),
-                            offering       = st.session_state.get("r_offering", ""),
-                        )
-                        draft = st.session_state.reach_draft
-                    except Exception as exc:
-                        st.error(f"Draft generation failed: {exc}")
-        with gcol2:
-            if st.button("Reload CRM", key="reload_reach2", use_container_width=True):
-                _invalidate()
-                st.rerun()
-
-        if not draft:
-            st.caption("Click **Generate Email Sequence** to compose a personalised 3-email sequence.")
-            return
-
-        # ── Email sequence tabs ───────────────────────────────────────────────
-        t1, t2, t3 = st.tabs(["1 · Cold email", "2 · Day-3 follow-up", "3 · Day-7 close"])
-
-        seq_items = [
-            (t1, "e1", "email_1", draft.get("subject", ""), False),
-            (t2, "e2", "email_2", f"Re: {draft.get('subject', '')}", True),
-            (t3, "e3", "email_3", f"Re: {draft.get('subject', '')}", True),
-        ]
-
-        for tab, pfx, body_key, default_subj, is_followup in seq_items:
-            with tab:
-                subj = st.text_input(
-                    "Subject line",
-                    value=default_subj,
-                    key=f"r_subj_{pfx}",
-                )
-                body = st.text_area(
-                    "Email body",
-                    value=draft.get(body_key, ""),
-                    key=f"r_body_{pfx}",
-                    height=220,
-                )
-
-                if not body.strip():
-                    st.caption("No draft content for this step.")
-                    continue
-
-                st.markdown("")
-
-                act1, act2, act3 = st.columns([1, 1, 1], gap="small")
-
-                # ── Send ──────────────────────────────────────────────────────
-                with act1:
-                    can_send = smtp_configured()
-                    if can_send:
-                        if st.button(
-                            "Send via Gmail →",
-                            key=f"r_send_{pfx}",
-                            use_container_width=True,
-                            type="primary",
-                        ):
-                            result = send_email_smtp(email, subj, body)
-                            if result.get("ok"):
-                                _log_sent_email(contact, subj, body)
-                                st.session_state.reach_sent_msg = (
-                                    f"Sent to {email} · Logged to CRM thread · Stage → Contacted"
-                                )
-                                st.rerun()
-                            else:
-                                st.error(result.get("error", "Send failed."))
-                    else:
-                        st.button(
-                            "Send via Gmail →",
-                            key=f"r_send_{pfx}",
-                            use_container_width=True,
-                            type="primary",
-                            disabled=True,
-                            help="Configure SMTP in Streamlit secrets to enable sending.",
-                        )
-
-                # ── Open in Gmail ─────────────────────────────────────────────
-                with act2:
-                    mailto = (
-                        f"mailto:{email}"
-                        f"?subject={urllib.parse.quote(subj)}"
-                        f"&body={urllib.parse.quote(body[:1800])}"
+            for tab, pfx, body_key, default_subj, is_followup in seq_items:
+                with tab:
+                    subj = st.text_input(
+                        "Subject line",
+                        value=default_subj,
+                        key=f"r_subj_{pfx}",
                     )
-                    st.link_button("Open in Gmail ↗", mailto, use_container_width=True)
+                    body = st.text_area(
+                        "Email body",
+                        value=draft.get(body_key, ""),
+                        key=f"r_body_{pfx}",
+                        height=220,
+                    )
 
-                # ── Copy ──────────────────────────────────────────────────────
-                with act3:
-                    copy_txt = f"To: {email}\nSubject: {subj}\n\n{body}"
-                    st.code(copy_txt, language=None)
+                    if not body.strip():
+                        st.caption("No draft content for this step.")
+                        continue
 
-        # ── Sent confirmation banner ──────────────────────────────────────────
-        if st.session_state.reach_sent_msg:
-            st.success(f"✓  {st.session_state.reach_sent_msg}")
+                    st.markdown("")
 
-        # ── SMTP setup hint ───────────────────────────────────────────────────
-        if not smtp_configured():
-            st.markdown("""
-            <div class="smtp-hint">
-              <strong>Enable direct sending from this app</strong><br>
-              Add to your Streamlit Cloud secrets panel:<br><br>
-              <code>SMTP_FROM_EMAIL = "you@gmail.com"</code><br>
-              <code>SMTP_APP_PASSWORD = "xxxx xxxx xxxx xxxx"</code><br><br>
-              <small>Generate an App Password:
-              Google Account → Security → 2-Step Verification → App Passwords → Create new.
-              Use the 16-character password (not your account password).</small>
-            </div>
-            """, unsafe_allow_html=True)
+                    act1, act2, act3 = st.columns([1, 1, 1], gap="small")
+
+                    # ── Send ──────────────────────────────────────────────────────
+                    with act1:
+                        can_send = smtp_configured()
+                        if can_send:
+                            if st.button(
+                                "Send via Gmail →",
+                                key=f"r_send_{pfx}",
+                                use_container_width=True,
+                                type="primary",
+                            ):
+                                result = send_email_smtp(email, subj, body)
+                                if result.get("ok"):
+                                    _log_sent_email(contact, subj, body)
+                                    st.session_state.reach_sent_msg = (
+                                        f"Sent to {email} · Logged to CRM thread · Stage → Contacted"
+                                    )
+                                    st.rerun()
+                                else:
+                                    st.error(result.get("error", "Send failed."))
+                        else:
+                            st.button(
+                                "Send via Gmail →",
+                                key=f"r_send_{pfx}",
+                                use_container_width=True,
+                                type="primary",
+                                disabled=True,
+                                help="Configure SMTP in Streamlit secrets to enable sending.",
+                            )
+
+                    # ── Open in Gmail ─────────────────────────────────────────────
+                    with act2:
+                        mailto = (
+                            f"mailto:{email}"
+                            f"?subject={urllib.parse.quote(subj)}"
+                            f"&body={urllib.parse.quote(body[:1800])}"
+                        )
+                        st.link_button("Open in Gmail ↗", mailto, use_container_width=True)
+
+                    # ── Copy ──────────────────────────────────────────────────────
+                    with act3:
+                        copy_txt = f"To: {email}\nSubject: {subj}\n\n{body}"
+                        st.code(copy_txt, language=None)
+
+            # ── Sent confirmation banner ──────────────────────────────────────────
+            if st.session_state.reach_sent_msg:
+                st.success(f"✓  {st.session_state.reach_sent_msg}")
+
+            # ── SMTP setup hint ───────────────────────────────────────────────────
+            if not smtp_configured():
+                st.markdown("""
+                <div class="smtp-hint">
+                  <strong>Enable direct sending from this app</strong><br>
+                  Add to your Streamlit Cloud secrets panel:<br><br>
+                  <code>SMTP_FROM_EMAIL = "you@gmail.com"</code><br>
+                  <code>SMTP_APP_PASSWORD = "xxxx xxxx xxxx xxxx"</code><br><br>
+                  <small>Generate an App Password:
+                  Google Account → Security → 2-Step Verification → App Passwords → Create new.
+                  Use the 16-character password (not your account password).</small>
+                </div>
+                """, unsafe_allow_html=True)

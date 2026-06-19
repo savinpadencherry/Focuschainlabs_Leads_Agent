@@ -158,6 +158,14 @@ _CSS = """
     }
     .fin-co-card { padding: 10px 12px; }
     .fin-co-card.sel { transform: none; }
+    div[class*="st-key-finance_main_split"] [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 16px !important;
+    }
+    div[class*="st-key-finance_main_split"] [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+    }
 }
 
 /* Invoice ledger row */
@@ -560,150 +568,148 @@ def _render_create() -> None:
     other_conts = [c for c in contacts
                    if (c.get("status") or "") not in ("won", "proposal", "qualified")]
 
-    col_sel, col_cfg = st.columns([1.3, 1.7], gap="large")
+    with st.container(key="finance_main_split"):
+        col_sel, col_cfg = st.columns([1.3, 1.7], gap="large")
 
-    with col_sel:
-        st.markdown('<div class="sec">Bill to <span class="line"></span></div>',
-                    unsafe_allow_html=True)
-        sel_id = st.session_state.fin_sel_id
-
-        def _card(c: dict) -> None:
-            cid = c.get("id", "")
-            name = c.get("company") or c.get("name") or "Unnamed"
-            person = c.get("name", "") if c.get("company") else ""
-            sub = " · ".join(p for p in [person, c.get("email", "")] if p)
-            is_sel = cid == sel_id
-            cls = "fin-co-card sel" if is_sel else "fin-co-card"
-            st.markdown(f"""
-            <div class="{cls}">
-              <div class="fin-co-name">{_e(name)}</div>
-              <div class="fin-co-meta">{_e(sub)}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button("✓ Selected" if is_sel else "Select",
-                         key=f"fin_sel_{cid}", use_container_width=True,
-                         type="primary" if is_sel else "secondary"):
-                st.session_state.fin_sel_id = cid
-                st.rerun()
-
-        for label, group in [
-            ("Won deals", won_conts),
-            ("Proposal / qualified", prop_conts),
-            ("Other contacts", other_conts),
-        ]:
-            if not group:
-                continue
-            st.caption(label)
-            for c in sorted(group, key=lambda x: -int(x.get("score") or 0))[:25]:
-                _card(c)
-
-    with col_cfg:
-        sel = next((c for c in contacts if c.get("id") == sel_id), None)
-        if not sel:
-            st.markdown('<div class="sec">Invoice details <span class="line"></span></div>',
+        with col_sel:
+            st.markdown('<div class="sec">Bill to <span class="line"></span></div>',
                         unsafe_allow_html=True)
-            st.info("Select who to bill on the left to continue.")
-            return
+            sel_id = st.session_state.fin_sel_id
 
-        company = sel.get("company") or sel.get("name") or "Client"
-        st.markdown(
-            f'<div class="sec">Invoice for '
-            f'<span style="color:var(--green);">{_e(company)}</span> <span class="line"></span></div>',
-            unsafe_allow_html=True,
-        )
+            def _card(c: dict) -> None:
+                cid = c.get("id", "")
+                name = c.get("company") or c.get("name") or "Unnamed"
+                person = c.get("name", "") if c.get("company") else ""
+                sub = " · ".join(p for p in [person, c.get("email", "")] if p)
+                is_sel = cid == sel_id
+                cls = "fin-co-card sel" if is_sel else "fin-co-card"
+                st.markdown(f"""
+                <div class="{cls}">
+                  <div class="fin-co-name">{_e(name)}</div>
+                  <div class="fin-co-meta">{_e(sub)}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button("✓ Selected" if is_sel else "Select",
+                             key=f"fin_sel_{cid}", use_container_width=True,
+                             type="primary" if is_sel else "secondary"):
+                    st.session_state.fin_sel_id = cid
+                    st.rerun()
 
-        # Auto invoice number
-        all_numbers = [inv.get("number", "") for inv in collect_invoices(contacts)]
-        suggested_num = next_invoice_number(all_numbers)
+            for label, group in [
+                ("Won deals", won_conts),
+                ("Proposal / qualified", prop_conts),
+                ("Other contacts", other_conts),
+            ]:
+                if not group:
+                    continue
+                st.caption(label)
+                for c in sorted(group, key=lambda x: -int(x.get("score") or 0))[:25]:
+                    _card(c)
 
-        nc1, nc2 = st.columns(2)
-        with nc1:
-            number = st.text_input("Invoice number", value=suggested_num, key="fin_number")
-        with nc2:
-            currency = st.selectbox("Currency", ["INR", "USD", "EUR", "GBP", "AED"],
-                                    index=0, key="fin_currency")
+        with col_cfg:
+            sel = next((c for c in contacts if c.get("id") == sel_id), None)
+            if not sel:
+                st.markdown('<div class="sec">Invoice details <span class="line"></span></div>',
+                            unsafe_allow_html=True)
+                st.info("Select who to bill on the left to continue.")
+                return
 
-        dc1, dc2 = st.columns(2)
-        with dc1:
-            issue_date = st.date_input("Issue date", value=date.today(), key="fin_issue")
-        with dc2:
-            net_days = st.selectbox("Payment terms", [7, 14, 30, 45, 60],
-                                    index=1, format_func=lambda d: f"Net {d} days", key="fin_net")
-
-        st.markdown("**Line items**")
-        st.caption("Item · Qty · Rate — amount auto-calculates. Leave a row blank to skip it.")
-
-        # Pre-fill first row from deal value if present
-        default_rows = line_items_from_proposal(sel)
-        n_rows = st.number_input("Number of line items", min_value=1, max_value=10,
-                                 value=max(1, len(default_rows)), key="fin_nrows")
-        line_items = []
-        for i in range(int(n_rows)):
-            d = default_rows[i] if i < len(default_rows) else {}
-            lc1, lc2, lc3 = st.columns([3, 1, 1.4])
-            with lc1:
-                item = st.text_input(f"Item {i+1}", value=d.get("item", ""),
-                                     key=f"fin_item_{i}", label_visibility="collapsed",
-                                     placeholder=f"Line item {i+1}")
-            with lc2:
-                qty = st.text_input(f"Qty {i+1}", value=str(int(d.get("qty", 1)) if d else 1),
-                                    key=f"fin_qty_{i}", label_visibility="collapsed",
-                                    placeholder="Qty")
-            with lc3:
-                rate = st.text_input(f"Rate {i+1}", value=str(d.get("rate", "")) if d.get("rate") else "",
-                                     key=f"fin_rate_{i}", label_visibility="collapsed",
-                                     placeholder="Rate")
-            if item.strip():
-                line_items.append({"item": item.strip(), "qty": qty or 1, "rate": rate or 0})
-
-        tc1, tc2 = st.columns(2)
-        with tc1:
-            tax_rate = st.text_input("Tax / GST %", value=os.getenv("INVOICE_TAX_RATE", "0"),
-                                     key="fin_tax")
-        with tc2:
-            # live total preview
-            subtotal = sum(to_amount(li["rate"]) * to_amount(li["qty"]) for li in line_items)
-            tax_amt = subtotal * to_amount(tax_rate) / 100.0
+            company = sel.get("company") or sel.get("name") or "Client"
             st.markdown(
-                f"<div style='padding-top:6px'><span style='font-family:JetBrains Mono,monospace;"
-                f"font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute)'>"
-                f"Total</span><br><span style='font-family:Bricolage Grotesque;font-size:22px;"
-                f"font-weight:800;color:var(--green)'>{_e(fmt_money(subtotal + tax_amt, currency))}</span></div>",
+                f'<div class="sec">Invoice for '
+                f'<span style="color:var(--green);">{_e(company)}</span> <span class="line"></span></div>',
                 unsafe_allow_html=True,
             )
 
-        notes = st.text_area("Notes (optional)", key="fin_notes",
-                             placeholder="Thank you for your business. Payment due within terms above.",
-                             height=70)
+            all_numbers = [inv.get("number", "") for inv in collect_invoices(contacts)]
+            suggested_num = next_invoice_number(all_numbers)
 
-        st.markdown("")
-        can_build = bool(sel_id and line_items)
-        if not line_items:
-            st.caption("Add at least one line item with a description.")
+            nc1, nc2 = st.columns(2)
+            with nc1:
+                number = st.text_input("Invoice number", value=suggested_num, key="fin_number")
+            with nc2:
+                currency = st.selectbox("Currency", ["INR", "USD", "EUR", "GBP", "AED"],
+                                        index=0, key="fin_currency")
 
-        if st.button("Build invoice", type="primary", use_container_width=True,
-                     disabled=not can_build, key="fin_build"):
-            config = {
-                "number":     number.strip(),
-                "currency":   currency,
-                "issue_date": issue_date.isoformat(),
-                "net_days":   int(net_days),
-                "line_items": line_items,
-                "tax_rate":   to_amount(tax_rate),
-                "notes":      notes.strip(),
-                "status":     "draft",
-                "sender_name":    os.getenv("SENDER_NAME", ""),
-                "sender_company": os.getenv("SENDER_COMPANY", "FocusChain Labs"),
-                "sender_email":   os.getenv("SMTP_FROM_EMAIL", ""),
-                "payment_instructions": os.getenv("PAYMENT_INSTRUCTIONS", ""),
-            }
-            invoice = build_invoice(sel, config)
-            st.session_state.fin_invoice      = invoice
-            st.session_state.fin_invoice_html = build_invoice_html(invoice, config, sel)
-            st.session_state.fin_contact      = sel
-            st.session_state.fin_config       = config
-            st.session_state.fin_view         = "preview"
-            st.rerun()
+            dc1, dc2 = st.columns(2)
+            with dc1:
+                issue_date = st.date_input("Issue date", value=date.today(), key="fin_issue")
+            with dc2:
+                net_days = st.selectbox("Payment terms", [7, 14, 30, 45, 60],
+                                        index=1, format_func=lambda d: f"Net {d} days", key="fin_net")
+
+            st.markdown("**Line items**")
+            st.caption("Item · Qty · Rate — amount auto-calculates. Leave a row blank to skip it.")
+
+            default_rows = line_items_from_proposal(sel)
+            n_rows = st.number_input("Number of line items", min_value=1, max_value=10,
+                                     value=max(1, len(default_rows)), key="fin_nrows")
+            line_items = []
+            for i in range(int(n_rows)):
+                d = default_rows[i] if i < len(default_rows) else {}
+                lc1, lc2, lc3 = st.columns([3, 1, 1.4])
+                with lc1:
+                    item = st.text_input(f"Item {i+1}", value=d.get("item", ""),
+                                         key=f"fin_item_{i}", label_visibility="collapsed",
+                                         placeholder=f"Line item {i+1}")
+                with lc2:
+                    qty = st.text_input(f"Qty {i+1}", value=str(int(d.get("qty", 1)) if d else 1),
+                                        key=f"fin_qty_{i}", label_visibility="collapsed",
+                                        placeholder="Qty")
+                with lc3:
+                    rate = st.text_input(f"Rate {i+1}", value=str(d.get("rate", "")) if d.get("rate") else "",
+                                         key=f"fin_rate_{i}", label_visibility="collapsed",
+                                         placeholder="Rate")
+                if item.strip():
+                    line_items.append({"item": item.strip(), "qty": qty or 1, "rate": rate or 0})
+
+            tc1, tc2 = st.columns(2)
+            with tc1:
+                tax_rate = st.text_input("Tax / GST %", value=os.getenv("INVOICE_TAX_RATE", "0"),
+                                         key="fin_tax")
+            with tc2:
+                subtotal = sum(to_amount(li["rate"]) * to_amount(li["qty"]) for li in line_items)
+                tax_amt = subtotal * to_amount(tax_rate) / 100.0
+                st.markdown(
+                    f"<div style='padding-top:6px'><span style='font-family:JetBrains Mono,monospace;"
+                    f"font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute)'>"
+                    f"Total</span><br><span style='font-family:Bricolage Grotesque;font-size:22px;"
+                    f"font-weight:800;color:var(--green)'>{_e(fmt_money(subtotal + tax_amt, currency))}</span></div>",
+                    unsafe_allow_html=True,
+                )
+
+            notes = st.text_area("Notes (optional)", key="fin_notes",
+                                 placeholder="Thank you for your business. Payment due within terms above.",
+                                 height=70)
+
+            st.markdown("")
+            can_build = bool(sel_id and line_items)
+            if not line_items:
+                st.caption("Add at least one line item with a description.")
+
+            if st.button("Build invoice", type="primary", use_container_width=True,
+                         disabled=not can_build, key="fin_build"):
+                config = {
+                    "number":     number.strip(),
+                    "currency":   currency,
+                    "issue_date": issue_date.isoformat(),
+                    "net_days":   int(net_days),
+                    "line_items": line_items,
+                    "tax_rate":   to_amount(tax_rate),
+                    "notes":      notes.strip(),
+                    "status":     "draft",
+                    "sender_name":    os.getenv("SENDER_NAME", ""),
+                    "sender_company": os.getenv("SENDER_COMPANY", "FocusChain Labs"),
+                    "sender_email":   os.getenv("SMTP_FROM_EMAIL", ""),
+                    "payment_instructions": os.getenv("PAYMENT_INSTRUCTIONS", ""),
+                }
+                invoice = build_invoice(sel, config)
+                st.session_state.fin_invoice      = invoice
+                st.session_state.fin_invoice_html = build_invoice_html(invoice, config, sel)
+                st.session_state.fin_contact      = sel
+                st.session_state.fin_config       = config
+                st.session_state.fin_view         = "preview"
+                st.rerun()
 
 
 # ── Preview view ────────────────────────────────────────────────────────────────
