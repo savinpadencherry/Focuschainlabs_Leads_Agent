@@ -1000,6 +1000,21 @@ div[class*="st-key-crm_row_"]:has(button:active) .crm-lead-card {
     .stTextArea label, .stTextInput label, .stSelectbox label {
         letter-spacing: .16em !important;
     }
+    .crm-toolbar [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    .crm-toolbar [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+    }
+    .crm-filter-summary { font-size: 12px; line-height: 1.5; }
+    [data-testid="stDialog"] [data-testid="stModal"] > div:first-child {
+        max-width: calc(100vw - 24px) !important;
+        margin: 12px !important;
+        padding: 16px !important;
+        border-radius: 20px !important;
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -3978,6 +3993,7 @@ def render_crm_page() -> None:
     _render_excel_upload()
 
     st.markdown('<div class="sec">Find leads <span class="line"></span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="crm-toolbar">', unsafe_allow_html=True)
     search_col, sync_col, clear_col = st.columns([5, 1, 1])
     with search_col:
         q = st.text_input(
@@ -4043,6 +4059,7 @@ def render_crm_page() -> None:
             label_visibility="collapsed",
             key="crm_sort",
         )
+    st.markdown('</div>', unsafe_allow_html=True)
 
     filtered = contacts
     if status_filter != "all":

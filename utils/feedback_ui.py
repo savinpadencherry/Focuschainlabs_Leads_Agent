@@ -108,6 +108,28 @@ div[class*="st-key-fcl_feedback_floater"] button:active {
     color: var(--green); background: var(--green-bg);
     border: 1px solid rgba(46,139,77,.22); margin-bottom: 12px;
 }
+
+@media (max-width: 720px) {
+    div[class*="st-key-fcl_feedback_floater"] {
+        bottom: 20px !important;
+        right: 16px !important;
+        width: 52px !important;
+        height: 52px !important;
+    }
+    div[class*="st-key-fcl_feedback_floater"] [data-testid="stVerticalBlock"],
+    div[class*="st-key-fcl_feedback_floater"] [data-testid="stElementContainer"] {
+        width: 52px !important;
+        height: 52px !important;
+    }
+    div[class*="st-key-fcl_feedback_floater"] .stButton > button,
+    div[class*="st-key-fcl_feedback_floater"] button {
+        width: 52px !important;
+        min-width: 52px !important;
+        height: 52px !important;
+        font-size: 20px !important;
+        touch-action: manipulation;
+    }
+}
 </style>
 """
 

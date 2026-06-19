@@ -155,6 +155,15 @@ _CSS = """
         transition-duration: 0.01ms !important;
     }
 }
+
+@media (max-width: 720px) {
+    .pa-head { font-size: 28px; line-height: 1.1; }
+    .pa-sub { font-size: 12.5px; line-height: 1.55; }
+    .pa-co-card { padding: 10px 12px; }
+    .pa-co-card.sel { transform: none; }
+    .pa-preview-wrap { padding: 16px; }
+    .pa-sent { font-size: 13px; padding: 12px 14px; }
+}
 </style>
 """
 

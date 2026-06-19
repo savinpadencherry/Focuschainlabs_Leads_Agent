@@ -510,6 +510,18 @@ _CSS = """
         transition-duration: 0.01ms !important;
     }
 }
+
+@media (max-width: 720px) {
+    .ia-head { font-size: 28px; line-height: 1.1; }
+    .ia-sub { font-size: 12.5px; line-height: 1.55; }
+    .ia-cost-pill { font-size: 10px; flex-wrap: wrap; justify-content: center; text-align: center; }
+    .ia-sum-row { flex-wrap: wrap; gap: 12px; justify-content: center; }
+    .ia-divider { display: none; }
+    .ia-co-card { padding: 10px 12px; }
+    .ia-co-card.sel { transform: none; }
+    .ia-signal-card { padding: 12px 14px; }
+    .ia-sec { font-size: 9px; }
+}
 </style>
 """
 

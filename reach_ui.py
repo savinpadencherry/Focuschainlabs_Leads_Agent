@@ -404,6 +404,32 @@ div[data-testid="stElementContainer"]:has(.reach-row-anchor) + div[data-testid="
             transition-duration: 0.01ms !important;
         }
     }
+
+    @media (max-width: 720px) {
+        .ra-head { font-size: 28px; line-height: 1.1; }
+        .ra-sub { font-size: 11px; line-height: 1.6; margin-bottom: 16px; }
+        .cq-card { padding: 12px 14px; }
+        .cq-card.sel { transform: none; }
+        .draft-wrap { padding: 16px; margin-top: 12px; }
+        .filter-pills { flex-wrap: wrap; gap: 6px; }
+        .filter-pills button { font-size: 11px !important; padding: 6px 10px !important; }
+        div[class*="st-key-reach_row_"] [data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            align-items: center !important;
+        }
+        div[class*="st-key-reach_row_"] [data-testid="column"]:first-child {
+            flex: 1 1 auto !important;
+            width: auto !important;
+        }
+        div[class*="st-key-reach_row_"] [data-testid="column"]:last-child {
+            flex: 0 0 44px !important;
+            width: 44px !important;
+        }
+        div[class*="st-key-reach_row_"] .stButton > button {
+            min-height: 44px !important;
+            touch-action: manipulation;
+        }
+    }
     
 div[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] .reach-row-anchor) {
     margin: 0 !important; height: 0 !important; min-height: 0 !important; overflow: hidden;
