@@ -359,6 +359,163 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     box-shadow: 0 6px 16px rgba(46,139,77,.22) !important;
 }
 
+/* ── Mobile drawer — touch-friendly overlay (replaces hover-only rail) ── */
+@media (max-width: 720px), ((max-width: 960px) and (hover: none)) {
+    [data-testid="stAppViewContainer"] > section[data-testid="stSidebar"] {
+        flex: 0 0 0 !important;
+        width: 0 !important;
+        max-width: 0 !important;
+        min-width: 0 !important;
+        overflow: visible !important;
+    }
+    [data-testid="stSidebar"] {
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        height: 100dvh !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
+        width: 0 !important;
+        transform: translateX(-100%) !important;
+        transition: transform .24s var(--ease-out), width .24s var(--ease-out), max-width .24s var(--ease-out), box-shadow .24s var(--ease-out) !important;
+        z-index: 10001 !important;
+        border-right: none !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+    }
+    .drawer-hamburger { display: none !important; }
+    /* Real toggle button — fixed, always tappable */
+    [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:first-child:has(.stButton) {
+        position: fixed !important;
+        top: 10px !important;
+        left: 8px !important;
+        z-index: 10003 !important;
+        width: 44px !important;
+        height: 44px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        opacity: 1 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        pointer-events: auto !important;
+        transform: none !important;
+        touch-action: manipulation;
+    }
+    [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:first-child .stButton {
+        width: 44px !important;
+        margin: 0 !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:first-child .stButton > button {
+        width: 44px !important;
+        min-width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        padding: 0 !important;
+        border-radius: 10px !important;
+        font-size: 20px !important;
+        line-height: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: rgba(255,255,255,.96) !important;
+        border: 1px solid rgba(15,42,51,.10) !important;
+        box-shadow: 0 6px 18px rgba(15,42,51,.08), inset 0 1px 0 rgba(255,255,255,.95) !important;
+        color: var(--ink-soft) !important;
+        -webkit-text-fill-color: var(--ink-soft) !important;
+        touch-action: manipulation;
+    }
+    /* Closed: hide nav items except toggle */
+    .stApp:has(#mobile-drawer-state.drawer-state-closed) [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton):not(:first-child) {
+        opacity: 0 !important;
+        max-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+    }
+    .stApp:has(#mobile-drawer-state.drawer-state-closed) .drawer-hero {
+        opacity: 0 !important;
+        max-height: 0 !important;
+        pointer-events: none !important;
+    }
+    /* Open: slide-in panel + visible nav */
+    .stApp:has(#mobile-drawer-state.drawer-state-open) [data-testid="stSidebar"] {
+        min-width: 260px !important;
+        max-width: 260px !important;
+        width: 260px !important;
+        transform: translateX(0) !important;
+        box-shadow: 10px 0 40px rgba(15,42,51,.18) !important;
+        border-right: 1px solid var(--line-soft) !important;
+    }
+    .stApp:has(#mobile-drawer-state.drawer-state-open) [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+        padding: 56px 12px 16px !important;
+        background: linear-gradient(180deg, rgba(253,252,249,.98) 0%, rgba(239,234,222,.92) 100%) !important;
+        border-radius: 0 16px 16px 0 !important;
+    }
+    .stApp:has(#mobile-drawer-state.drawer-state-open) [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton) {
+        opacity: 1 !important;
+        max-height: 80px !important;
+        margin-bottom: 6px !important;
+        pointer-events: auto !important;
+        transform: translateX(0) !important;
+        overflow: visible !important;
+    }
+    .stApp:has(#mobile-drawer-state.drawer-state-open) .drawer-hero {
+        opacity: 1 !important;
+        max-height: 72px !important;
+        margin: 0 0 10px !important;
+        padding: 0 6px 10px !important;
+        pointer-events: auto !important;
+        border-bottom: 1px solid var(--line-soft);
+    }
+    /* Backdrop button container */
+    div[class*="st-key-drawer_backdrop_btn"] {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 10000 !important;
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        pointer-events: auto !important;
+    }
+    div[class*="st-key-drawer_backdrop_btn"] [data-testid="stVerticalBlock"],
+    div[class*="st-key-drawer_backdrop_btn"] [data-testid="stElementContainer"] {
+        position: static !important;
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    div[class*="st-key-drawer_backdrop_btn"] .stButton,
+    div[class*="st-key-drawer_backdrop_btn"] .stButton > button {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        background: rgba(15,42,51,.42) !important;
+        box-shadow: none !important;
+        opacity: 1 !important;
+        color: transparent !important;
+        -webkit-text-fill-color: transparent !important;
+        touch-action: manipulation;
+    }
+    [data-testid="stMain"] { margin-left: 0 !important; }
+}
+
+@media (min-width: 721px) {
+    /* Desktop: hide mobile toggle, keep decorative hamburger + hover rail */
+    [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:first-child:has(.stButton) {
+        display: none !important;
+    }
+    #mobile-drawer-state { display: none !important; }
+    div[class*="st-key-drawer_backdrop_btn"] { display: none !important; }
+}
+
 /* ── Typography base ── */
 h1, h2, h3, h4, p, div, span, label {
     font-family: 'Bricolage Grotesque', sans-serif !important;
@@ -1810,38 +1967,56 @@ h1, h2, h3, h4, p, div, span, label {
 
 @media (max-width: 720px) {
     .block-container {
-        padding-top: 24px !important;
-        padding-left: 18px !important;
-        padding-right: 18px !important;
-        padding-bottom: 64px !important;
+        padding-top: 56px !important;
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+        padding-bottom: 80px !important;
         max-width: 100% !important;
     }
     .eyebrow {
         gap: 8px;
         font-size: 9px;
         letter-spacing: .24em;
-        white-space: nowrap;
+        white-space: normal;
+        flex-wrap: wrap;
+        justify-content: center;
+        text-align: center;
     }
     .eyebrow .dash { width: 18px; }
     .wordmark {
-        font-size: 42px;
-        line-height: 1;
-        margin-top: 16px;
+        font-size: 36px;
+        line-height: 1.05;
+        margin-top: 12px;
     }
     .tagline {
         font-size: 11px;
         line-height: 1.7;
         margin-bottom: 22px;
+        word-break: break-word;
     }
     .stButton > button,
     [data-testid="stBaseButton-primary"],
     [data-testid="stBaseButton-secondary"] {
         min-height: 46px !important;
         padding: 11px 14px !important;
-        white-space: nowrap !important;
-        word-break: keep-all !important;
-        overflow-wrap: normal !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
     }
+    /* Stack multi-column layouts across all modules */
+    [data-testid="stMain"] [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+    [data-testid="stMain"] [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+    .steps { flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .step { font-size: 11px; padding: 8px 12px; }
+    .pg-hero { padding: 20px 16px !important; }
+    .pg-hero h1 { font-size: 26px !important; }
 }
 
 /* ── Touch target minimums ── */
@@ -2044,9 +2219,22 @@ APP_NAV = [
 
 
 def render_app_drawer() -> None:
+    st.session_state.setdefault("drawer_open", False)
     current = st.session_state.get("app_view", "agent")
     close_feedback_on_view_change()
+
+    drawer_state = "open" if st.session_state.drawer_open else "closed"
+    st.markdown(
+        f'<div id="mobile-drawer-state" class="drawer-state-{drawer_state}" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+
     with st.sidebar:
+        toggle_icon = "✕" if st.session_state.drawer_open else "☰"
+        if st.button(toggle_icon, key="drawer_toggle", help="Open menu"):
+            st.session_state.drawer_open = not st.session_state.drawer_open
+            st.rerun()
+
         st.markdown(
             """
             <div class="drawer-hamburger" aria-hidden="true">
@@ -2067,8 +2255,18 @@ def render_app_drawer() -> None:
                 type="primary" if current == view_id else "secondary",
             ):
                 st.session_state.feedback_open = False
+                st.session_state.drawer_open = False
                 st.session_state.app_view = view_id
                 st.rerun()
+
+
+def render_mobile_drawer_backdrop() -> None:
+    """Full-screen tap target to close the mobile drawer."""
+    if not st.session_state.get("drawer_open"):
+        return
+    if st.button("Close menu", key="drawer_backdrop_btn"):
+        st.session_state.drawer_open = False
+        st.rerun()
 
 
 def render_agent_hero() -> None:
@@ -2089,6 +2287,7 @@ def render_agent_hero() -> None:
 
 
 render_app_drawer()
+render_mobile_drawer_backdrop()
 
 _active_view = st.session_state.get("app_view", "agent")
 _MODULE_VIEWS = frozenset({"crm", "reach", "intel", "proposal", "finance"})

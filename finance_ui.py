@@ -140,6 +140,25 @@ _CSS = """
 .fin-stat.paid .n { color: var(--green); }
 .fin-stat.over .n { color: var(--red); }
 @media (max-width: 640px) { .fin-stats { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 720px) {
+    .fin-head h2 { font-size: 26px; }
+    .fin-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .fin-stat { padding: 12px; }
+    .fin-stat .n { font-size: 18px; }
+    .fin-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 14px;
+    }
+    .fin-row .fin-amt { text-align: left; }
+    .fin-ready {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .fin-co-card { padding: 10px 12px; }
+    .fin-co-card.sel { transform: none; }
+}
 
 /* Invoice ledger row */
 .fin-row {
