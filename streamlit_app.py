@@ -572,13 +572,33 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         white-space: normal !important;
         line-height: 1.25 !important;
     }
-    div[class*="st-key-agent_upload_row"] [data-testid="column"]:first-child { flex: 0 0 44px !important; width: 44px !important; }
-    div[class*="st-key-agent_upload_row"] [data-testid="column"]:nth-child(2) { flex: 1 1 auto !important; }
+    div[class*="st-key-agent_upload_row"] [data-testid="stHorizontalBlock"] {
+        width: 100% !important;
+        min-width: 0 !important;
+        gap: 4px !important;
+    }
+    div[class*="st-key-agent_upload_row"] [data-testid="column"]:first-child { flex: 0 0 40px !important; width: 40px !important; min-width: 40px !important; }
+    /* Middle hint must be allowed to shrink + truncate, or it shoves the
+       send button off-screen (flex items default to min-width:auto). */
+    div[class*="st-key-agent_upload_row"] [data-testid="column"]:nth-child(2) {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+    div[class*="st-key-agent_upload_row"] [data-testid="column"]:nth-child(2) .composer-hint {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        letter-spacing: .06em !important;
+        padding-left: 6px !important;
+    }
     /* Keep the desktop circular send button on mobile, just touch-sized */
     div[class*="st-key-agent_upload_row"] [data-testid="column"]:last-child {
         flex: 0 0 48px !important;
         width: 48px !important;
+        min-width: 48px !important;
         display: flex !important;
+        justify-content: flex-end !important;
     }
     [data-testid="stForm"] [data-testid="stFormSubmitButton"] button {
         width: 44px !important;
