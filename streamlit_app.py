@@ -361,80 +361,82 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
 
 /* ── Mobile drawer — touch-friendly overlay ── */
 @media (max-width: 720px), ((max-width: 960px) and (hover: none)) {
-    /* Full-width content — sidebar hidden until menu opens */
+    /* Desktop hover-sidebar is fully hidden on mobile — navigation lives in the
+       tap-driven overlay menu (render_mobile_drawer_menu), which is built from
+       real Streamlit buttons so it never depends on CSS :has() support. */
     [data-testid="stAppViewContainer"] > section[data-testid="stSidebar"] {
         flex: 0 0 0 !important;
         width: 0 !important;
         max-width: 0 !important;
         min-width: 0 !important;
-        overflow: visible !important;
-    }
-    [data-testid="stSidebar"] {
-        position: fixed !important;
-        left: 0 !important;
-        top: 0 !important;
-        bottom: 0 !important;
-        height: 100dvh !important;
-        min-width: 0 !important;
-        max-width: 0 !important;
-        width: 0 !important;
-        transform: translateX(-100%) !important;
-        transition: transform .24s var(--ease-out), width .24s var(--ease-out), max-width .24s var(--ease-out), box-shadow .24s var(--ease-out) !important;
-        z-index: 10002 !important;
-        border-right: none !important;
-        box-shadow: none !important;
         overflow: hidden !important;
-        contain: none !important;
-        pointer-events: none !important;
     }
+    [data-testid="stSidebar"] { display: none !important; }
     .drawer-hamburger { display: none !important; }
 
-    /* Open: slide-in nav panel */
-    .stApp:has(#mobile-drawer-state.drawer-state-open) [data-testid="stSidebar"] {
-        min-width: 260px !important;
-        max-width: 260px !important;
-        width: 260px !important;
-        transform: translateX(0) !important;
-        box-shadow: 10px 0 40px rgba(15,42,51,.18) !important;
+    /* Slide-in nav overlay panel */
+    div[class*="st-key-mobile_drawer_panel"] {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        height: 100dvh !important;
+        width: min(82vw, 300px) !important;
+        z-index: 10005 !important;
+        margin: 0 !important;
+        padding: calc(66px + env(safe-area-inset-top, 0px)) 16px calc(22px + env(safe-area-inset-bottom, 0px)) !important;
+        background: linear-gradient(180deg, rgba(253,252,249,.99) 0%, rgba(239,234,222,.97) 100%) !important;
         border-right: 1px solid var(--line-soft) !important;
+        border-radius: 0 18px 18px 0 !important;
+        box-shadow: 12px 0 44px rgba(15,42,51,.22) !important;
         overflow-y: auto !important;
         pointer-events: auto !important;
+        animation: mobileDrawerIn .24s var(--ease-out) both !important;
     }
-    .stApp:has(#mobile-drawer-state.drawer-state-open) [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
-        padding: 16px 12px 24px !important;
-        background: linear-gradient(180deg, rgba(253,252,249,.98) 0%, rgba(239,234,222,.92) 100%) !important;
-        border-radius: 0 16px 16px 0 !important;
+    div[class*="st-key-mobile_drawer_panel"] .drawer-menu-title {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+        color: var(--green);
+        margin: 0 0 14px 4px;
     }
-    .stApp:has(#mobile-drawer-state.drawer-state-open) [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton) {
-        opacity: 1 !important;
-        max-height: 80px !important;
-        margin-bottom: 6px !important;
-        pointer-events: auto !important;
-        transform: translateX(0) !important;
-        overflow: visible !important;
+    div[class*="st-key-mobile_drawer_panel"] .stButton {
+        margin: 0 0 8px !important;
+        width: 100% !important;
     }
-    .stApp:has(#mobile-drawer-state.drawer-state-open) .drawer-hero {
-        opacity: 1 !important;
-        max-height: 72px !important;
-        margin: 0 0 10px !important;
-        padding: 0 6px 10px !important;
-        pointer-events: auto !important;
-        border-bottom: 1px solid var(--line-soft);
+    div[class*="st-key-mobile_drawer_panel"] .stButton > button {
+        width: 100% !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+        padding: 12px 14px !important;
+        min-height: 48px !important;
+        border-radius: var(--radius-sm) !important;
+        font-family: 'Bricolage Grotesque', sans-serif !important;
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        letter-spacing: .005em !important;
     }
-    /* Closed: hide all sidebar nav */
-    .stApp:has(#mobile-drawer-state.drawer-state-closed) [data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"]:has(.stButton) {
-        opacity: 0 !important;
-        max-height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-        pointer-events: none !important;
+    div[class*="st-key-mobile_drawer_panel"] .stButton > button[kind="secondary"],
+    div[class*="st-key-mobile_drawer_panel"] [data-testid="stBaseButton-secondary"] {
+        background: rgba(255,255,255,.5) !important;
+        color: var(--ink) !important;
+        -webkit-text-fill-color: var(--ink) !important;
+        border: 1.5px solid var(--line-soft) !important;
+        box-shadow: none !important;
+        transform: none !important;
     }
-    .stApp:has(#mobile-drawer-state.drawer-state-closed) .drawer-hero {
-        opacity: 0 !important;
-        max-height: 0 !important;
-        pointer-events: none !important;
+    div[class*="st-key-mobile_drawer_panel"] .stButton > button[kind="primary"],
+    div[class*="st-key-mobile_drawer_panel"] [data-testid="stBaseButton-primary"] {
+        background: var(--green) !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        border: 1.5px solid var(--green) !important;
+        box-shadow: 0 2px 8px rgba(46,139,77,.18) !important;
+        transform: none !important;
     }
+    div[class*="st-key-mobile_drawer_panel"] [data-testid="stBaseButton-primary"]::after { display: none !important; }
 
     /* Fixed hamburger — lives in MAIN content, always visible */
     div[class*="st-key-mobile_nav_toggle"],
@@ -494,57 +496,11 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         cursor: pointer !important;
     }
 
-    /* Bottom tab bar — primary mobile navigation (always tappable) */
-    div[class*="st-key-mobile_bottom_nav"],
-    [data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stHorizontalBlock"] .st-key-mbnav_agent) {
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        z-index: 10008 !important;
-        pointer-events: auto !important;
-        touch-action: manipulation;
-    }
-    div[class*="st-key-mobile_bottom_nav"] {
-        background: linear-gradient(180deg, rgba(253,252,249,.94), rgba(244,240,231,.98)) !important;
-        border-top: 1px solid var(--line-soft) !important;
-        box-shadow: 0 -6px 24px rgba(15,42,51,.10) !important;
-        padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)) !important;
-        margin: 0 !important;
-    }
-    div[class*="st-key-mobile_bottom_nav"] [data-testid="stHorizontalBlock"] {
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 4px !important;
-        align-items: stretch !important;
-    }
-    div[class*="st-key-mobile_bottom_nav"] [data-testid="column"] {
-        flex: 1 1 0 !important;
-        min-width: 0 !important;
-        width: auto !important;
-        padding: 0 2px !important;
-    }
-    div[class*="st-key-mobile_bottom_nav"] .stButton {
-        margin: 0 !important;
-        width: 100% !important;
-    }
-    div[class*="st-key-mobile_bottom_nav"] .stButton > button {
-        width: 100% !important;
-        min-height: 42px !important;
-        padding: 6px 2px !important;
-        font-size: 10px !important;
-        font-weight: 700 !important;
-        line-height: 1.15 !important;
-        white-space: normal !important;
-        touch-action: manipulation;
-        pointer-events: auto !important;
-    }
-
-    /* Backdrop */
+    /* Backdrop — dim layer behind the slide-in nav panel */
     div[class*="st-key-drawer_backdrop_btn"] {
         position: fixed !important;
         inset: 0 !important;
-        z-index: 10001 !important;
+        z-index: 10004 !important;
         width: 100% !important;
         height: 100% !important;
         margin: 0 !important;
@@ -639,9 +595,8 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
 }
 
 @media (min-width: 721px) {
-    #mobile-drawer-state { display: none !important; }
     div[class*="st-key-mobile_nav_toggle"] { display: none !important; }
-    div[class*="st-key-mobile_bottom_nav"] { display: none !important; }
+    div[class*="st-key-mobile_drawer_panel"] { display: none !important; }
     div[class*="st-key-drawer_backdrop_btn"] { display: none !important; }
     div[class*="st-key-agent_run_btn"] { display: none !important; }
     div[class*="st-key-agent_upload_row"] [data-testid="column"]:last-child { display: block !important; flex: 0 0 44px !important; width: 44px !important; }
@@ -2000,6 +1955,10 @@ h1, h2, h3, h4, p, div, span, label {
     from { opacity: 0; transform: translateX(-12px); box-shadow: inset -1px 0 0 transparent; }
     to   { opacity: 1; transform: translateX(0); box-shadow: inset -1px 0 0 rgba(46,139,77,.08); }
 }
+@keyframes mobileDrawerIn {
+    from { opacity: 0; transform: translateX(-100%); }
+    to   { opacity: 1; transform: translateX(0); }
+}
 @keyframes drawerHeroIn {
     from { opacity: 0; transform: translateY(-8px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -2378,53 +2337,47 @@ def render_app_drawer() -> None:
 
 
 def render_mobile_nav_shell() -> None:
-    """Fixed hamburger in main content — always visible on touch screens."""
+    """Fixed hamburger toggle in main content — always visible on touch screens."""
     st.session_state.setdefault("drawer_open", False)
-    drawer_state = "open" if st.session_state.drawer_open else "closed"
-    st.markdown(
-        f'<div id="mobile-drawer-state" class="drawer-state-{drawer_state}" aria-hidden="true"></div>',
-        unsafe_allow_html=True,
-    )
     toggle_icon = "✕" if st.session_state.drawer_open else "☰"
-    if st.button(toggle_icon, key="mobile_nav_toggle", help="Open menu"):
+    if st.button(toggle_icon, key="mobile_nav_toggle", help="Menu"):
         st.session_state.drawer_open = not st.session_state.drawer_open
         st.rerun()
 
 
-def render_mobile_bottom_nav() -> None:
-    """Fixed bottom tab bar — reliable touch navigation between modules."""
-    current = st.session_state.get("app_view", "agent")
-    labels = {
-        "agent": "Agent",
-        "reach": "Reach",
-        "intel": "Intel",
-        "proposal": "Prop",
-        "finance": "Finance",
-        "crm": "CRM",
-    }
-    with st.container(key="mobile_bottom_nav"):
-        cols = st.columns(len(APP_NAV))
-        for col, (view_id, _) in zip(cols, APP_NAV):
-            with col:
-                if st.button(
-                    labels.get(view_id, view_id.title()),
-                    key=f"mbnav_{view_id}",
-                    use_container_width=True,
-                    type="primary" if current == view_id else "secondary",
-                ):
-                    st.session_state.feedback_open = False
-                    st.session_state.drawer_open = False
-                    st.session_state.app_view = view_id
-                    st.rerun()
+def render_mobile_drawer_menu() -> None:
+    """Tap-driven slide-in nav overlay for mobile.
 
-
-def render_mobile_drawer_backdrop() -> None:
-    """Full-screen tap target to close the mobile drawer."""
+    Built entirely from real Streamlit buttons + Python state so it never
+    depends on CSS :has() support — every tap reliably reruns and navigates.
+    """
     if not st.session_state.get("drawer_open"):
         return
+
+    current = st.session_state.get("app_view", "agent")
+
+    # Full-screen backdrop: tap anywhere outside the panel to close.
     if st.button("Close menu", key="drawer_backdrop_btn"):
         st.session_state.drawer_open = False
         st.rerun()
+
+    # Slide-in panel with the module links.
+    with st.container(key="mobile_drawer_panel"):
+        st.markdown(
+            '<div class="drawer-menu-title">FocusChain Labs · Modules</div>',
+            unsafe_allow_html=True,
+        )
+        for view_id, label in APP_NAV:
+            if st.button(
+                label,
+                key=f"mnav_{view_id}",
+                use_container_width=True,
+                type="primary" if current == view_id else "secondary",
+            ):
+                st.session_state.feedback_open = False
+                st.session_state.drawer_open = False
+                st.session_state.app_view = view_id
+                st.rerun()
 
 
 def render_agent_hero() -> None:
@@ -2446,8 +2399,7 @@ def render_agent_hero() -> None:
 
 render_app_drawer()
 render_mobile_nav_shell()
-render_mobile_drawer_backdrop()
-render_mobile_bottom_nav()
+render_mobile_drawer_menu()
 
 _active_view = st.session_state.get("app_view", "agent")
 _MODULE_VIEWS = frozenset({"crm", "reach", "intel", "proposal", "finance"})
