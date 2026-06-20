@@ -385,6 +385,7 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         box-shadow: none !important;
         overflow: hidden !important;
         contain: none !important;
+        pointer-events: none !important;
     }
     .drawer-hamburger { display: none !important; }
 
@@ -397,6 +398,7 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         box-shadow: 10px 0 40px rgba(15,42,51,.18) !important;
         border-right: 1px solid var(--line-soft) !important;
         overflow-y: auto !important;
+        pointer-events: auto !important;
     }
     .stApp:has(#mobile-drawer-state.drawer-state-open) [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
         padding: 16px 12px 24px !important;
@@ -435,33 +437,46 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     }
 
     /* Fixed hamburger — lives in MAIN content, always visible */
-    div[class*="st-key-mobile_nav_toggle"] {
+    div[class*="st-key-mobile_nav_toggle"],
+    [data-testid="stElementContainer"].st-key-mobile_nav_toggle,
+    .st-key-mobile_nav_toggle {
         position: fixed !important;
         top: max(10px, env(safe-area-inset-top, 0px)) !important;
         left: max(10px, env(safe-area-inset-left, 0px)) !important;
-        z-index: 10005 !important;
-        width: 44px !important;
-        height: 44px !important;
+        z-index: 10010 !important;
+        width: 48px !important;
+        height: 48px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        pointer-events: auto !important;
+        touch-action: manipulation;
+    }
+    div[class*="st-key-mobile_nav_toggle"] *,
+    [data-testid="stElementContainer"].st-key-mobile_nav_toggle *,
+    .st-key-mobile_nav_toggle * {
+        pointer-events: auto !important;
+    }
+    div[class*="st-key-mobile_nav_toggle"] [data-testid="stVerticalBlock"],
+    div[class*="st-key-mobile_nav_toggle"] [data-testid="stElementContainer"],
+    [data-testid="stElementContainer"].st-key-mobile_nav_toggle {
+        width: 48px !important;
+        height: 48px !important;
         margin: 0 !important;
         padding: 0 !important;
         pointer-events: auto !important;
     }
-    div[class*="st-key-mobile_nav_toggle"] [data-testid="stVerticalBlock"],
-    div[class*="st-key-mobile_nav_toggle"] [data-testid="stElementContainer"] {
-        width: 44px !important;
-        height: 44px !important;
+    div[class*="st-key-mobile_nav_toggle"] .stButton,
+    [data-testid="stElementContainer"].st-key-mobile_nav_toggle .stButton {
         margin: 0 !important;
-        padding: 0 !important;
+        width: 48px !important;
+        pointer-events: auto !important;
     }
-    div[class*="st-key-mobile_nav_toggle"] .stButton {
-        margin: 0 !important;
-        width: 44px !important;
-    }
-    div[class*="st-key-mobile_nav_toggle"] .stButton > button {
-        width: 44px !important;
-        min-width: 44px !important;
-        height: 44px !important;
-        min-height: 44px !important;
+    div[class*="st-key-mobile_nav_toggle"] .stButton > button,
+    [data-testid="stElementContainer"].st-key-mobile_nav_toggle button {
+        width: 48px !important;
+        min-width: 48px !important;
+        height: 48px !important;
+        min-height: 48px !important;
         padding: 0 !important;
         border-radius: 10px !important;
         font-size: 22px !important;
@@ -475,6 +490,54 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         color: var(--ink) !important;
         -webkit-text-fill-color: var(--ink) !important;
         touch-action: manipulation;
+        pointer-events: auto !important;
+        cursor: pointer !important;
+    }
+
+    /* Bottom tab bar — primary mobile navigation (always tappable) */
+    div[class*="st-key-mobile_bottom_nav"],
+    [data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stHorizontalBlock"] .st-key-mbnav_agent) {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 10008 !important;
+        pointer-events: auto !important;
+        touch-action: manipulation;
+    }
+    div[class*="st-key-mobile_bottom_nav"] {
+        background: linear-gradient(180deg, rgba(253,252,249,.94), rgba(244,240,231,.98)) !important;
+        border-top: 1px solid var(--line-soft) !important;
+        box-shadow: 0 -6px 24px rgba(15,42,51,.10) !important;
+        padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)) !important;
+        margin: 0 !important;
+    }
+    div[class*="st-key-mobile_bottom_nav"] [data-testid="stHorizontalBlock"] {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+        align-items: stretch !important;
+    }
+    div[class*="st-key-mobile_bottom_nav"] [data-testid="column"] {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        width: auto !important;
+        padding: 0 2px !important;
+    }
+    div[class*="st-key-mobile_bottom_nav"] .stButton {
+        margin: 0 !important;
+        width: 100% !important;
+    }
+    div[class*="st-key-mobile_bottom_nav"] .stButton > button {
+        width: 100% !important;
+        min-height: 42px !important;
+        padding: 6px 2px !important;
+        font-size: 10px !important;
+        font-weight: 700 !important;
+        line-height: 1.15 !important;
+        white-space: normal !important;
+        touch-action: manipulation;
+        pointer-events: auto !important;
     }
 
     /* Backdrop */
@@ -515,6 +578,12 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     [data-testid="stMain"] { margin-left: 0 !important; }
 
     /* Keep specific rows horizontal */
+    div[class*="st-key-agent_template_row"] {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -4px;
+        padding: 0 4px 4px;
+    }
     div[class*="st-key-agent_template_row"] [data-testid="stHorizontalBlock"],
     div[class*="st-key-agent_upload_row"] [data-testid="stHorizontalBlock"],
     div[class*="st-key-agent_results_actions"] [data-testid="stHorizontalBlock"] {
@@ -523,10 +592,13 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         align-items: center !important;
         gap: 8px !important;
     }
+    div[class*="st-key-agent_template_row"] [data-testid="stHorizontalBlock"] {
+        min-width: min(100%, 340px);
+    }
     div[class*="st-key-agent_template_row"] [data-testid="column"] {
         flex: 1 1 0 !important;
         width: auto !important;
-        min-width: 0 !important;
+        min-width: 100px !important;
     }
     div[class*="st-key-agent_template_row"] .stButton > button {
         font-size: 11px !important;
@@ -537,7 +609,14 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     }
     div[class*="st-key-agent_upload_row"] [data-testid="column"]:first-child { flex: 0 0 44px !important; width: 44px !important; }
     div[class*="st-key-agent_upload_row"] [data-testid="column"]:nth-child(2) { flex: 1 1 auto !important; }
-    div[class*="st-key-agent_upload_row"] [data-testid="column"]:last-child { flex: 0 0 44px !important; width: 44px !important; }
+    div[class*="st-key-agent_upload_row"] [data-testid="column"]:last-child { display: none !important; }
+    div[class*="st-key-agent_run_btn"] { margin-top: 8px !important; }
+    div[class*="st-key-agent_run_btn"] .stButton > button {
+        min-height: 48px !important;
+        font-size: 15px !important;
+        font-weight: 700 !important;
+        touch-action: manipulation;
+    }
 
     /* Stack wide split layouts only where marked */
     div[class*="st-key-mobile_stack"] [data-testid="stHorizontalBlock"] {
@@ -562,7 +641,10 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
 @media (min-width: 721px) {
     #mobile-drawer-state { display: none !important; }
     div[class*="st-key-mobile_nav_toggle"] { display: none !important; }
+    div[class*="st-key-mobile_bottom_nav"] { display: none !important; }
     div[class*="st-key-drawer_backdrop_btn"] { display: none !important; }
+    div[class*="st-key-agent_run_btn"] { display: none !important; }
+    div[class*="st-key-agent_upload_row"] [data-testid="column"]:last-child { display: block !important; flex: 0 0 44px !important; width: 44px !important; }
 }
 
 /* ── Typography base ── */
@@ -2019,7 +2101,7 @@ h1, h2, h3, h4, p, div, span, label {
         padding-top: 60px !important;
         padding-left: 16px !important;
         padding-right: 16px !important;
-        padding-bottom: 88px !important;
+        padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
         max-width: 100% !important;
     }
     .eyebrow {
@@ -2309,6 +2391,33 @@ def render_mobile_nav_shell() -> None:
         st.rerun()
 
 
+def render_mobile_bottom_nav() -> None:
+    """Fixed bottom tab bar — reliable touch navigation between modules."""
+    current = st.session_state.get("app_view", "agent")
+    labels = {
+        "agent": "Agent",
+        "reach": "Reach",
+        "intel": "Intel",
+        "proposal": "Prop",
+        "finance": "Finance",
+        "crm": "CRM",
+    }
+    with st.container(key="mobile_bottom_nav"):
+        cols = st.columns(len(APP_NAV))
+        for col, (view_id, _) in zip(cols, APP_NAV):
+            with col:
+                if st.button(
+                    labels.get(view_id, view_id.title()),
+                    key=f"mbnav_{view_id}",
+                    use_container_width=True,
+                    type="primary" if current == view_id else "secondary",
+                ):
+                    st.session_state.feedback_open = False
+                    st.session_state.drawer_open = False
+                    st.session_state.app_view = view_id
+                    st.rerun()
+
+
 def render_mobile_drawer_backdrop() -> None:
     """Full-screen tap target to close the mobile drawer."""
     if not st.session_state.get("drawer_open"):
@@ -2338,6 +2447,7 @@ def render_agent_hero() -> None:
 render_app_drawer()
 render_mobile_nav_shell()
 render_mobile_drawer_backdrop()
+render_mobile_bottom_nav()
 
 _active_view = st.session_state.get("app_view", "agent")
 _MODULE_VIEWS = frozenset({"crm", "reach", "intel", "proposal", "finance"})
@@ -2504,8 +2614,10 @@ if st.session_state.stage == "setup":
                             unsafe_allow_html=True)
             with _btn:
                 run = st.form_submit_button("↑")
+        with st.container(key="agent_run_btn"):
+            run_mobile = st.form_submit_button("Run Agent →", type="primary", use_container_width=True)
 
-    if run:
+    if run or run_mobile:
         if not prompt.strip():
             st.warning("Add a brief — even one sentence — so the planner can build a search plan.")
             st.stop()

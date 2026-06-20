@@ -111,7 +111,7 @@ div[class*="st-key-fcl_feedback_floater"] button:active {
 
 @media (max-width: 720px) {
     div[class*="st-key-fcl_feedback_floater"] {
-        bottom: 20px !important;
+        bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
         right: 16px !important;
         width: 52px !important;
         height: 52px !important;
