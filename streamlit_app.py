@@ -159,7 +159,8 @@ html, body { margin: 0; padding: 0; }
 }
 
 /* hide header chrome */
-header[data-testid="stHeader"] { background: transparent !important; height: 0 !important; }
+header[data-testid="stHeader"] { background: transparent !important; height: 0 !important; pointer-events: none !important; }
+[data-testid="stDecoration"] { display: none !important; }
 
 /* ── Left drawer — narrow rail, expands on hover ── */
 [data-testid="stSidebar"],
@@ -204,7 +205,15 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     background: transparent !important;
     width: 100% !important;
 }
-[data-testid="collapsedControl"] { display: none !important; }
+/* Hide every native sidebar collapse/expand control across Streamlit versions —
+   they render invisibly at the top-left and would otherwise intercept taps on
+   our custom mobile hamburger. */
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapse"],
+[data-testid="baseButton-headerNoPadding"] { display: none !important; }
 .drawer-hamburger {
     position: fixed;
     top: 10px;
@@ -382,7 +391,7 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
         bottom: 0 !important;
         height: 100dvh !important;
         width: min(82vw, 300px) !important;
-        z-index: 10005 !important;
+        z-index: 2147482000 !important;
         margin: 0 !important;
         padding: calc(66px + env(safe-area-inset-top, 0px)) 16px calc(22px + env(safe-area-inset-bottom, 0px)) !important;
         background: linear-gradient(180deg, rgba(253,252,249,.99) 0%, rgba(239,234,222,.97) 100%) !important;
@@ -443,9 +452,9 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     [data-testid="stElementContainer"].st-key-mobile_nav_toggle,
     .st-key-mobile_nav_toggle {
         position: fixed !important;
-        top: max(10px, env(safe-area-inset-top, 0px)) !important;
-        left: max(10px, env(safe-area-inset-left, 0px)) !important;
-        z-index: 10010 !important;
+        top: max(12px, env(safe-area-inset-top, 0px)) !important;
+        left: max(12px, env(safe-area-inset-left, 0px)) !important;
+        z-index: 2147483000 !important;
         width: 48px !important;
         height: 48px !important;
         margin: 0 !important;
@@ -500,7 +509,7 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     div[class*="st-key-drawer_backdrop_btn"] {
         position: fixed !important;
         inset: 0 !important;
-        z-index: 10004 !important;
+        z-index: 2147481000 !important;
         width: 100% !important;
         height: 100% !important;
         margin: 0 !important;
@@ -565,13 +574,18 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     }
     div[class*="st-key-agent_upload_row"] [data-testid="column"]:first-child { flex: 0 0 44px !important; width: 44px !important; }
     div[class*="st-key-agent_upload_row"] [data-testid="column"]:nth-child(2) { flex: 1 1 auto !important; }
-    div[class*="st-key-agent_upload_row"] [data-testid="column"]:last-child { display: none !important; }
-    div[class*="st-key-agent_run_btn"] { margin-top: 8px !important; }
-    div[class*="st-key-agent_run_btn"] .stButton > button {
-        min-height: 48px !important;
-        font-size: 15px !important;
-        font-weight: 700 !important;
-        touch-action: manipulation;
+    /* Keep the desktop circular send button on mobile, just touch-sized */
+    div[class*="st-key-agent_upload_row"] [data-testid="column"]:last-child {
+        flex: 0 0 48px !important;
+        width: 48px !important;
+        display: flex !important;
+    }
+    [data-testid="stForm"] [data-testid="stFormSubmitButton"] button {
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        font-size: 19px !important;
     }
 
     /* Stack wide split layouts only where marked */
@@ -598,8 +612,6 @@ header[data-testid="stHeader"] { background: transparent !important; height: 0 !
     div[class*="st-key-mobile_nav_toggle"] { display: none !important; }
     div[class*="st-key-mobile_drawer_panel"] { display: none !important; }
     div[class*="st-key-drawer_backdrop_btn"] { display: none !important; }
-    div[class*="st-key-agent_run_btn"] { display: none !important; }
-    div[class*="st-key-agent_upload_row"] [data-testid="column"]:last-child { display: block !important; flex: 0 0 44px !important; width: 44px !important; }
 }
 
 /* ── Typography base ── */
@@ -2566,10 +2578,8 @@ if st.session_state.stage == "setup":
                             unsafe_allow_html=True)
             with _btn:
                 run = st.form_submit_button("↑")
-        with st.container(key="agent_run_btn"):
-            run_mobile = st.form_submit_button("Run Agent →", type="primary", use_container_width=True)
 
-    if run or run_mobile:
+    if run:
         if not prompt.strip():
             st.warning("Add a brief — even one sentence — so the planner can build a search plan.")
             st.stop()
