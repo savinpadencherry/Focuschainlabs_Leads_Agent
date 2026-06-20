@@ -149,6 +149,63 @@ def _save_postgres(data: dict[str, Any], org: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+def _read_seed_contacts() -> list[dict[str, Any]]:
+    """Existing leads to migrate into Supabase on first connect.
+
+    Reads the repo-committed JSON (data/crm/contacts.json) that the GitHub
+    backend has been using — the source of truth before the cut-over.
+    """
+    data, _ = _load_local()
+    return [c for c in (data.get("contacts") or []) if isinstance(c, dict)]
+
+
+def _load_supabase() -> tuple[dict[str, Any], dict[str, Any]]:
+    from utils import crm_store_supabase as sb
+
+    try:
+        contacts = sb.load_all_contacts()
+        migrated = 0
+        # One-time migration: an empty table on first connect gets seeded from
+        # the existing repo JSON. Upsert-by-id makes this safe to retry.
+        if not contacts:
+            seed = _read_seed_contacts()
+            if seed:
+                migrated = sb.bulk_upsert(seed)
+                contacts = sb.load_all_contacts()
+        data = _normalize_db({"contacts": contacts, "custom_statuses": []})
+        return data, {
+            "source": "supabase", "sha": None, "count": len(contacts),
+            "migrated": migrated,
+        }
+    except Exception as exc:  # noqa: BLE001 - never crash the page on a DB hiccup
+        return empty_crm_db(), {
+            "source": "supabase", "sha": None,
+            "error": (
+                f"Supabase read failed: {exc}. Confirm the `contacts` table "
+                "exists (run db/schema.sql in the Supabase SQL editor) and that "
+                "SUPABASE_URL / SUPABASE_KEY are set."
+            ),
+        }
+
+
+def _save_supabase(data: dict[str, Any]) -> dict[str, Any]:
+    from utils import crm_store_supabase as sb
+
+    payload = _normalize_db(data)
+    payload["updated_at"] = utc_now_iso()
+    try:
+        n = sb.replace_all_contacts(payload.get("contacts") or [])
+        return {"source": "supabase", "sha": None, "committed": True, "count": n}
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "source": "supabase", "committed": False,
+            "error": (
+                f"Supabase write failed: {exc}. Confirm the `contacts` table "
+                "exists and SUPABASE_KEY has write access (service-role key)."
+            ),
+        }
+
+
 def load_crm(
     *, force_remote: bool = False, org: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -161,6 +218,10 @@ def load_crm(
     """
     if org and org.get("backend") == "postgres":
         return _load_postgres(org)
+
+    from utils import crm_store_supabase as sb
+    if sb.supabase_configured():
+        return _load_supabase()
 
     if github_configured() or force_remote:
         token = _github_token()
@@ -224,6 +285,10 @@ def save_crm(
     """
     if org and org.get("backend") == "postgres":
         return _save_postgres(data, org)
+
+    from utils import crm_store_supabase as sb
+    if sb.supabase_configured():
+        return _save_supabase(data)
 
     payload = _normalize_db(data)
     payload["updated_at"] = utc_now_iso()
