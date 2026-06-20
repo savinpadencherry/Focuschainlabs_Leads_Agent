@@ -181,9 +181,9 @@ def _load_supabase() -> tuple[dict[str, Any], dict[str, Any]]:
         return empty_crm_db(), {
             "source": "supabase", "sha": None,
             "error": (
-                f"Supabase read failed: {exc}. Confirm the `contacts` table "
-                "exists (run db/schema.sql in the Supabase SQL editor) and that "
-                "SUPABASE_URL / SUPABASE_KEY are set."
+                f"Supabase read failed: {exc}. Confirm SUPABASE_URL / SUPABASE_KEY "
+                "are set and the shared `contacts` table exists (provisioned by the "
+                "mobile app's supabase/schema.sql)."
             ),
         }
 
@@ -200,8 +200,9 @@ def _save_supabase(data: dict[str, Any]) -> dict[str, Any]:
         return {
             "source": "supabase", "committed": False,
             "error": (
-                f"Supabase write failed: {exc}. Confirm the `contacts` table "
-                "exists and SUPABASE_KEY has write access (service-role key)."
+                f"Supabase write failed: {exc}. Confirm SUPABASE_KEY can write to "
+                "the shared `contacts` table (service-role key, or anon key under "
+                "the UAT RLS policies)."
             ),
         }
 

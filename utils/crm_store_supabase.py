@@ -1,53 +1,60 @@
 """Supabase-backed CRM store (PostgREST over HTTPS).
 
-This is the production persistence backend. Unlike utils/crm_store_pg.py (which
-needs a raw Postgres connection string + psycopg), this talks to Supabase's
-auto-generated REST API using the project's service-role key — so it works with
-just the URL + key the dashboard hands you, no DB password and no extra deps
-beyond `requests`.
+This is the production persistence backend and the SHARED database that the
+Flutter mobile app (Focuschainlabs_mobile) also reads/writes — so both the Leads
+Agent and the phone app see one source of truth.
+
+It targets the flat `contacts` schema the mobile app provisioned
+(supabase/schema.sql in that repo), NOT a JSONB document. Columns:
+
+    id, name, company, industry, phone, email, status, deal_status, value,
+    owner, source, sentiment, next_follow_up, notes, tags[], created_at,
+    updated_at
+
+Activity/comments live in a separate `interactions` table (not synced here yet).
 
 Config (env vars or Streamlit secrets):
     SUPABASE_URL   = https://<ref>.supabase.co        (or NEXT_PUBLIC_SUPABASE_URL)
-    SUPABASE_KEY   = <service-role JWT>                (preferred — bypasses RLS)
+    SUPABASE_KEY   = <service-role JWT>                (preferred — bypasses RLS;
+                                                        the anon/publishable key
+                                                        also works under the UAT
+                                                        RLS policies)
 
-The table is the `contacts` table from db/schema.sql ("hot columns + JSONB"):
-filterable fields are real columns; the rest of each contact lives in `data`.
-Run db/schema.sql once in the Supabase SQL editor to create it.
+Safety: because this DB has more than one writer, saves are NON-destructive.
+We upsert the contacts we know about and only delete rows the app explicitly
+removed — never a blanket "delete everything not in my list" — and we never
+overwrite the mobile-managed columns (sentiment / notes / tags).
 """
 
 from __future__ import annotations
 
 import os
-from datetime import date
 from typing import Any, Iterable
 
 import requests
 
-from utils.crm_models import contact_fingerprint
+from utils.crm_models import utc_now_iso
 
-# Hot columns extracted from each contact dict for indexed querying. Everything
-# else is preserved in the JSONB `data` column. Mirrors crm_store_pg._HOT_COLS.
-_HOT_COLS = (
-    "company", "name", "email", "phone", "industry", "owner",
-    "client", "value", "status", "deal_status", "source",
+# Columns this app owns and writes. We deliberately omit sentiment / notes /
+# tags so our saves never clobber values the mobile app set (PostgREST's
+# merge-duplicates only updates the columns we send).
+_WRITE_COLS = (
+    "name", "company", "industry", "phone", "email",
+    "status", "deal_status", "value", "owner", "source", "next_follow_up",
 )
+# Extra columns we read back for display but never write.
+_READ_EXTRA = ("sentiment", "notes", "tags")
 
 _TIMEOUT = 30
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
 def _url() -> str:
-    raw = (
-        os.getenv("SUPABASE_URL")
-        or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
-        or ""
-    ).strip()
+    raw = (os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or "").strip()
     return raw.rstrip("/")
 
 
 def _key() -> str:
-    # Prefer the service-role key (bypasses Row Level Security for server-side
-    # writes). Fall back to any other configured key.
     for name in (
         "SUPABASE_KEY",
         "SUPABASE_SERVICE_ROLE_KEY",
@@ -84,24 +91,28 @@ def _headers(extra: dict[str, str] | None = None) -> dict[str, str]:
 
 # ── Mapping between the app's contact dict and table rows ─────────────────────
 def _to_row(contact: dict[str, Any]) -> dict[str, Any]:
-    hot = {c: (contact.get(c) or "") for c in _HOT_COLS}
-    follow = contact.get("next_follow_up") or None
-    data = {
-        k: v for k, v in contact.items()
-        if k not in _HOT_COLS and k not in ("id", "next_follow_up")
-    }
-    row = {"id": contact["id"], **hot, "next_follow_up": follow, "data": data}
-    row["fingerprint"] = contact.get("fingerprint") or contact_fingerprint(contact)
+    row: dict[str, Any] = {"id": contact["id"]}
+    for c in _WRITE_COLS:
+        if c == "next_follow_up":
+            row[c] = contact.get("next_follow_up") or None
+        else:
+            # value may arrive as a number; the column is text.
+            row[c] = str(contact.get(c) or "")
+    row["updated_at"] = utc_now_iso()
     return row
 
 
 def _row_to_contact(row: dict[str, Any]) -> dict[str, Any]:
-    contact = dict(row.get("data") or {})
-    contact["id"] = row.get("id")
-    for c in _HOT_COLS:
-        contact[c] = row.get(c) or ""
-    nf = row.get("next_follow_up")
-    contact["next_follow_up"] = nf.isoformat() if isinstance(nf, date) else (nf or "")
+    contact: dict[str, Any] = {"id": row.get("id")}
+    for c in _WRITE_COLS:
+        if c == "next_follow_up":
+            contact[c] = row.get("next_follow_up") or ""
+        else:
+            contact[c] = row.get(c) or ""
+    contact["sentiment"] = row.get("sentiment") or ""
+    contact["notes"] = row.get("notes") or ""
+    tags = row.get("tags")
+    contact["tags"] = tags if isinstance(tags, list) else []
     return contact
 
 
@@ -122,13 +133,13 @@ def load_all_contacts() -> list[dict[str, Any]]:
     return [_row_to_contact(r) for r in resp.json()]
 
 
-def _all_ids() -> list[str]:
+def _all_ids() -> set[str]:
     resp = requests.get(
         _rest("contacts"), headers=_headers(),
         params={"select": "id"}, timeout=_TIMEOUT,
     )
     resp.raise_for_status()
-    return [r["id"] for r in resp.json() if r.get("id")]
+    return {r["id"] for r in resp.json() if r.get("id")}
 
 
 def count_contacts() -> int:
@@ -149,7 +160,7 @@ def count_contacts() -> int:
 
 # ── Writes ────────────────────────────────────────────────────────────────────
 def bulk_upsert(contacts: list[dict[str, Any]]) -> int:
-    """Insert-or-update many contacts by primary key `id`."""
+    """Insert-or-update contacts by primary key `id` (merge — never deletes)."""
     rows = [_to_row(c) for c in contacts if c.get("id")]
     if not rows:
         return 0
@@ -165,8 +176,8 @@ def bulk_upsert(contacts: list[dict[str, Any]]) -> int:
     return len(rows)
 
 
-def _delete_ids(ids: list[str]) -> None:
-    for batch in _chunks(ids, 100):
+def delete_contacts(ids: list[str]) -> None:
+    for batch in _chunks([i for i in ids if i], 100):
         quoted = ",".join(f'"{i}"' for i in batch)
         resp = requests.delete(
             _rest("contacts"),
@@ -178,16 +189,19 @@ def _delete_ids(ids: list[str]) -> None:
 
 
 def replace_all_contacts(contacts: list[dict[str, Any]]) -> int:
-    """Make the table mirror exactly this list — upsert all, delete the rest.
+    """Persist the app's current contact list to the SHARED table, safely.
 
-    Mirrors the GitHub-JSON store's "overwrite the whole file" semantics so
-    save_crm() can dispatch here with no behaviour change for callers.
+    Upserts everything in `contacts`, then deletes only rows that exist in
+    Supabase but are absent from this list (i.e. the user deleted them here).
+
+    Guard: an empty incoming list deletes NOTHING — a failed/empty load must
+    never be able to wipe the shared database.
     """
     incoming_ids = {c["id"] for c in contacts if c.get("id")}
-    if contacts:
-        bulk_upsert(contacts)
-    existing = set(_all_ids())
-    to_delete = list(existing - incoming_ids)
+    if not incoming_ids:
+        return 0
+    bulk_upsert(contacts)
+    to_delete = list(_all_ids() - incoming_ids)
     if to_delete:
-        _delete_ids(to_delete)
+        delete_contacts(to_delete)
     return len(incoming_ids)
