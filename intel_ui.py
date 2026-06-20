@@ -521,6 +521,14 @@ _CSS = """
     .ia-co-card.sel { transform: none; }
     .ia-signal-card { padding: 12px 14px; }
     .ia-sec { font-size: 9px; }
+    div[class*="st-key-intel_main_split"] [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 16px !important;
+    }
+    div[class*="st-key-intel_main_split"] [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+    }
 }
 </style>
 """
@@ -578,172 +586,173 @@ def _render_setup() -> None:
         )
         return
 
-    col_sel, col_cfg = st.columns([1.6, 1], gap="large")
+    with st.container(key="intel_main_split"):
+        col_sel, col_cfg = st.columns([1.6, 1], gap="large")
 
-    with col_sel:
-        st.markdown('<div class="ia-sec">Select companies to monitor</div>', unsafe_allow_html=True)
+        with col_sel:
+            st.markdown('<div class="ia-sec">Select companies to monitor</div>', unsafe_allow_html=True)
 
-        # Select all pipeline button
-        scol1, scol2 = st.columns(2)
-        with scol1:
-            if st.button("Select pipeline (active)", use_container_width=True, type="primary"):
-                st.session_state.intel_sel = {
-                    c.get("id") for c in pipeline_conts if c.get("id")
-                }
-                st.rerun()
-        with scol2:
-            if st.button("Clear selection", use_container_width=True):
-                st.session_state.intel_sel = set()
-                st.rerun()
-
-        st.session_state.setdefault("intel_sel", {
-            c.get("id") for c in pipeline_conts if c.get("id")
-        })
-        sel_ids: set = st.session_state.intel_sel
-
-        # Group: pipeline first, then others
-        groups = [
-            ("Active pipeline", pipeline_conts),
-            ("Other contacts", other_conts),
-        ]
-        for group_label, group_contacts in groups:
-            if not group_contacts:
-                continue
-            st.caption(group_label)
-            for c in sorted(group_contacts,
-                            key=lambda x: -int(x.get("score") or 0))[:40]:
-                cid   = c.get("id", "")
-                stage = c.get("status") or "new"
-                name  = c.get("company") or c.get("name") or "Unnamed"
-                sub   = " · ".join(p for p in [
-                    c.get("name", "") if c.get("name") != name else "",
-                    c.get("industry", ""),
-                ] if p)
-                is_sel = cid in sel_ids
-
-                stage_colors = {
-                    "new":       "#6B7F85",
-                    "contacted": "#B7791F",
-                    "qualified": "#1a6b3c",
-                    "proposal":  "#1a3a6b",
-                    "won":       "#2E8B4D",
-                    "lost":      "#A93D3D",
-                }
-                sc = stage_colors.get(stage, "#6B7F85")
-                card_cls = "co-sel-card sel" if is_sel else "co-sel-card"
-
-                st.markdown(f"""
-                <div class="{card_cls}">
-                  <div class="co-sel-name">{_e(name)}</div>
-                  <div class="co-sel-meta">
-                    {_e(sub)} &nbsp;·&nbsp;
-                    <span style="color:{sc};font-weight:700;font-size:10.5px;
-                                 text-transform:uppercase;letter-spacing:.06em;">
-                      {stage}</span>
-                  </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                btn_lbl  = "✓ Selected" if is_sel else "Select"
-                btn_type = "primary" if is_sel else "secondary"
-                if st.button(btn_lbl, key=f"isel_{cid}", use_container_width=True, type=btn_type):
-                    if is_sel:
-                        sel_ids.discard(cid)
-                    else:
-                        sel_ids.add(cid)
-                    st.session_state.intel_sel = sel_ids
+            # Select all pipeline button
+            scol1, scol2 = st.columns(2)
+            with scol1:
+                if st.button("Select pipeline (active)", use_container_width=True, type="primary"):
+                    st.session_state.intel_sel = {
+                        c.get("id") for c in pipeline_conts if c.get("id")
+                    }
+                    st.rerun()
+            with scol2:
+                if st.button("Clear selection", use_container_width=True):
+                    st.session_state.intel_sel = set()
                     st.rerun()
 
-        # Competitor / custom companies (not in CRM)
-        st.markdown('<div class="ia-sec" style="margin-top:12px;">Add competitors or custom companies</div>',
-                    unsafe_allow_html=True)
-        extra_raw = st.text_area(
-            "Company names (one per line)",
-            key="intel_extra_companies",
-            placeholder="Google\nSalesforce\nA competitor name",
-            height=80,
-            label_visibility="collapsed",
-        )
+            st.session_state.setdefault("intel_sel", {
+                c.get("id") for c in pipeline_conts if c.get("id")
+            })
+            sel_ids: set = st.session_state.intel_sel
 
-    with col_cfg:
-        st.markdown('<div class="ia-sec">Run configuration</div>', unsafe_allow_html=True)
+            # Group: pipeline first, then others
+            groups = [
+                ("Active pipeline", pipeline_conts),
+                ("Other contacts", other_conts),
+            ]
+            for group_label, group_contacts in groups:
+                if not group_contacts:
+                    continue
+                st.caption(group_label)
+                for c in sorted(group_contacts,
+                                key=lambda x: -int(x.get("score") or 0))[:40]:
+                    cid   = c.get("id", "")
+                    stage = c.get("status") or "new"
+                    name  = c.get("company") or c.get("name") or "Unnamed"
+                    sub   = " · ".join(p for p in [
+                        c.get("name", "") if c.get("name") != name else "",
+                        c.get("industry", ""),
+                    ] if p)
+                    is_sel = cid in sel_ids
 
-        offering = st.text_area(
-            "Your offering (shapes signal relevance)",
-            key="intel_offering",
-            value=os.getenv("SENDER_OFFERING", "B2B AI automation and lead generation services"),
-            height=70,
-        )
+                    stage_colors = {
+                        "new":       "#6B7F85",
+                        "contacted": "#B7791F",
+                        "qualified": "#1a6b3c",
+                        "proposal":  "#1a3a6b",
+                        "won":       "#2E8B4D",
+                        "lost":      "#A93D3D",
+                    }
+                    sc = stage_colors.get(stage, "#6B7F85")
+                    card_cls = "co-sel-card sel" if is_sel else "co-sel-card"
 
-        freshness = st.slider(
-            "Re-fetch if older than (hours)",
-            min_value=1, max_value=48,
-            value=12,
-            key="intel_freshness",
-            help="Briefings cached within this window are reused — saves Serper calls.",
-        )
+                    st.markdown(f"""
+                    <div class="{card_cls}">
+                      <div class="co-sel-name">{_e(name)}</div>
+                      <div class="co-sel-meta">
+                        {_e(sub)} &nbsp;·&nbsp;
+                        <span style="color:{sc};font-weight:700;font-size:10.5px;
+                                     text-transform:uppercase;letter-spacing:.06em;">
+                          {stage}</span>
+                      </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-        st.markdown("")
-        n_crm   = len(sel_ids)
-        n_extra = len([l.strip() for l in (extra_raw or "").splitlines() if l.strip()])
-        n_total = n_crm + n_extra
-        est_cost = f"~${n_total * 0.00004:.5f}" if n_total else "$0.00"
+                    btn_lbl  = "✓ Selected" if is_sel else "Select"
+                    btn_type = "primary" if is_sel else "secondary"
+                    if st.button(btn_lbl, key=f"isel_{cid}", use_container_width=True, type=btn_type):
+                        if is_sel:
+                            sel_ids.discard(cid)
+                        else:
+                            sel_ids.add(cid)
+                        st.session_state.intel_sel = sel_ids
+                        st.rerun()
 
-        st.markdown(f"""
-        <div style="background:var(--cream-3);border:1px solid var(--line-soft);
-                    border-radius:8px;padding:14px 16px;font-size:13px;">
-          <div style="margin-bottom:8px;font-weight:700;color:var(--ink);">Run estimate</div>
-          <div style="color:var(--ink-soft);">
-            <b>{n_crm}</b> CRM contact{"s" if n_crm != 1 else ""} +
-            <b>{n_extra}</b> custom<br>
-            <b>{n_total}</b> Serper calls &nbsp;·&nbsp; <b>{n_total}</b> Gemini calls<br>
-            Estimated cost: <b>{est_cost}</b><br>
-            Serper quota remaining: ~{max(0, 100 - n_total)} of 100/day
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+            # Competitor / custom companies (not in CRM)
+            st.markdown('<div class="ia-sec" style="margin-top:12px;">Add competitors or custom companies</div>',
+                        unsafe_allow_html=True)
+            extra_raw = st.text_area(
+                "Company names (one per line)",
+                key="intel_extra_companies",
+                placeholder="Google\nSalesforce\nA competitor name",
+                height=80,
+                label_visibility="collapsed",
+            )
 
-        st.markdown("")
+        with col_cfg:
+            st.markdown('<div class="ia-sec">Run configuration</div>', unsafe_allow_html=True)
 
-        # Validate
-        can_run = n_total > 0 and os.getenv("SERPER_API_KEY") and os.getenv("GEMINI_API_KEY")
+            offering = st.text_area(
+                "Your offering (shapes signal relevance)",
+                key="intel_offering",
+                value=os.getenv("SENDER_OFFERING", "B2B AI automation and lead generation services"),
+                height=70,
+            )
 
-        if not os.getenv("SERPER_API_KEY"):
-            st.warning("SERPER_API_KEY not configured in secrets.")
-        if not os.getenv("GEMINI_API_KEY"):
-            st.warning("GEMINI_API_KEY not configured in secrets.")
+            freshness = st.slider(
+                "Re-fetch if older than (hours)",
+                min_value=1, max_value=48,
+                value=12,
+                key="intel_freshness",
+                help="Briefings cached within this window are reused — saves Serper calls.",
+            )
 
-        if st.button(
-            f"Run Intel — {n_total} company{'s' if n_total != 1 else ''}",
-            use_container_width=True,
-            type="primary",
-            disabled=not can_run,
-        ):
-            # Build company list from selected CRM contacts + custom entries
-            companies = []
-            for c in contacts:
-                if c.get("id") in sel_ids:
-                    companies.append({
-                        "name":          c.get("company") or c.get("name") or "",
-                        "website":       c.get("website", ""),
-                        "industry":      c.get("industry", ""),
-                        "contact_id":    c.get("id", ""),
-                        "contact_name":  c.get("name", ""),
-                        "contact_title": c.get("title", "") or "",
-                    })
-            for line in (extra_raw or "").splitlines():
-                name = line.strip()
-                if name:
-                    companies.append({"name": name, "website": "", "industry": "",
-                                      "contact_id": "", "contact_name": "", "contact_title": ""})
+            st.markdown("")
+            n_crm   = len(sel_ids)
+            n_extra = len([l.strip() for l in (extra_raw or "").splitlines() if l.strip()])
+            n_total = n_crm + n_extra
+            est_cost = f"~${n_total * 0.00004:.5f}" if n_total else "$0.00"
 
-            st.session_state.intel_companies = companies
-            st.session_state.intel_events    = []
-            st.session_state.intel_briefings = []
-            st.session_state.intel_stage     = "running"
-            st.session_state.intel_offering  = offering
-            st.session_state.intel_freshness = freshness
-            st.rerun()
+            st.markdown(f"""
+            <div style="background:var(--cream-3);border:1px solid var(--line-soft);
+                        border-radius:8px;padding:14px 16px;font-size:13px;">
+              <div style="margin-bottom:8px;font-weight:700;color:var(--ink);">Run estimate</div>
+              <div style="color:var(--ink-soft);">
+                <b>{n_crm}</b> CRM contact{"s" if n_crm != 1 else ""} +
+                <b>{n_extra}</b> custom<br>
+                <b>{n_total}</b> Serper calls &nbsp;·&nbsp; <b>{n_total}</b> Gemini calls<br>
+                Estimated cost: <b>{est_cost}</b><br>
+                Serper quota remaining: ~{max(0, 100 - n_total)} of 100/day
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("")
+
+            # Validate
+            can_run = n_total > 0 and os.getenv("SERPER_API_KEY") and os.getenv("GEMINI_API_KEY")
+
+            if not os.getenv("SERPER_API_KEY"):
+                st.warning("SERPER_API_KEY not configured in secrets.")
+            if not os.getenv("GEMINI_API_KEY"):
+                st.warning("GEMINI_API_KEY not configured in secrets.")
+
+            if st.button(
+                f"Run Intel — {n_total} company{'s' if n_total != 1 else ''}",
+                use_container_width=True,
+                type="primary",
+                disabled=not can_run,
+            ):
+                # Build company list from selected CRM contacts + custom entries
+                companies = []
+                for c in contacts:
+                    if c.get("id") in sel_ids:
+                        companies.append({
+                            "name":          c.get("company") or c.get("name") or "",
+                            "website":       c.get("website", ""),
+                            "industry":      c.get("industry", ""),
+                            "contact_id":    c.get("id", ""),
+                            "contact_name":  c.get("name", ""),
+                            "contact_title": c.get("title", "") or "",
+                        })
+                for line in (extra_raw or "").splitlines():
+                    name = line.strip()
+                    if name:
+                        companies.append({"name": name, "website": "", "industry": "",
+                                          "contact_id": "", "contact_name": "", "contact_title": ""})
+
+                st.session_state.intel_companies = companies
+                st.session_state.intel_events    = []
+                st.session_state.intel_briefings = []
+                st.session_state.intel_stage     = "running"
+                st.session_state.intel_offering  = offering
+                st.session_state.intel_freshness = freshness
+                st.rerun()
 
 
 # ── Running phase ─────────────────────────────────────────────────────────────
