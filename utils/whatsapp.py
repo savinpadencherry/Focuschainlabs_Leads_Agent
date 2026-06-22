@@ -147,11 +147,71 @@ def normalize_source_label(source: str) -> str:
     return "whatsapp" if s in {"whatsapp", "wa", "whats_app"} else s
 
 
-def parse_webhook_messages(payload: dict) -> list[dict]:
-    """Flatten Meta's nested webhook payload into simple message dicts.
+def extract_sent_message_id(api_response: dict) -> str:
+    """Pull wamid from Graph API send response."""
+    for msg in (api_response.get("messages") or []):
+        if isinstance(msg, dict) and msg.get("id"):
+            return str(msg["id"])
+    return ""
 
-    Returns [{"id", "from", "name", "text", "timestamp"}] — only text
-    messages; media/status updates are skipped.
+
+def parse_webhook_statuses(payload: dict) -> list[dict]:
+    """Flatten status webhooks for outbound message tracking.
+
+    Returns [{"id", "status", "recipient_id", "timestamp", "error"}].
+    """
+    out: list[dict] = []
+    for entry in payload.get("entry") or []:
+        for change in entry.get("changes") or []:
+            value = change.get("value") or {}
+            for st in value.get("statuses") or []:
+                err = ""
+                for e in st.get("errors") or []:
+                    if isinstance(e, dict):
+                        err = e.get("title") or e.get("message") or str(e)
+                        break
+                out.append({
+                    "id": st.get("id") or "",
+                    "status": (st.get("status") or "").strip().lower(),
+                    "recipient_id": st.get("recipient_id") or "",
+                    "timestamp": st.get("timestamp") or "",
+                    "error": err,
+                })
+    return out
+
+
+def _parse_interactive_body(msg: dict) -> tuple[str, str, str]:
+    """Return (text, interaction_id, interaction_title) from inbound message."""
+    itype = msg.get("type") or ""
+    if itype == "text":
+        return ((msg.get("text") or {}).get("body") or "").strip(), "", ""
+    if itype != "interactive":
+        return "", "", ""
+    interactive = msg.get("interactive") or {}
+    kind = interactive.get("type") or ""
+    if kind == "button_reply":
+        br = interactive.get("button_reply") or {}
+        return (
+            (br.get("title") or "").strip(),
+            (br.get("id") or "").strip(),
+            (br.get("title") or "").strip(),
+        )
+    if kind == "list_reply":
+        lr = interactive.get("list_reply") or {}
+        return (
+            (lr.get("title") or "").strip(),
+            (lr.get("id") or "").strip(),
+            (lr.get("title") or "").strip(),
+        )
+    return "", "", ""
+
+
+def parse_webhook_messages(payload: dict) -> list[dict]:
+    """Flatten Meta's nested webhook payload into inbound message dicts.
+
+    Returns [{"id", "from", "name", "text", "timestamp", "type",
+              "interaction_id", "interaction_title"}].
+    Text and interactive (button/list) messages are included.
     """
     out: list[dict] = []
     for entry in payload.get("entry") or []:
@@ -161,21 +221,25 @@ def parse_webhook_messages(payload: dict) -> list[dict]:
                 (c.get("wa_id") or ""): ((c.get("profile") or {}).get("name") or "")
                 for c in value.get("contacts") or []
             }
-            # Our own number. In Coexistence, messages the business sends from the
-            # WhatsApp Business app are echoed back here with from == this number.
             biz = re.sub(r"\D", "", (value.get("metadata") or {}).get("display_phone_number") or "")
             for msg in value.get("messages") or []:
-                if msg.get("type") != "text":
+                mtype = msg.get("type") or ""
+                if mtype not in {"text", "interactive"}:
                     continue
                 sender = msg.get("from") or ""
-                # Skip our own echoed/outbound messages so we never self-create a lead.
                 if biz and re.sub(r"\D", "", sender) == biz:
+                    continue
+                text, iid, ititle = _parse_interactive_body(msg)
+                if not text and not iid:
                     continue
                 out.append({
                     "id": msg.get("id") or "",
                     "from": sender,
                     "name": names.get(sender, ""),
-                    "text": ((msg.get("text") or {}).get("body") or "").strip(),
+                    "text": text,
                     "timestamp": msg.get("timestamp") or "",
+                    "type": mtype,
+                    "interaction_id": iid,
+                    "interaction_title": ititle,
                 })
     return out

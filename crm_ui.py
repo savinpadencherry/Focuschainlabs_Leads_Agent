@@ -20,10 +20,12 @@ from utils.llm import llm_configured
 from utils.usage_guide import render_usage_guide
 from utils.whatsapp import (
     broadcast_feasibility,
+    extract_sent_message_id,
     send_whatsapp_template,
     send_whatsapp_text,
     whatsapp_configured,
 )
+from utils.wa_events import append_outbound_event, campaign_summary
 
 
 CRM_STATUSES = getattr(crm_models, "CRM_STATUSES", ["new", "contacted", "qualified", "proposal", "won", "lost"])
@@ -2408,15 +2410,33 @@ def _log_broadcast_email(contact: dict, subject: str, body: str) -> None:
     contact["updated_at"] = utc_now_iso()
 
 
-def _log_broadcast_whatsapp(contact: dict, body: str) -> None:
-    comment = {
-        "id": new_contact_id(),
-        "body": body,
-        "author": "CRM broadcast",
-        "source": "whatsapp",
-        "created_at": utc_now_iso(),
-    }
-    contact.setdefault("comments", []).append(comment)
+def _log_broadcast_whatsapp(
+    contact: dict,
+    body: str,
+    *,
+    message_id: str = "",
+    campaign_id: str = "",
+    template_name: str = "",
+) -> None:
+    if message_id:
+        append_outbound_event(
+            contact,
+            message_id=message_id,
+            body=body,
+            campaign_id=campaign_id,
+            template_name=template_name,
+        )
+    else:
+        comment = {
+            "id": new_contact_id(),
+            "body": body,
+            "author": "CRM broadcast",
+            "source": "whatsapp",
+            "created_at": utc_now_iso(),
+        }
+        contact.setdefault("comments", []).append(comment)
+    if normalize_status(contact.get("status") or "new") == "new":
+        contact["status"] = "contacted"
     contact["updated_at"] = utc_now_iso()
 
 
@@ -2448,6 +2468,7 @@ def _broadcast_whatsapp_selected(
 ) -> dict[str, int]:
     selected = _selected_contacts()
     sent = skipped = failed = 0
+    campaign_id = datetime.now().strftime("wa_%Y%m%d_%H%M%S")
     for c in selected:
         phone = (c.get("phone") or "").strip()
         if not phone:
@@ -2456,16 +2477,24 @@ def _broadcast_whatsapp_selected(
         msg_body = personalise(body, c)
         try:
             if use_template and template_name:
-                send_whatsapp_template(phone, template_name, body_params=[msg_body[:1024]])
+                resp = send_whatsapp_template(phone, template_name, body_params=[msg_body[:1024]])
             else:
-                send_whatsapp_text(phone, msg_body)
-            _log_broadcast_whatsapp(c, msg_body)
+                resp = send_whatsapp_text(phone, msg_body)
+            mid = extract_sent_message_id(resp)
+            _log_broadcast_whatsapp(
+                c,
+                msg_body,
+                message_id=mid,
+                campaign_id=campaign_id,
+                template_name=template_name if use_template else "",
+            )
             sent += 1
         except Exception:
             failed += 1
     if sent:
-        persist_crm(f"CRM: WhatsApp broadcast to {sent} leads")
-    return {"sent": sent, "skipped": skipped, "failed": failed}
+        persist_crm(f"CRM: WhatsApp broadcast {campaign_id} to {sent} leads")
+        st.session_state.crm_last_wa_campaign = campaign_id
+    return {"sent": sent, "skipped": skipped, "failed": failed, "campaign_id": campaign_id}
 
 
 def _render_selection_toolbar(*, filtered_ids: list[str], page_ids: list[str]) -> None:
@@ -2557,6 +2586,14 @@ def _render_selection_toolbar(*, filtered_ids: list[str], page_ids: list[str]) -
                     f"{feas['whatsapp_source']} messaged via WhatsApp before."
                 )
                 st.info(feas["free_text_window"])
+                last_cid = st.session_state.get("crm_last_wa_campaign")
+                if last_cid:
+                    stats = campaign_summary(st.session_state.crm_db.get("contacts", []), last_cid)
+                    st.caption(
+                        f"Last campaign `{last_cid}`: "
+                        f"{stats['read']} read · {stats['delivered']} delivered · "
+                        f"{stats['failed']} failed · {stats['total']} total"
+                    )
                 use_tpl = st.checkbox("Use approved template (promotions)", key="crm_bc_wa_tpl")
                 tpl_name = st.text_input("Template name", key="crm_bc_wa_tpl_name", disabled=not use_tpl, placeholder="promo_offer")
                 wa_body = st.text_area("Message", key="crm_bc_wa_body", height=100, placeholder="Hi {{name}}, …")
@@ -2580,7 +2617,9 @@ def _render_selection_toolbar(*, filtered_ids: list[str], page_ids: list[str]) -
                         use_template=use_tpl,
                     )
                     st.session_state.crm_save_toast = (
-                        f"WhatsApp: {stats['sent']} sent · {stats['skipped']} no phone · {stats['failed']} failed"
+                        f"WhatsApp campaign {stats.get('campaign_id', '')}: "
+                        f"{stats['sent']} sent · {stats['skipped']} no phone · {stats['failed']} failed. "
+                        f"Delivery/read updates arrive via webhook."
                     )
                     st.rerun()
         with st.popover(f"Delete {n_sel} selected", use_container_width=True, disabled=n_sel == 0):
