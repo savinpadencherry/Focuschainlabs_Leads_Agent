@@ -37,9 +37,16 @@ from utils.crm_models import (
 from utils.crm_store import load_crm, save_crm
 from utils.whatsapp import (
     parse_webhook_messages,
+    parse_webhook_statuses,
     phone_variants,
     send_whatsapp_text,
     whatsapp_configured,
+)
+from utils.wa_events import (
+    apply_interaction,
+    apply_status_update,
+    append_outbound_event,
+    find_contact_by_message_id,
 )
 
 app = FastAPI(title="FocusChain CRM — WhatsApp webhook")
@@ -138,6 +145,90 @@ def _llm_refresh(contact: dict, message_text: str) -> dict:
         return contact
 
 
+def _handle_status(st: dict) -> str:
+    """Apply delivery/read/failed status to the matching outbound wa_event."""
+    org = _org()
+    db, meta = load_crm(org=org)
+    if meta.get("error"):
+        raise RuntimeError(f"CRM load failed: {meta['error']}")
+
+    contacts = list(db.get("contacts") or [])
+    idx = find_contact_by_message_id(contacts, st.get("id") or "")
+    if idx < 0:
+        return "status_orphan"
+
+    contact = dict(contacts[idx])
+    if not apply_status_update(
+        contact,
+        st.get("id") or "",
+        st.get("status") or "",
+        error=st.get("error") or "",
+    ):
+        return "status_skip"
+
+    contacts[idx] = contact
+    db["contacts"] = contacts
+    result = save_crm(
+        db,
+        sha=meta.get("sha"),
+        message=f"CRM: WhatsApp {st.get('status')} for {contact.get('name') or st.get('recipient_id')}",
+        org=org,
+    )
+    if result.get("error") and not result.get("committed"):
+        raise RuntimeError(f"CRM save failed: {result['error']}")
+    return f"status_{st.get('status')}"
+
+
+def _handle_interactive(msg: dict) -> str:
+    """Store button/list reply and advance CRM stage when mapped."""
+    org = _org()
+    db, meta = load_crm(org=org)
+    if meta.get("error"):
+        raise RuntimeError(f"CRM load failed: {meta['error']}")
+
+    contacts = list(db.get("contacts") or [])
+    idx = _find_contact(contacts, msg["from"])
+
+    if idx >= 0:
+        contact = dict(contacts[idx])
+        apply_interaction(
+            contact,
+            interaction_id=msg.get("interaction_id") or "",
+            interaction_title=msg.get("interaction_title") or msg.get("text") or "",
+            inbound_message_id=msg.get("id") or "",
+        )
+        contact = _llm_refresh(contact, msg.get("text") or msg.get("interaction_title") or "")
+        contacts[idx] = contact
+        action = "interaction"
+        display = contact.get("name") or msg["from"]
+    else:
+        # New lead replying to a broadcast button
+        contact = normalize_contact({
+            "id": new_contact_id(),
+            "name": msg.get("name") or "",
+            "phone": f"+{msg['from']}" if not msg["from"].startswith("+") else msg["from"],
+            "status": "new",
+            "deal_status": "open",
+            "source": "whatsapp",
+            "tags": ["whatsapp-inbound"],
+        })
+        apply_interaction(
+            contact,
+            interaction_id=msg.get("interaction_id") or "",
+            interaction_title=msg.get("interaction_title") or msg.get("text") or "",
+            inbound_message_id=msg.get("id") or "",
+        )
+        contacts.append(contact)
+        action = "interaction_new"
+        display = contact.get("name") or msg["from"]
+
+    db["contacts"] = contacts
+    result = save_crm(db, sha=meta.get("sha"), message=f"CRM: WhatsApp interaction from {display}", org=org)
+    if result.get("error") and not result.get("committed"):
+        raise RuntimeError(f"CRM save failed: {result['error']}")
+    return action
+
+
 def _handle_message(msg: dict) -> str:
     """Store one WhatsApp message into the CRM. Returns a short action label."""
     org = _org()
@@ -220,13 +311,34 @@ async def receive(request: Request) -> dict:
     payload = await request.json()
     budget.reset()  # each delivery is its own "run" for the LLM budget guard
     handled = 0
+    status_handled = 0
+
+    for st in parse_webhook_statuses(payload):
+        try:
+            action = _handle_status(st)
+            if action != "status_orphan":
+                status_handled += 1
+            print(f"[whatsapp] {action}: {st.get('id', '')[:24]}… → {st.get('status')}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[whatsapp] ERROR status {st.get('id')}: {exc}")
+
     for msg in parse_webhook_messages(payload):
-        if not msg["text"] or _already_seen(msg["id"]):
+        if _already_seen(msg["id"]):
+            continue
+        is_interactive = (msg.get("type") == "interactive") or bool(msg.get("interaction_id"))
+        if not msg.get("text") and not is_interactive:
             continue
         try:
-            action = _handle_message(msg)
+            if is_interactive:
+                action = _handle_interactive(msg)
+            else:
+                action = _handle_message(msg)
             handled += 1
-            if whatsapp_configured() and (os.getenv("WHATSAPP_SEND_ACK", "").lower() == "true"):
+            if (
+                not is_interactive
+                and whatsapp_configured()
+                and (os.getenv("WHATSAPP_SEND_ACK", "").lower() == "true")
+            ):
                 try:
                     send_whatsapp_text(
                         msg["from"],
@@ -234,12 +346,12 @@ async def receive(request: Request) -> dict:
                     )
                 except Exception:  # noqa: BLE001 - ack is a courtesy only
                     pass
-            print(f"[whatsapp] {action}: {msg['from']} ({len(msg['text'])} chars)")
+            print(f"[whatsapp] {action}: {msg['from']} ({len(msg.get('text') or '')} chars)")
         except Exception as exc:  # noqa: BLE001
             print(f"[whatsapp] ERROR storing message {msg['id']}: {exc}")
-    if handled == 0:
+    if handled == 0 and status_handled == 0:
         print(f"[whatsapp] delivery received, stored nothing — {_summarize_delivery(payload)}")
-    return {"status": "ok", "handled": handled}
+    return {"status": "ok", "handled": handled, "statuses": status_handled}
 
 
 @app.get("/healthz")
