@@ -12,8 +12,18 @@ import streamlit as st
 
 import utils.crm_models as crm_models
 import utils.tenancy as tenancy
+from agent.broadcast_agent import compose_broadcast, personalise
+from agent.crm_search_agent import resolve_status_update, search_contacts
+from agent.reach_agent import send_email_smtp, smtp_configured
 from utils.crm_store import github_configured, import_leads_to_crm, load_crm, save_crm
+from utils.llm import llm_configured
 from utils.usage_guide import render_usage_guide
+from utils.whatsapp import (
+    broadcast_feasibility,
+    send_whatsapp_template,
+    send_whatsapp_text,
+    whatsapp_configured,
+)
 
 
 CRM_STATUSES = getattr(crm_models, "CRM_STATUSES", ["new", "contacted", "qualified", "proposal", "won", "lost"])
@@ -51,6 +61,7 @@ merge_contacts = crm_models.merge_contacts
 new_contact_id = crm_models.new_contact_id
 normalize_contact = crm_models.normalize_contact
 normalize_status = crm_models.normalize_status
+next_pipeline_status = crm_models.next_pipeline_status
 utc_now_iso = crm_models.utc_now_iso
 
 
@@ -2336,6 +2347,127 @@ def _bulk_delete_selected() -> None:
         st.session_state.crm_save_toast = f"Removed {n} lead{'s' if n != 1 else ''}"
 
 
+def _selected_contacts() -> list[dict]:
+    sel = {str(cid) for cid in (st.session_state.get("crm_sel_ids") or set())}
+    if not sel:
+        return []
+    return [
+        c for c in st.session_state.crm_db.get("contacts", [])
+        if str(c.get("id")) in sel
+    ]
+
+
+def _bulk_update_status(new_status: str) -> None:
+    sel = {str(cid) for cid in (st.session_state.get("crm_sel_ids") or set())}
+    if not sel:
+        return
+    stage = normalize_status(new_status)
+    n = 0
+    for c in st.session_state.crm_db.get("contacts", []):
+        if str(c.get("id")) not in sel:
+            continue
+        c["status"] = stage
+        if stage in {"won", "lost"}:
+            c["deal_status"] = stage
+        c["updated_at"] = utc_now_iso()
+        n += 1
+    if persist_crm(f"CRM: bulk stage → {stage} ({n})"):
+        st.session_state.crm_save_toast = f"Updated stage to {_status_label(stage)} for {n} lead{'s' if n != 1 else ''}"
+
+
+def _apply_status_to_contact(contact_id: str, new_status: str) -> bool:
+    stage = normalize_status(new_status)
+    for c in st.session_state.crm_db.get("contacts", []):
+        if str(c.get("id")) != str(contact_id):
+            continue
+        c["status"] = stage
+        if stage in {"won", "lost"}:
+            c["deal_status"] = stage
+        c["updated_at"] = utc_now_iso()
+        label = _status_label(stage)
+        name = display_name(c)
+        if persist_crm(f"CRM: {name} → {stage}"):
+            st.session_state.crm_save_toast = f"{name} moved to {label}"
+            return True
+        return False
+    return False
+
+
+def _log_broadcast_email(contact: dict, subject: str, body: str) -> None:
+    event = crm_models.normalize_email_event({
+        "direction": "sent",
+        "to": contact.get("email") or "",
+        "subject": subject,
+        "body": body,
+        "summary": "Broadcast email",
+        "source": "broadcast",
+    })
+    contact.setdefault("email_events", []).append(event)
+    if normalize_status(contact.get("status") or "new") == "new":
+        contact["status"] = "contacted"
+    contact["updated_at"] = utc_now_iso()
+
+
+def _log_broadcast_whatsapp(contact: dict, body: str) -> None:
+    comment = {
+        "id": new_contact_id(),
+        "body": body,
+        "author": "CRM broadcast",
+        "source": "whatsapp",
+        "created_at": utc_now_iso(),
+    }
+    contact.setdefault("comments", []).append(comment)
+    contact["updated_at"] = utc_now_iso()
+
+
+def _broadcast_email_selected(subject: str, body: str) -> dict[str, int]:
+    selected = _selected_contacts()
+    sent = skipped = failed = 0
+    for c in selected:
+        email = (c.get("email") or "").strip()
+        if not email:
+            skipped += 1
+            continue
+        msg_body = personalise(body, c)
+        result = send_email_smtp(email, subject, msg_body)
+        if result.get("ok"):
+            _log_broadcast_email(c, subject, msg_body)
+            sent += 1
+        else:
+            failed += 1
+    if sent:
+        persist_crm(f"CRM: broadcast email to {sent} leads")
+    return {"sent": sent, "skipped": skipped, "failed": failed}
+
+
+def _broadcast_whatsapp_selected(
+  body: str,
+  *,
+  template_name: str = "",
+  use_template: bool = False,
+) -> dict[str, int]:
+    selected = _selected_contacts()
+    sent = skipped = failed = 0
+    for c in selected:
+        phone = (c.get("phone") or "").strip()
+        if not phone:
+            skipped += 1
+            continue
+        msg_body = personalise(body, c)
+        try:
+            if use_template and template_name:
+                send_whatsapp_template(phone, template_name, body_params=[msg_body[:1024]])
+            else:
+                send_whatsapp_text(phone, msg_body)
+            _log_broadcast_whatsapp(c, msg_body)
+            sent += 1
+        except Exception:
+            failed += 1
+    if sent:
+        persist_crm(f"CRM: WhatsApp broadcast to {sent} leads")
+    return {"sent": sent, "skipped": skipped, "failed": failed}
+
+
 def _render_selection_toolbar(*, filtered_ids: list[str], page_ids: list[str]) -> None:
     st.session_state.setdefault("crm_sel_ids", set())
     st.session_state.setdefault("crm_select_mode", False)
@@ -2383,6 +2515,74 @@ def _render_selection_toolbar(*, filtered_ids: list[str], page_ids: list[str]) -
                 f'{n_sel} selected</div>',
                 unsafe_allow_html=True,
             )
+        act_a, act_b, act_c = st.columns(3)
+        with act_a:
+            with st.popover("Update stage", use_container_width=True, disabled=n_sel == 0):
+                bulk_stage = st.selectbox(
+                    "New stage",
+                    CRM_STATUSES,
+                    format_func=_status_label,
+                    key="crm_bulk_stage_pick",
+                )
+                if st.button("Apply to selected", key="crm_bulk_stage_apply", type="primary", use_container_width=True):
+                    _bulk_update_status(bulk_stage)
+                    st.rerun()
+        with act_b:
+            with st.popover("Email broadcast", use_container_width=True, disabled=n_sel == 0):
+                if not smtp_configured():
+                    st.warning("Add SMTP_FROM_EMAIL and SMTP_APP_PASSWORD in secrets to send.")
+                st.caption("One message to all selected leads with an email on file.")
+                bc_subj = st.text_input("Subject", key="crm_bc_email_subj", placeholder="Summer offer for your team")
+                bc_body = st.text_area("Body", key="crm_bc_email_body", height=120, placeholder="Hi {{name}}, …")
+                if st.button("AI draft", key="crm_bc_email_ai", use_container_width=True, disabled=not llm_configured()):
+                    draft = compose_broadcast(
+                        lead_count=n_sel,
+                        industries=[c.get("industry") or "" for c in _selected_contacts()],
+                        goal=st.session_state.get("crm_bc_email_subj") or "share a promotion",
+                    )
+                    st.session_state.crm_bc_email_subj = draft["subject"]
+                    st.session_state.crm_bc_email_body = draft["email_body"]
+                    st.rerun()
+                if st.button("Send broadcast", key="crm_bc_email_send", type="primary", use_container_width=True, disabled=not smtp_configured()):
+                    stats = _broadcast_email_selected(bc_subj, bc_body)
+                    st.session_state.crm_save_toast = (
+                        f"Email sent: {stats['sent']} · skipped: {stats['skipped']} · failed: {stats['failed']}"
+                    )
+                    st.rerun()
+        with act_c:
+            with st.popover("WhatsApp", use_container_width=True, disabled=n_sel == 0):
+                feas = broadcast_feasibility(_selected_contacts())
+                st.caption(
+                    f"{feas['with_phone']}/{feas['total']} selected have phone numbers. "
+                    f"{feas['whatsapp_source']} messaged via WhatsApp before."
+                )
+                st.info(feas["free_text_window"])
+                use_tpl = st.checkbox("Use approved template (promotions)", key="crm_bc_wa_tpl")
+                tpl_name = st.text_input("Template name", key="crm_bc_wa_tpl_name", disabled=not use_tpl, placeholder="promo_offer")
+                wa_body = st.text_area("Message", key="crm_bc_wa_body", height=100, placeholder="Hi {{name}}, …")
+                if st.button("AI draft", key="crm_bc_wa_ai", use_container_width=True, disabled=not llm_configured()):
+                    draft = compose_broadcast(
+                        lead_count=n_sel,
+                        industries=[c.get("industry") or "" for c in _selected_contacts()],
+                    )
+                    st.session_state.crm_bc_wa_body = draft["whatsapp_body"]
+                    st.rerun()
+                if st.button(
+                    "Send WhatsApp",
+                    key="crm_bc_wa_send",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=not whatsapp_configured(),
+                ):
+                    stats = _broadcast_whatsapp_selected(
+                        wa_body,
+                        template_name=tpl_name,
+                        use_template=use_tpl,
+                    )
+                    st.session_state.crm_save_toast = (
+                        f"WhatsApp: {stats['sent']} sent · {stats['skipped']} no phone · {stats['failed']} failed"
+                    )
+                    st.rerun()
         with st.popover(f"Delete {n_sel} selected", use_container_width=True, disabled=n_sel == 0):
             st.warning(f"Delete {n_sel} lead{'s' if n_sel != 1 else ''} and all related activity? This can't be undone.")
             if st.button("Yes, delete selected", key="crm_bulk_delete_confirm", type="primary", use_container_width=True):
@@ -3993,12 +4193,13 @@ def render_crm_page() -> None:
     _render_excel_upload()
 
     st.markdown('<div class="sec">Find leads <span class="line"></span></div>', unsafe_allow_html=True)
+    ai_hint = "AI search: try “qualified leads due this week” or “move Jewel to contacted”" if llm_configured() else ""
     st.markdown('<div class="crm-toolbar">', unsafe_allow_html=True)
     search_col, sync_col, clear_col = st.columns([5, 1, 1])
     with search_col:
         q = st.text_input(
             "Search",
-            placeholder="Search company, person, owner, notes, or activity...",
+            placeholder="Search name, company, notes… or ask in plain English",
             label_visibility="collapsed",
             key="crm_search",
         )
@@ -4008,6 +4209,51 @@ def render_crm_page() -> None:
             st.rerun()
     with clear_col:
         st.button("Clear", use_container_width=True, help="Reset search, filters, and sort", on_click=_reset_crm_filters)
+    if ai_hint:
+        st.caption(ai_hint)
+
+    search_spec: dict = {}
+    search_results: list[dict] = []
+    if q.strip():
+        search_results, search_spec = search_contacts(contacts, q)
+        if search_spec.get("summary"):
+            st.caption(f"AI: {search_spec['summary']}")
+        if search_spec.get("mode") == "status_update" and search_results:
+            st.markdown('<div class="crm-quick-status">', unsafe_allow_html=True)
+            pick = search_results[0] if len(search_results) == 1 else None
+            if len(search_results) > 1:
+                pick_id = st.selectbox(
+                    "Which lead?",
+                    [str(c.get("id")) for c in search_results],
+                    format_func=lambda cid: display_name(next(c for c in search_results if str(c.get("id")) == cid)),
+                    key="crm_quick_status_pick",
+                )
+                pick = next(c for c in search_results if str(c.get("id")) == pick_id)
+            if pick:
+                cur = normalize_status(pick.get("status") or "new")
+                nxt = resolve_status_update(pick, search_spec) or next_pipeline_status(cur) or "contacted"
+                st.caption(
+                    f"**{display_name(pick)}** is **{_status_label(cur)}** → "
+                    f"advance to **{_status_label(nxt)}**?"
+                )
+                qs_col1, qs_col2, qs_col3 = st.columns([1.2, 1.2, 2])
+                with qs_col1:
+                    if st.button("Advance status", key="crm_quick_status_go", type="primary", use_container_width=True):
+                        _apply_status_to_contact(str(pick.get("id")), nxt)
+                        st.rerun()
+                with qs_col2:
+                    manual_stage = st.selectbox(
+                        "Or pick stage",
+                        CRM_STATUSES,
+                        index=CRM_STATUSES.index(cur) if cur in CRM_STATUSES else 0,
+                        format_func=_status_label,
+                        key="crm_quick_status_manual",
+                        label_visibility="collapsed",
+                    )
+                    if st.button("Set stage", key="crm_quick_status_set", use_container_width=True):
+                        _apply_status_to_contact(str(pick.get("id")), manual_stage)
+                        st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
     f2, f3, f4, f5, f6 = st.columns([1, 1, 1, 1, 1])
     with f2:
@@ -4062,22 +4308,12 @@ def render_crm_page() -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
     filtered = contacts
+    if q.strip():
+        filtered = list(search_results)
     if status_filter != "all":
         filtered = [
             c for c in filtered
             if normalize_status(c.get("status") or "new") == status_filter
-        ]
-    if q.strip():
-        needle = q.lower()
-        filtered = [
-            c for c in filtered
-            if needle in " ".join([
-                c.get("id", ""), c.get("name", ""), c.get("phone", ""), c.get("email", ""),
-                c.get("company", ""), c.get("industry", ""), c.get("owner", ""),
-                c.get("value", ""), c.get("client", ""), c.get("notes", ""),
-                str(c.get("email_events", "")), str(c.get("comments", "")),
-                str(c.get("contact_people", "")),
-            ]).lower()
         ]
     if source_filter != "all":
         filtered = [c for c in filtered if _contact_source(c) == source_filter]
@@ -4167,9 +4403,9 @@ def render_crm_page() -> None:
     )
 
     st.caption(
-        "Tap any lead to open its workspace. Use Select leads to pick multiple records for bulk delete."
+        "Tap any lead to open its workspace. Select leads for bulk stage updates, email/WhatsApp broadcast, or delete."
         if not select_mode
-        else "Tap leads to toggle selection, then delete from the toolbar above."
+        else "Tap leads to toggle selection — use the toolbar for stage updates and broadcasts."
     )
 
     for contact in page_slice:

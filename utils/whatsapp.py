@@ -58,6 +58,10 @@ def send_whatsapp_text(to: str, body: str) -> dict:
 
     Raises for transport errors; callers treat a failed ack as non-fatal
     (the lead is already stored — the reply is a courtesy).
+
+    Note: free-form text only works inside Meta's 24-hour customer-service
+    window (user messaged you first). For cold promotions use
+    send_whatsapp_template() with an approved template.
     """
     resp = requests.post(
         f"{_GRAPH}/{_phone_number_id()}/messages",
@@ -75,6 +79,72 @@ def send_whatsapp_text(to: str, body: str) -> dict:
     )
     resp.raise_for_status()
     return resp.json()
+
+
+def send_whatsapp_template(
+    to: str,
+    template_name: str,
+    *,
+    language_code: str = "en",
+    body_params: list[str] | None = None,
+) -> dict:
+    """Send an approved WhatsApp template (required for marketing/promotions).
+
+    Template must be created and approved in Meta Business Manager →
+    WhatsApp Manager → Message templates.
+    """
+    components = []
+    if body_params:
+        components.append({
+            "type": "body",
+            "parameters": [{"type": "text", "text": p[:1024]} for p in body_params],
+        })
+    payload: dict = {
+        "messaging_product": "whatsapp",
+        "to": normalize_wa_phone(to),
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": language_code},
+        },
+    }
+    if components:
+        payload["template"]["components"] = components
+    resp = requests.post(
+        f"{_GRAPH}/{_phone_number_id()}/messages",
+        headers={
+            "Authorization": f"Bearer {_token()}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=20,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def broadcast_feasibility(selected: list[dict]) -> dict:
+    """Summarise whether a WhatsApp broadcast to selected leads is viable."""
+    with_phone = [c for c in selected if (c.get("phone") or "").strip()]
+    with_wa_source = [c for c in selected if normalize_source_label(c.get("source") or "") == "whatsapp"]
+    return {
+        "total": len(selected),
+        "with_phone": len(with_phone),
+        "whatsapp_source": len(with_wa_source),
+        "free_text_window": (
+            "Free-form text only works within 24h of the customer's last inbound message. "
+            "For cold promotions you need an approved Meta template + opt-in."
+        ),
+        "recommendation": (
+            "Use approved template messages for promotions; use free-text only for "
+            "leads who recently messaged you on WhatsApp (your webhook already captures them)."
+        ),
+    }
+
+
+def normalize_source_label(source: str) -> str:
+    s = (source or "").strip().lower()
+    return "whatsapp" if s in {"whatsapp", "wa", "whats_app"} else s
 
 
 def parse_webhook_messages(payload: dict) -> list[dict]:

@@ -142,6 +142,20 @@ def normalize_status(raw: str) -> str:
     return s if s in CRM_STATUSES else "new"
 
 
+def next_pipeline_status(current: str) -> str | None:
+    """Return the next stage in the default pipeline, or None if terminal."""
+    stage = normalize_status(current)
+    if stage in {"won", "lost"}:
+        return None
+    try:
+        idx = CRM_STATUSES.index(stage)
+    except ValueError:
+        return "contacted"
+    if idx + 1 < len(CRM_STATUSES):
+        return CRM_STATUSES[idx + 1]
+    return None
+
+
 def normalize_source(raw: str) -> str:
     """Normalize the lead Source dropdown value."""
     s = _slugify_status(raw or "other")
