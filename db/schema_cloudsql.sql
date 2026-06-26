@@ -33,6 +33,18 @@ CREATE TABLE IF NOT EXISTS interactions (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- WhatsApp message/status tracking. Added after the initial release — these
+-- ALTERs are idempotent so this file can be re-applied to the live instance.
+-- direction: 'inbound' | 'outbound'. message_id: Meta wamid, used both to
+-- de-duplicate retried webhook deliveries and to match later status receipts
+-- (sent/delivered/read/failed) back to the row that recorded the send.
+ALTER TABLE interactions ADD COLUMN IF NOT EXISTS direction      TEXT NOT NULL DEFAULT '';
+ALTER TABLE interactions ADD COLUMN IF NOT EXISTS message_id     TEXT NOT NULL DEFAULT '';
+ALTER TABLE interactions ADD COLUMN IF NOT EXISTS status         TEXT NOT NULL DEFAULT '';
+ALTER TABLE interactions ADD COLUMN IF NOT EXISTS campaign_id    TEXT NOT NULL DEFAULT '';
+ALTER TABLE interactions ADD COLUMN IF NOT EXISTS template_name  TEXT NOT NULL DEFAULT '';
+ALTER TABLE interactions ADD COLUMN IF NOT EXISTS error          TEXT NOT NULL DEFAULT '';
+
 -- Multi-number WhatsApp coexistence:
 -- Each agent connects their WhatsApp Business number via Embedded Signup.
 -- Their phone_number_id + access_token gets stored here.
@@ -55,6 +67,8 @@ CREATE INDEX IF NOT EXISTS idx_contacts_updated    ON contacts(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_contacts_phone      ON contacts(phone);
 CREATE INDEX IF NOT EXISTS idx_contacts_wa_pid     ON contacts(wa_phone_number_id);
 CREATE INDEX IF NOT EXISTS idx_interactions_cid    ON interactions(contact_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_interactions_message_id
+    ON interactions(message_id) WHERE message_id <> '';
 
 CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS trigger AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END;

@@ -32,10 +32,12 @@ from utils.crm_models import (
     new_contact_id,
     normalize_comment,
     normalize_contact,
+    normalize_status,
     utc_now_iso,
 )
 from utils.crm_store import load_crm, save_crm
 from utils.whatsapp import (
+    extract_sent_message_id,
     parse_webhook_messages,
     parse_webhook_statuses,
     phone_variants,
@@ -58,10 +60,28 @@ _SEEN_MAX = 2000
 
 
 def _already_seen(msg_id: str) -> bool:
+    """True if this WhatsApp message id has already been processed.
+
+    Checked against the durable `interactions.message_id` unique index first
+    (so a retry is caught even across Cloud Run restarts or multiple
+    instances), with the in-memory set as a fast path and as the fallback
+    when no Postgres backend is configured.
+    """
     if not msg_id:
         return False
     if msg_id in _SEEN_IDS:
         return True
+
+    from utils import crm_store_postgres as pg
+
+    if pg.postgres_configured():
+        try:
+            if pg.message_id_exists(msg_id):
+                _SEEN_IDS[msg_id] = None
+                return True
+        except Exception:  # noqa: BLE001 - DB hiccup; insert-time ON CONFLICT
+            pass            # still guards against an actual duplicate write
+
     _SEEN_IDS[msg_id] = None
     while len(_SEEN_IDS) > _SEEN_MAX:
         _SEEN_IDS.popitem(last=False)
@@ -145,8 +165,51 @@ def _llm_refresh(contact: dict, message_text: str) -> dict:
         return contact
 
 
+def _handle_status_postgres(st: dict, pg) -> str:
+    """Update the matching outbound interaction row, then apply tag/stage
+    side effects directly to that one contact — no need to load/replace the
+    whole contacts table for a single delivery receipt."""
+    updated = pg.update_interaction_status(
+        st.get("id") or "", st.get("status") or "", error=st.get("error") or "",
+    )
+    if not updated:
+        return "status_orphan"
+
+    contact_id = updated.get("contact_id") or ""
+    contact = pg.get_contact(contact_id) if contact_id else None
+    if not contact:
+        return "status_orphan"
+
+    status = (st.get("status") or "").strip().lower()
+    tags = list(contact.get("tags") or [])
+    if status == "read" and "wa-read" not in tags:
+        tags.append("wa-read")
+        contact["tags"] = tags
+    if status == "read" and normalize_status(contact.get("status") or "new") == "new":
+        contact["status"] = "contacted"
+    contact["updated_at"] = utc_now_iso()
+    pg.bulk_upsert([contact], merge_mobile_fields=False)
+
+    if status == "failed":
+        pg.insert_interaction({
+            "contact_id": contact_id,
+            "author": "WhatsApp",
+            "body": f"Message delivery failed: {st.get('error') or 'unknown error'}",
+            "kind": "comment",
+            "source": "whatsapp",
+        })
+    return f"status_{st.get('status')}"
+
+
 def _handle_status(st: dict) -> str:
-    """Apply delivery/read/failed status to the matching outbound wa_event."""
+    """Apply delivery/read/failed status to the matching outbound message."""
+    from utils import crm_store_postgres as pg
+
+    if pg.postgres_configured():
+        return _handle_status_postgres(st, pg)
+
+    # Non-Postgres backends (GitHub JSON / Supabase) still keep delivery
+    # status on the contact's nested wa_events list.
     org = _org()
     db, meta = load_crm(org=org)
     if meta.get("error"):
@@ -179,8 +242,12 @@ def _handle_status(st: dict) -> str:
     return f"status_{st.get('status')}"
 
 
-def _handle_interactive(msg: dict) -> str:
-    """Store button/list reply and advance CRM stage when mapped."""
+def _handle_interactive(msg: dict) -> tuple[str, str]:
+    """Store button/list reply and advance CRM stage when mapped.
+
+    Returns (action, contact_id) — contact_id lets the caller record an
+    outbound ack against the right interactions row.
+    """
     org = _org()
     db, meta = load_crm(org=org)
     if meta.get("error"):
@@ -222,11 +289,26 @@ def _handle_interactive(msg: dict) -> str:
         action = "interaction_new"
         display = contact.get("name") or msg["from"]
 
+    contact_id = contact["id"]
     db["contacts"] = contacts
     result = save_crm(db, sha=meta.get("sha"), message=f"CRM: WhatsApp interaction from {display}", org=org)
     if result.get("error") and not result.get("committed"):
         raise RuntimeError(f"CRM save failed: {result['error']}")
-    return action
+
+    from utils import crm_store_postgres as pg
+
+    if pg.postgres_configured():
+        pg.insert_interaction({
+            "contact_id": contact_id,
+            "author": display,
+            "body": msg.get("interaction_title") or msg.get("text") or "",
+            "kind": "whatsapp_interaction",
+            "source": "whatsapp",
+            "direction": "inbound",
+            "message_id": msg.get("id") or "",
+            "status": "received",
+        })
+    return action, contact_id
 
 
 def _should_run_llm(text: str, is_new_contact: bool) -> bool:
@@ -265,8 +347,12 @@ def _should_run_llm(text: str, is_new_contact: bool) -> bool:
     return any(kw in lower for kw in _TRIGGERS)
 
 
-def _handle_message(msg: dict) -> str:
-    """Store one WhatsApp message into the CRM. Returns a short action label."""
+def _handle_message(msg: dict) -> tuple[str, str]:
+    """Store one WhatsApp message into the CRM.
+
+    Returns (action, contact_id) — contact_id lets the caller record an
+    outbound ack against the right interactions row.
+    """
     org = _org()
     db, meta = load_crm(org=org)
     if meta.get("error"):
@@ -304,6 +390,7 @@ def _handle_message(msg: dict) -> str:
         contacts[idx] = contact
         action = "updated"
         display = contact.get("name") or contact.get("company") or msg["from"]
+        contact_id = contact["id"]
     else:
         contact = normalize_contact({
             "id": new_contact_id(),
@@ -319,11 +406,13 @@ def _handle_message(msg: dict) -> str:
         })
         if run_llm:  # always True for new contacts
             contact = _llm_refresh(contact, msg["text"])
+        contact_id = contact["id"]
         # Guard against the LLM "merging" into an existing record's identity.
         fp = contact_fingerprint(contact)
         for i, existing in enumerate(contacts):
             if contact_fingerprint(existing) == fp:
                 contacts[i] = merge_contacts(existing, contact)
+                contact_id = contacts[i]["id"]
                 break
         else:
             contacts.append(contact)
@@ -335,7 +424,21 @@ def _handle_message(msg: dict) -> str:
                       message=f"CRM: WhatsApp message from {display}", org=org)
     if result.get("error") and not result.get("committed"):
         raise RuntimeError(f"CRM save failed: {result['error']}")
-    return action
+
+    from utils import crm_store_postgres as pg
+
+    if pg.postgres_configured():
+        pg.insert_interaction({
+            "contact_id": contact_id,
+            "author": display,
+            "body": msg["text"],
+            "kind": "whatsapp_message",
+            "source": "whatsapp",
+            "direction": "inbound",
+            "message_id": msg["id"],
+            "status": "received",
+        })
+    return action, contact_id
 
 
 @app.get("/webhook")
@@ -351,18 +454,47 @@ async def verify(request: Request) -> Response:
     return Response(status_code=403)
 
 
+def _persist_outbound_ack(contact_id: str, resp: dict, body: str) -> None:
+    """Record the auto-ack send so the later delivery-status webhook has an
+    interactions row to match against. Best-effort — an ack is a courtesy."""
+    if not contact_id:
+        return
+    from utils import crm_store_postgres as pg
+
+    if not pg.postgres_configured():
+        return
+    try:
+        mid = extract_sent_message_id(resp)
+        if not mid:
+            return
+        pg.insert_interaction({
+            "contact_id": contact_id,
+            "author": "FocusChain CRM",
+            "body": body,
+            "kind": "whatsapp_message",
+            "source": "whatsapp",
+            "direction": "outbound",
+            "message_id": mid,
+            "status": "sent",
+        })
+    except Exception:  # noqa: BLE001
+        pass
+
+
 @app.post("/webhook")
-async def receive(request: Request) -> dict:
+async def receive(request: Request) -> Response:
     """Receive WhatsApp messages and store them as CRM activity.
 
-    Always returns 200 quickly — Meta retries aggressively on non-200, and a
-    transient CRM failure shouldn't trigger a redelivery storm. Failures are
-    logged; the retry (new delivery of the same id) is deduped anyway.
+    Returns 200 once every message/status in this delivery was durably
+    stored. If persisting any of them raised (e.g. a transient Cloud SQL
+    outage), returns 500 so Meta retries the whole delivery — safe to retry
+    because already-stored messages are skipped via the message_id de-dupe.
     """
     payload = await request.json()
     budget.reset()  # each delivery is its own "run" for the LLM budget guard
     handled = 0
     status_handled = 0
+    failed = False
 
     for st in parse_webhook_statuses(payload):
         try:
@@ -371,6 +503,7 @@ async def receive(request: Request) -> dict:
                 status_handled += 1
             print(f"[whatsapp] {action}: {st.get('id', '')[:24]}… → {st.get('status')}")
         except Exception as exc:  # noqa: BLE001
+            failed = True
             print(f"[whatsapp] ERROR status {st.get('id')}: {exc}")
 
     for msg in parse_webhook_messages(payload):
@@ -381,9 +514,9 @@ async def receive(request: Request) -> dict:
             continue
         try:
             if is_interactive:
-                action = _handle_interactive(msg)
+                action, contact_id = _handle_interactive(msg)
             else:
-                action = _handle_message(msg)
+                action, contact_id = _handle_message(msg)
             handled += 1
             if (
                 not is_interactive
@@ -391,19 +524,25 @@ async def receive(request: Request) -> dict:
                 and (os.getenv("WHATSAPP_SEND_ACK", "").lower() == "true")
             ):
                 try:
-                    send_whatsapp_text(
-                        msg["from"],
-                        "Got it — noted in our CRM. We'll get back to you shortly. ✅",
-                        phone_number_id=msg.get("phone_number_id") or None,
+                    ack_text = "Got it — noted in our CRM. We'll get back to you shortly. ✅"
+                    resp = send_whatsapp_text(
+                        msg["from"], ack_text, phone_number_id=msg.get("phone_number_id") or None,
                     )
+                    _persist_outbound_ack(contact_id, resp, ack_text)
                 except Exception:  # noqa: BLE001 - ack is a courtesy only
                     pass
             print(f"[whatsapp] {action}: {msg['from']} ({len(msg.get('text') or '')} chars)")
         except Exception as exc:  # noqa: BLE001
+            failed = True
             print(f"[whatsapp] ERROR storing message {msg['id']}: {exc}")
     if handled == 0 and status_handled == 0:
         print(f"[whatsapp] delivery received, stored nothing — {_summarize_delivery(payload)}")
-    return {"status": "ok", "handled": handled, "statuses": status_handled}
+
+    body = {"status": "partial_failure" if failed else "ok", "handled": handled, "statuses": status_handled}
+    return Response(
+        content=json.dumps(body), media_type="application/json",
+        status_code=500 if failed else 200,
+    )
 
 
 @app.get("/healthz")
@@ -436,9 +575,11 @@ async def api_list_contacts() -> list[dict]:
 
 @app.get("/api/contacts/{contact_id}", dependencies=[Depends(_require_api_key)])
 async def api_get_contact(contact_id: str) -> dict:
-    contact = _pg().get_contact(contact_id)
+    pg = _pg()
+    contact = pg.get_contact(contact_id)
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
+    contact["interactions"] = pg.load_interactions(contact_id)
     return contact
 
 

@@ -241,6 +241,96 @@ def replace_all_contacts(contacts: list[dict[str, Any]]) -> int:
     return len(incoming_ids)
 
 
+# ── Interactions (WhatsApp message/status history) ────────────────────────────
+_INTERACTION_COLS = (
+    "author", "body", "kind", "subject", "meeting_link", "source",
+    "direction", "message_id", "status", "campaign_id", "template_name", "error",
+)
+
+
+def _row_to_interaction(row: dict[str, Any]) -> dict[str, Any]:
+    interaction: dict[str, Any] = {
+        "id": row.get("id") or "",
+        "contact_id": row.get("contact_id") or "",
+    }
+    for c in _INTERACTION_COLS:
+        interaction[c] = row.get(c) or ""
+    interaction["created_at"] = _iso(row.get("created_at"))
+    return interaction
+
+
+def load_interactions(contact_id: str) -> list[dict[str, Any]]:
+    with _connect() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT * FROM interactions WHERE contact_id = %s ORDER BY created_at ASC",
+            (contact_id,),
+        )
+        return [_row_to_interaction(r) for r in cur.fetchall()]
+
+
+def message_id_exists(message_id: str) -> bool:
+    """Durable de-dupe check — has this WhatsApp message id already been stored?"""
+    mid = (message_id or "").strip()
+    if not mid:
+        return False
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM interactions WHERE message_id = %s LIMIT 1", (mid,))
+        return cur.fetchone() is not None
+
+
+def insert_interaction(interaction: dict[str, Any]) -> bool:
+    """Insert one interaction row. Returns False if message_id is a duplicate
+    (caught by the partial unique index, not a round-trip existence check —
+    safe against concurrent webhook retries)."""
+    contact_id = str(interaction.get("contact_id") or "").strip()
+    if not contact_id:
+        raise ValueError("contact_id is required")
+
+    values = {
+        "id": interaction.get("id") or str(uuid.uuid4()),
+        "contact_id": contact_id,
+        "kind": str(interaction.get("kind") or "comment"),
+        "created_at": interaction.get("created_at") or utc_now_iso(),
+    }
+    for c in _INTERACTION_COLS:
+        if c not in values:
+            values[c] = str(interaction.get(c) or "")
+
+    cols = ["id", "contact_id", *_INTERACTION_COLS, "created_at"]
+    sql = (
+        f"INSERT INTO interactions ({', '.join(cols)}) "
+        f"VALUES ({', '.join(f'%({c})s' for c in cols)}) "
+        "ON CONFLICT (message_id) WHERE message_id <> '' DO NOTHING"
+    )
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, values)
+        inserted = cur.rowcount > 0
+        conn.commit()
+    return inserted
+
+
+def update_interaction_status(
+    message_id: str, status: str, *, error: str = "",
+) -> dict[str, Any] | None:
+    """Update an outbound interaction's delivery status by wamid.
+
+    Returns {"contact_id", "status"} of the matched row, or None if no
+    interaction was ever recorded for this message id (orphan status receipt).
+    """
+    mid = (message_id or "").strip()
+    if not mid:
+        return None
+    with _connect() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "UPDATE interactions SET status = %s, error = %s "
+            "WHERE message_id = %s RETURNING contact_id, status",
+            (status, error, mid),
+        )
+        row = cur.fetchone()
+        conn.commit()
+    return dict(row) if row else None
+
+
 # ── WhatsApp accounts (multi-number Embedded Signup) ──────────────────────────
 def load_whatsapp_accounts() -> list[dict[str, Any]]:
     with _connect() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
