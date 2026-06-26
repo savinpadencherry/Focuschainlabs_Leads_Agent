@@ -6,5 +6,4 @@ requests>=2.31.0
 python-dotenv>=1.0.0
 # LLM engines (DeepSeek uses plain requests; google-genai only for fallback)
 google-genai>=1.0.0
-# Only needed for Postgres-backend tenants:
-# psycopg[binary]>=3.1
+psycopg2-binary>=2.9.9

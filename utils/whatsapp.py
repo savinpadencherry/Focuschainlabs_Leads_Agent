@@ -53,18 +53,24 @@ def phone_variants(wa_number: str) -> list[str]:
     return out
 
 
-def send_whatsapp_text(to: str, body: str) -> dict:
+def send_whatsapp_text(to: str, body: str, *, phone_number_id: str | None = None) -> dict:
     """Send a plain text message. Returns the Graph API response dict.
 
     Raises for transport errors; callers treat a failed ack as non-fatal
     (the lead is already stored — the reply is a courtesy).
 
+    phone_number_id: which registered number to send from. Defaults to the
+    WHATSAPP_PHONE_NUMBER_ID env var (single-number / backward-compat mode).
+    Pass explicitly when handling multi-number setups so the reply comes from
+    the same number that received the inbound message.
+
     Note: free-form text only works inside Meta's 24-hour customer-service
     window (user messaged you first). For cold promotions use
     send_whatsapp_template() with an approved template.
     """
+    _pid = (phone_number_id or "").strip() or _phone_number_id()
     resp = requests.post(
-        f"{_GRAPH}/{_phone_number_id()}/messages",
+        f"{_GRAPH}/{_pid}/messages",
         headers={
             "Authorization": f"Bearer {_token()}",
             "Content-Type": "application/json",
@@ -210,18 +216,24 @@ def parse_webhook_messages(payload: dict) -> list[dict]:
     """Flatten Meta's nested webhook payload into inbound message dicts.
 
     Returns [{"id", "from", "name", "text", "timestamp", "type",
-              "interaction_id", "interaction_title"}].
+              "interaction_id", "interaction_title", "phone_number_id"}].
     Text and interactive (button/list) messages are included.
+
+    phone_number_id identifies WHICH of your registered numbers received the
+    message — use this to assign the lead to the correct agent in multi-number
+    setups.
     """
     out: list[dict] = []
     for entry in payload.get("entry") or []:
         for change in entry.get("changes") or []:
             value = change.get("value") or {}
+            metadata = value.get("metadata") or {}
+            phone_number_id = metadata.get("phone_number_id") or ""
             names = {
                 (c.get("wa_id") or ""): ((c.get("profile") or {}).get("name") or "")
                 for c in value.get("contacts") or []
             }
-            biz = re.sub(r"\D", "", (value.get("metadata") or {}).get("display_phone_number") or "")
+            biz = re.sub(r"\D", "", metadata.get("display_phone_number") or "")
             for msg in value.get("messages") or []:
                 mtype = msg.get("type") or ""
                 if mtype not in {"text", "interactive"}:
@@ -241,5 +253,6 @@ def parse_webhook_messages(payload: dict) -> list[dict]:
                     "type": mtype,
                     "interaction_id": iid,
                     "interaction_title": ititle,
+                    "phone_number_id": phone_number_id,
                 })
     return out

@@ -159,6 +159,50 @@ def _read_seed_contacts() -> list[dict[str, Any]]:
     return [c for c in (data.get("contacts") or []) if isinstance(c, dict)]
 
 
+def _load_cloud_postgres() -> tuple[dict[str, Any], dict[str, Any]]:
+    from utils import crm_store_postgres as pg
+
+    try:
+        contacts = pg.load_all_contacts()
+        migrated = 0
+        if not contacts:
+            seed = _read_seed_contacts()
+            if seed:
+                migrated = pg.bulk_upsert(seed)
+                contacts = pg.load_all_contacts()
+        data = _normalize_db({"contacts": contacts, "custom_statuses": []})
+        return data, {
+            "source": "postgres", "sha": None, "count": len(contacts),
+            "migrated": migrated,
+        }
+    except Exception as exc:  # noqa: BLE001 - never crash the page on a DB hiccup
+        return empty_crm_db(), {
+            "source": "postgres", "sha": None,
+            "error": (
+                f"Cloud SQL read failed: {exc}. Confirm CLOUD_SQL_CONNECTION_NAME "
+                "or DATABASE_URL is set and db/schema_cloudsql.sql has been applied."
+            ),
+        }
+
+
+def _save_cloud_postgres(data: dict[str, Any]) -> dict[str, Any]:
+    from utils import crm_store_postgres as pg
+
+    payload = _normalize_db(data)
+    payload["updated_at"] = utc_now_iso()
+    try:
+        n = pg.replace_all_contacts(payload.get("contacts") or [])
+        return {"source": "postgres", "sha": None, "committed": True, "count": n}
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "source": "postgres", "committed": False,
+            "error": (
+                f"Cloud SQL write failed: {exc}. Confirm CLOUD_SQL_CONNECTION_NAME "
+                "or DATABASE_URL is set and the service account can reach the DB."
+            ),
+        }
+
+
 def _load_supabase() -> tuple[dict[str, Any], dict[str, Any]]:
     from utils import crm_store_supabase as sb
 
@@ -219,6 +263,10 @@ def load_crm(
     """
     if org and org.get("backend") == "postgres":
         return _load_postgres(org)
+
+    from utils import crm_store_postgres as pg
+    if pg.postgres_configured():
+        return _load_cloud_postgres()
 
     from utils import crm_store_supabase as sb
     if sb.supabase_configured():
@@ -286,6 +334,10 @@ def save_crm(
     """
     if org and org.get("backend") == "postgres":
         return _save_postgres(data, org)
+
+    from utils import crm_store_postgres as pg
+    if pg.postgres_configured():
+        return _save_cloud_postgres(data)
 
     from utils import crm_store_supabase as sb
     if sb.supabase_configured():

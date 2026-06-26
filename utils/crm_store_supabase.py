@@ -41,6 +41,7 @@ from utils.crm_models import utc_now_iso
 _WRITE_COLS = (
     "name", "company", "industry", "phone", "email",
     "status", "deal_status", "value", "owner", "source", "next_follow_up",
+    "wa_phone_number_id",
 )
 # Extra columns we read back for display but never write.
 _READ_EXTRA = ("sentiment", "notes", "tags")
@@ -111,6 +112,7 @@ def _row_to_contact(row: dict[str, Any]) -> dict[str, Any]:
             contact[c] = row.get(c) or ""
     contact["sentiment"] = row.get("sentiment") or ""
     contact["notes"] = row.get("notes") or ""
+    contact["wa_phone_number_id"] = row.get("wa_phone_number_id") or ""
     tags = row.get("tags")
     contact["tags"] = tags if isinstance(tags, list) else []
     return contact
