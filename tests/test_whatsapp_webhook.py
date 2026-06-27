@@ -94,5 +94,20 @@ class ReceiveStatusCodeTests(unittest.TestCase):
         self.assertEqual(0, resp.json()["handled"])
 
 
+class HealthRouteTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(wh.app)
+
+    def test_healthz_ok(self):
+        resp = self.client.get("/healthz")
+        self.assertEqual(200, resp.status_code)
+        self.assertTrue(resp.json()["ok"])
+
+    def test_status_ok(self):
+        resp = self.client.get("/status")
+        self.assertEqual(200, resp.status_code)
+        self.assertTrue(resp.json()["ok"])
+
+
 if __name__ == "__main__":
     unittest.main()

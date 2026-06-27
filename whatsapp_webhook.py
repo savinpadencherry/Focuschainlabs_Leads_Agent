@@ -550,6 +550,13 @@ async def health() -> dict:
     return {"ok": True, "whatsapp_configured": whatsapp_configured()}
 
 
+@app.get("/status")
+async def status() -> dict:
+    """Second health route — some Cloud Run / load-balancer front ends 404 on
+    /healthz depending on routing config, so expose an identical check here."""
+    return {"ok": True, "whatsapp_configured": whatsapp_configured()}
+
+
 # ── REST API (Flutter mobile app) ─────────────────────────────────────────────
 def _require_api_key(request: Request) -> None:
     expected = (os.getenv("API_SECRET_KEY") or "").strip()
