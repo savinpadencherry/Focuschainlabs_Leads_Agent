@@ -1,7 +1,7 @@
 name: Deploy WhatsApp webhook to Cloud Run
 
 # Builds the webhook image from the root Dockerfile, pushes it to Artifact
-# Registry, and deploys it to the existing crm-whatsapp Cloud Run service.
+# Registry, and deploys it to the existing crm-webhook Cloud Run service.
 # Auth uses Workload Identity Federation — no long-lived key in GitHub.
 # One-time GCP setup required before this can run; see repo chat/PR notes.
 
@@ -19,7 +19,7 @@ on:
 
 env:
   REGION: asia-south1
-  SERVICE: crm-whatsapp
+  SERVICE: crm-webhook
   REPOSITORY: focuschain
   IMAGE_NAME: webhook
 
