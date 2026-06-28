@@ -139,6 +139,147 @@ class InteractionStoreTests(unittest.TestCase):
         self.assertEqual("wamid.abc", rows[0]["message_id"])
         self.assertEqual("Hello", rows[0]["body"])
 
+    def test_insert_interaction_defaults_to_default_org(self):
+        cursor = _FakeCursor(rowcount=1)
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            pg.insert_interaction({"contact_id": "c1", "message_id": "wamid.abc"})
+        _, params = cursor.executed[0]
+        self.assertEqual(params["organization_id"], pg.DEFAULT_ORG_ID)
+
+    def test_insert_interaction_stamps_given_org(self):
+        cursor = _FakeCursor(rowcount=1)
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            pg.insert_interaction({"contact_id": "c1", "message_id": "wamid.abc"}, "acme")
+        _, params = cursor.executed[0]
+        self.assertEqual(params["organization_id"], "acme")
+
+    def test_update_interaction_status_returns_organization_id(self):
+        cursor = _FakeCursor(
+            fetchone_result={"contact_id": "c1", "status": "read", "organization_id": "acme"}
+        )
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            result = pg.update_interaction_status("wamid.abc", "read")
+        self.assertEqual(result["organization_id"], "acme")
+        sql, _ = cursor.executed[0]
+        self.assertIn("RETURNING contact_id, status, organization_id", sql)
+
+    def test_load_interactions_filters_by_org(self):
+        cursor = _FakeCursor(fetchall_result=[])
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            pg.load_interactions("c1", "acme")
+        sql, params = cursor.executed[0]
+        self.assertIn("organization_id = %s", sql)
+        self.assertEqual(params, ("c1", "acme"))
+
+
+class OrgScopingTests(unittest.TestCase):
+    def test_load_all_contacts_filters_by_org(self):
+        cursor = _FakeCursor(fetchall_result=[])
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            pg.load_all_contacts("acme")
+        sql, params = cursor.executed[0]
+        self.assertIn("WHERE organization_id = %s", sql)
+        self.assertEqual(params, ("acme",))
+
+    def test_load_all_contacts_defaults_to_default_org(self):
+        cursor = _FakeCursor(fetchall_result=[])
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            pg.load_all_contacts()
+        _, params = cursor.executed[0]
+        self.assertEqual(params, (pg.DEFAULT_ORG_ID,))
+
+    def test_get_contact_filters_by_org(self):
+        cursor = _FakeCursor(fetchone_result=None)
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            pg.get_contact("c1", "acme")
+        sql, params = cursor.executed[0]
+        self.assertIn("organization_id = %s", sql)
+        self.assertEqual(params, ("c1", "acme"))
+
+    def test_count_contacts_filters_by_org(self):
+        cursor = _FakeCursor(fetchone_result=(3,))
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            n = pg.count_contacts("acme")
+        self.assertEqual(n, 3)
+        sql, params = cursor.executed[0]
+        self.assertIn("organization_id = %s", sql)
+        self.assertEqual(params, ("acme",))
+
+    def test_delete_contacts_filters_by_org(self):
+        cursor = _FakeCursor()
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            pg.delete_contacts(["c1", "c2"], "acme")
+        sql, params = cursor.executed[0]
+        self.assertIn("organization_id = %s", sql)
+        self.assertEqual(params, (["c1", "c2"], "acme"))
+
+    def test_bulk_upsert_sql_has_org_conflict_guard(self):
+        captured = {}
+        real_execute_batch = pg.execute_batch
+
+        def _spy(cur, sql, rows, **kwargs):
+            captured["sql"] = sql
+            captured["rows"] = rows
+
+        with patch.object(pg, "execute_batch", side_effect=_spy):
+            cursor = _FakeCursor()
+            patcher, _ = _patched_connect(cursor)
+            with patcher:
+                pg.bulk_upsert([{"id": "c1", "name": "Raj"}], "acme")
+        self.assertIn(
+            "WHERE contacts.organization_id = EXCLUDED.organization_id", captured["sql"]
+        )
+        self.assertEqual(captured["rows"][0][0], "c1")
+        self.assertEqual(captured["rows"][0][1], "acme")
+
+    def test_resolve_org_for_phone_number_id_found(self):
+        cursor = _FakeCursor(fetchone_result=("acme",))
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            org = pg.resolve_org_for_phone_number_id("pid1")
+        self.assertEqual(org, "acme")
+
+    def test_resolve_org_for_phone_number_id_not_found(self):
+        cursor = _FakeCursor(fetchone_result=None)
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            org = pg.resolve_org_for_phone_number_id("pid-unknown")
+        self.assertIsNone(org)
+
+    def test_resolve_org_for_phone_number_id_blank_returns_none_without_query(self):
+        with patch.object(pg, "_connect") as connect:
+            self.assertIsNone(pg.resolve_org_for_phone_number_id(""))
+        connect.assert_not_called()
+
+    def test_upsert_whatsapp_account_has_org_conflict_guard(self):
+        cursor = _FakeCursor()
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            pg.upsert_whatsapp_account({"phone_number_id": "pid1"}, "acme")
+        sql, params = cursor.executed[0]
+        self.assertIn(
+            "WHERE whatsapp_accounts.organization_id = EXCLUDED.organization_id", sql
+        )
+        self.assertEqual(params["organization_id"], "acme")
+
+    def test_delete_whatsapp_account_filters_by_org(self):
+        cursor = _FakeCursor()
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            pg.delete_whatsapp_account("acct1", "acme")
+        sql, params = cursor.executed[0]
+        self.assertIn("organization_id = %s", sql)
+        self.assertEqual(params, ("acct1", "acme"))
+
 
 if __name__ == "__main__":
     unittest.main()

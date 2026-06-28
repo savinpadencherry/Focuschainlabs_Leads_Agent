@@ -159,17 +159,19 @@ def _read_seed_contacts() -> list[dict[str, Any]]:
     return [c for c in (data.get("contacts") or []) if isinstance(c, dict)]
 
 
-def _load_cloud_postgres() -> tuple[dict[str, Any], dict[str, Any]]:
+def _load_cloud_postgres(organization_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
     from utils import crm_store_postgres as pg
 
     try:
-        contacts = pg.load_all_contacts()
+        contacts = pg.load_all_contacts(organization_id)
         migrated = 0
-        if not contacts:
+        if not contacts and organization_id == pg.DEFAULT_ORG_ID:
+            # Only the pre-multi-tenant default org seeds from the legacy
+            # repo JSON — a freshly added tenant should start empty.
             seed = _read_seed_contacts()
             if seed:
-                migrated = pg.bulk_upsert(seed)
-                contacts = pg.load_all_contacts()
+                migrated = pg.bulk_upsert(seed, organization_id)
+                contacts = pg.load_all_contacts(organization_id)
         data = _normalize_db({"contacts": contacts, "custom_statuses": []})
         return data, {
             "source": "postgres", "sha": None, "count": len(contacts),
@@ -185,13 +187,13 @@ def _load_cloud_postgres() -> tuple[dict[str, Any], dict[str, Any]]:
         }
 
 
-def _save_cloud_postgres(data: dict[str, Any]) -> dict[str, Any]:
+def _save_cloud_postgres(data: dict[str, Any], organization_id: str) -> dict[str, Any]:
     from utils import crm_store_postgres as pg
 
     payload = _normalize_db(data)
     payload["updated_at"] = utc_now_iso()
     try:
-        n = pg.replace_all_contacts(payload.get("contacts") or [])
+        n = pg.replace_all_contacts(payload.get("contacts") or [], organization_id)
         return {"source": "postgres", "sha": None, "committed": True, "count": n}
     except Exception as exc:  # noqa: BLE001
         return {
@@ -252,13 +254,19 @@ def _save_supabase(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_crm(
-    *, force_remote: bool = False, org: dict[str, Any] | None = None,
+    *,
+    force_remote: bool = False,
+    org: dict[str, Any] | None = None,
+    organization_id: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Load CRM database for the active org.
 
     Backend is chosen per-org:
       • org["backend"] == "postgres" — that tenant's own Postgres database
+        (Streamlit's database-per-tenant model; organization_id is unused here)
+      • otherwise, the shared Cloud SQL `contacts` table — scoped to
+        organization_id when given, else the pre-multi-tenant default tenant
       • otherwise — GitHub-JSON (priority: GitHub API → local file → empty)
     """
     if org and org.get("backend") == "postgres":
@@ -266,7 +274,7 @@ def load_crm(
 
     from utils import crm_store_postgres as pg
     if pg.postgres_configured():
-        return _load_cloud_postgres()
+        return _load_cloud_postgres(organization_id or pg.DEFAULT_ORG_ID)
 
     from utils import crm_store_supabase as sb
     if sb.supabase_configured():
@@ -323,12 +331,16 @@ def save_crm(
     sha: str | None = None,
     message: str = "Update CRM contacts",
     org: dict[str, Any] | None = None,
+    organization_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Persist CRM database for the active org.
 
     Backend is chosen per-org:
       • org["backend"] == "postgres" — write to that tenant's Postgres database
+        (Streamlit's database-per-tenant model; organization_id is unused here)
+      • otherwise, the shared Cloud SQL `contacts` table — scoped to
+        organization_id when given, else the pre-multi-tenant default tenant
       • otherwise — commit to GitHub (Contents API) so data survives reboots,
         with a local-file fallback when the write fails.
     """
@@ -337,7 +349,7 @@ def save_crm(
 
     from utils import crm_store_postgres as pg
     if pg.postgres_configured():
-        return _save_cloud_postgres(data)
+        return _save_cloud_postgres(data, organization_id or pg.DEFAULT_ORG_ID)
 
     from utils import crm_store_supabase as sb
     if sb.supabase_configured():

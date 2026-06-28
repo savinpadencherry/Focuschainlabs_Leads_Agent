@@ -126,6 +126,27 @@ def _org() -> dict | None:
     return None
 
 
+def _resolve_org(phone_number_id: str) -> str:
+    """Which Cloud SQL tenant this inbound WhatsApp number belongs to.
+
+    Looks up whatsapp_accounts.phone_number_id → organization_id — never
+    trusts the payload itself to name a tenant. Numbers not yet recorded
+    there (legacy data, or a number connected before multi-tenancy existed)
+    fall back to the default tenant. Non-Postgres backends (GitHub JSON /
+    Supabase) have no whatsapp_accounts table to resolve against, so they
+    always get the default tenant.
+    """
+    from utils import crm_store_postgres as pg
+
+    if not pg.postgres_configured():
+        return pg.DEFAULT_ORG_ID
+    try:
+        org_id = pg.resolve_org_for_phone_number_id(phone_number_id)
+    except Exception:
+        return pg.DEFAULT_ORG_ID
+    return org_id or pg.DEFAULT_ORG_ID
+
+
 def _find_contact(contacts: list[dict], wa_number: str) -> int:
     """Index of the contact whose phone matches the WhatsApp sender, else -1."""
     import re
@@ -176,7 +197,8 @@ def _handle_status_postgres(st: dict, pg) -> str:
         return "status_orphan"
 
     contact_id = updated.get("contact_id") or ""
-    contact = pg.get_contact(contact_id) if contact_id else None
+    organization_id = updated.get("organization_id") or pg.DEFAULT_ORG_ID
+    contact = pg.get_contact(contact_id, organization_id) if contact_id else None
     if not contact:
         return "status_orphan"
 
@@ -188,7 +210,7 @@ def _handle_status_postgres(st: dict, pg) -> str:
     if status == "read" and normalize_status(contact.get("status") or "new") == "new":
         contact["status"] = "contacted"
     contact["updated_at"] = utc_now_iso()
-    pg.bulk_upsert([contact], merge_mobile_fields=False)
+    pg.bulk_upsert([contact], organization_id, merge_mobile_fields=False)
 
     if status == "failed":
         pg.insert_interaction({
@@ -197,7 +219,7 @@ def _handle_status_postgres(st: dict, pg) -> str:
             "body": f"Message delivery failed: {st.get('error') or 'unknown error'}",
             "kind": "comment",
             "source": "whatsapp",
-        })
+        }, organization_id)
     return f"status_{st.get('status')}"
 
 
@@ -249,7 +271,8 @@ def _handle_interactive(msg: dict) -> tuple[str, str]:
     outbound ack against the right interactions row.
     """
     org = _org()
-    db, meta = load_crm(org=org)
+    organization_id = _resolve_org(msg.get("phone_number_id") or "")
+    db, meta = load_crm(org=org, organization_id=organization_id)
     if meta.get("error"):
         raise RuntimeError(f"CRM load failed: {meta['error']}")
 
@@ -291,7 +314,10 @@ def _handle_interactive(msg: dict) -> tuple[str, str]:
 
     contact_id = contact["id"]
     db["contacts"] = contacts
-    result = save_crm(db, sha=meta.get("sha"), message=f"CRM: WhatsApp interaction from {display}", org=org)
+    result = save_crm(
+        db, sha=meta.get("sha"), message=f"CRM: WhatsApp interaction from {display}",
+        org=org, organization_id=organization_id,
+    )
     if result.get("error") and not result.get("committed"):
         raise RuntimeError(f"CRM save failed: {result['error']}")
 
@@ -307,7 +333,7 @@ def _handle_interactive(msg: dict) -> tuple[str, str]:
             "direction": "inbound",
             "message_id": msg.get("id") or "",
             "status": "received",
-        })
+        }, organization_id)
     return action, contact_id
 
 
@@ -354,7 +380,8 @@ def _handle_message(msg: dict) -> tuple[str, str]:
     outbound ack against the right interactions row.
     """
     org = _org()
-    db, meta = load_crm(org=org)
+    organization_id = _resolve_org(msg.get("phone_number_id") or "")
+    db, meta = load_crm(org=org, organization_id=organization_id)
     if meta.get("error"):
         raise RuntimeError(f"CRM load failed: {meta['error']}")
 
@@ -420,8 +447,10 @@ def _handle_message(msg: dict) -> tuple[str, str]:
         display = contact.get("name") or msg["from"]
 
     db["contacts"] = contacts
-    result = save_crm(db, sha=meta.get("sha"),
-                      message=f"CRM: WhatsApp message from {display}", org=org)
+    result = save_crm(
+        db, sha=meta.get("sha"), message=f"CRM: WhatsApp message from {display}",
+        org=org, organization_id=organization_id,
+    )
     if result.get("error") and not result.get("committed"):
         raise RuntimeError(f"CRM save failed: {result['error']}")
 
@@ -437,7 +466,7 @@ def _handle_message(msg: dict) -> tuple[str, str]:
             "direction": "inbound",
             "message_id": msg["id"],
             "status": "received",
-        })
+        }, organization_id)
     return action, contact_id
 
 
@@ -454,7 +483,7 @@ async def verify(request: Request) -> Response:
     return Response(status_code=403)
 
 
-def _persist_outbound_ack(contact_id: str, resp: dict, body: str) -> None:
+def _persist_outbound_ack(contact_id: str, resp: dict, body: str, organization_id: str) -> None:
     """Record the auto-ack send so the later delivery-status webhook has an
     interactions row to match against. Best-effort — an ack is a courtesy."""
     if not contact_id:
@@ -476,7 +505,7 @@ def _persist_outbound_ack(contact_id: str, resp: dict, body: str) -> None:
             "direction": "outbound",
             "message_id": mid,
             "status": "sent",
-        })
+        }, organization_id)
     except Exception:  # noqa: BLE001
         pass
 
@@ -528,7 +557,9 @@ async def receive(request: Request) -> Response:
                     resp = send_whatsapp_text(
                         msg["from"], ack_text, phone_number_id=msg.get("phone_number_id") or None,
                     )
-                    _persist_outbound_ack(contact_id, resp, ack_text)
+                    _persist_outbound_ack(
+                        contact_id, resp, ack_text, _resolve_org(msg.get("phone_number_id") or ""),
+                    )
                 except Exception:  # noqa: BLE001 - ack is a courtesy only
                     pass
             print(f"[whatsapp] {action}: {msg['from']} ({len(msg.get('text') or '')} chars)")
@@ -558,13 +589,40 @@ async def status() -> dict:
 
 
 # ── REST API (Flutter mobile app) ─────────────────────────────────────────────
-def _require_api_key(request: Request) -> None:
-    expected = (os.getenv("API_SECRET_KEY") or "").strip()
-    if not expected:
+def _api_keys() -> dict[str, str]:
+    """Map bearer token → organization_id.
+
+    API_KEYS (JSON object, e.g. {"key-for-acme": "acme", "key-for-beta": "beta"})
+    takes precedence so each tenant's mobile app gets its own key. Falls back
+    to the single legacy API_SECRET_KEY mapped to the default tenant, so
+    existing single-tenant deployments keep working unchanged.
+    """
+    raw = (os.getenv("API_KEYS") or "").strip()
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                return {str(k): str(v) for k, v in parsed.items() if k and v}
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    from utils import crm_store_postgres as pg
+
+    legacy_key = (os.getenv("API_SECRET_KEY") or "").strip()
+    return {legacy_key: pg.DEFAULT_ORG_ID} if legacy_key else {}
+
+
+def _require_api_key(request: Request) -> str:
+    """Validate the bearer token and return the organization_id it's scoped to."""
+    keys = _api_keys()
+    if not keys:
         raise HTTPException(status_code=503, detail="API not configured")
     auth = (request.headers.get("Authorization") or "").strip()
-    if auth != f"Bearer {expected}":
+    token = auth[len("Bearer "):] if auth.startswith("Bearer ") else ""
+    org_id = keys.get(token) if token else None
+    if not org_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
+    return org_id
 
 
 def _pg():
@@ -575,86 +633,102 @@ def _pg():
     return pg
 
 
-@app.get("/api/contacts", dependencies=[Depends(_require_api_key)])
-async def api_list_contacts() -> list[dict]:
-    return _pg().load_all_contacts()
+@app.get("/api/contacts")
+async def api_list_contacts(organization_id: str = Depends(_require_api_key)) -> list[dict]:
+    return _pg().load_all_contacts(organization_id)
 
 
-@app.get("/api/contacts/{contact_id}", dependencies=[Depends(_require_api_key)])
-async def api_get_contact(contact_id: str) -> dict:
+@app.get("/api/contacts/{contact_id}")
+async def api_get_contact(
+    contact_id: str, organization_id: str = Depends(_require_api_key),
+) -> dict:
     pg = _pg()
-    contact = pg.get_contact(contact_id)
+    contact = pg.get_contact(contact_id, organization_id)
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
-    contact["interactions"] = pg.load_interactions(contact_id)
+    contact["interactions"] = pg.load_interactions(contact_id, organization_id)
     return contact
 
 
-@app.post("/api/contacts", dependencies=[Depends(_require_api_key)])
-async def api_upsert_contact(request: Request) -> dict:
+@app.post("/api/contacts")
+async def api_upsert_contact(
+    request: Request, organization_id: str = Depends(_require_api_key),
+) -> dict:
     body = await request.json()
     if not isinstance(body, dict) or not body.get("id"):
         raise HTTPException(status_code=400, detail="Contact dict with id required")
-    _pg().bulk_upsert([body], merge_mobile_fields=False)
+    _pg().bulk_upsert([body], organization_id, merge_mobile_fields=False)
     return {"ok": True, "id": body["id"]}
 
 
-@app.put("/api/contacts/{contact_id}", dependencies=[Depends(_require_api_key)])
-async def api_patch_contact(contact_id: str, request: Request) -> dict:
+@app.put("/api/contacts/{contact_id}")
+async def api_patch_contact(
+    contact_id: str, request: Request, organization_id: str = Depends(_require_api_key),
+) -> dict:
     patch = await request.json()
     if not isinstance(patch, dict):
         raise HTTPException(status_code=400, detail="JSON object required")
     pg = _pg()
-    existing = pg.get_contact(contact_id)
+    existing = pg.get_contact(contact_id, organization_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Contact not found")
     merged = {**existing, **patch, "id": contact_id}
-    pg.bulk_upsert([merged], merge_mobile_fields=False)
+    pg.bulk_upsert([merged], organization_id, merge_mobile_fields=False)
     return {"ok": True, "id": contact_id}
 
 
-@app.delete("/api/contacts/{contact_id}", dependencies=[Depends(_require_api_key)])
-async def api_delete_contact(contact_id: str) -> dict:
+@app.delete("/api/contacts/{contact_id}")
+async def api_delete_contact(
+    contact_id: str, organization_id: str = Depends(_require_api_key),
+) -> dict:
     pg = _pg()
-    if not pg.get_contact(contact_id):
+    if not pg.get_contact(contact_id, organization_id):
         raise HTTPException(status_code=404, detail="Contact not found")
-    pg.delete_contacts([contact_id])
+    pg.delete_contacts([contact_id], organization_id)
     return {"ok": True, "id": contact_id}
 
 
-@app.post("/api/contacts/bulk", dependencies=[Depends(_require_api_key)])
-async def api_bulk_contacts(request: Request) -> dict:
+@app.post("/api/contacts/bulk")
+async def api_bulk_contacts(
+    request: Request, organization_id: str = Depends(_require_api_key),
+) -> dict:
     body = await request.json()
     if not isinstance(body, list):
         raise HTTPException(status_code=400, detail="JSON array required")
     contacts = [c for c in body if isinstance(c, dict) and c.get("id")]
-    n = _pg().bulk_upsert(contacts, merge_mobile_fields=False)
+    n = _pg().bulk_upsert(contacts, organization_id, merge_mobile_fields=False)
     return {"ok": True, "upserted": n}
 
 
-@app.get("/api/whatsapp-accounts", dependencies=[Depends(_require_api_key)])
-async def api_list_whatsapp_accounts() -> list[dict]:
-    return _pg().load_whatsapp_accounts()
+@app.get("/api/whatsapp-accounts")
+async def api_list_whatsapp_accounts(
+    organization_id: str = Depends(_require_api_key),
+) -> list[dict]:
+    return _pg().load_whatsapp_accounts(organization_id)
 
 
-@app.post("/api/whatsapp-accounts", dependencies=[Depends(_require_api_key)])
-async def api_upsert_whatsapp_account(request: Request) -> dict:
+@app.post("/api/whatsapp-accounts")
+async def api_upsert_whatsapp_account(
+    request: Request, organization_id: str = Depends(_require_api_key),
+) -> dict:
     body = await request.json()
     if not isinstance(body, dict) or not body.get("phone_number_id"):
         raise HTTPException(
             status_code=400, detail="Account dict with phone_number_id required",
         )
     try:
-        _pg().upsert_whatsapp_account(body)
+        _pg().upsert_whatsapp_account(body, organization_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"ok": True, "phone_number_id": body["phone_number_id"]}
 
 
-@app.delete("/api/whatsapp-accounts/{account_id}", dependencies=[Depends(_require_api_key)])
-async def api_delete_whatsapp_account(account_id: str) -> dict:
-    accounts = _pg().load_whatsapp_accounts()
+@app.delete("/api/whatsapp-accounts/{account_id}")
+async def api_delete_whatsapp_account(
+    account_id: str, organization_id: str = Depends(_require_api_key),
+) -> dict:
+    accounts = _pg().load_whatsapp_accounts(organization_id)
     if not any(a.get("id") == account_id for a in accounts):
         raise HTTPException(status_code=404, detail="WhatsApp account not found")
-    _pg().delete_whatsapp_account(account_id)
+    _pg().delete_whatsapp_account(account_id, organization_id)
     return {"ok": True, "id": account_id}

@@ -6,6 +6,14 @@ WhatsApp webhook REST API, and the Flutter mobile app.
 Schema: db/schema_cloudsql.sql — flat `contacts` + `interactions` +
 `whatsapp_accounts` tables (matches Supabase).
 
+Multi-tenancy: shared tables, one row per tenant in `organizations`, every
+tenant-owned row carries `organization_id`. Every read/write below takes it
+as an explicit argument (never read off a client-supplied dict field) so a
+caller can't spoof which tenant's data it touches. Callers that don't pass
+one fall back to DEFAULT_ORG_ID — the single tenant this database held
+before multi-tenancy existed. Row-level security is not enforced yet; this
+column is the application-level guard for the first pass.
+
 Connection modes:
   • Cloud Run: CLOUD_SQL_CONNECTION_NAME set → Unix socket at
     /cloudsql/{CLOUD_SQL_CONNECTION_NAME} (also needs DB_USER, DB_PASSWORD, DB_NAME)
@@ -33,6 +41,10 @@ _WRITE_COLS = (
 )
 _MOBILE_COLS = ("sentiment", "notes", "tags")
 _ALL_DATA_COLS = (*_WRITE_COLS, *_MOBILE_COLS)
+
+# Tenant every row belonged to before organization_id existed; also the
+# fallback for callers (Streamlit pages, scripts) not yet org-aware.
+DEFAULT_ORG_ID = "default"
 
 
 def postgres_configured() -> bool:
@@ -104,7 +116,10 @@ def _to_row(contact: dict[str, Any]) -> dict[str, Any]:
 
 
 def _row_to_contact(row: dict[str, Any]) -> dict[str, Any]:
-    contact: dict[str, Any] = {"id": row.get("id")}
+    contact: dict[str, Any] = {
+        "id": row.get("id"),
+        "organization_id": row.get("organization_id") or "",
+    }
     for c in _WRITE_COLS:
         if c == "next_follow_up":
             contact[c] = _iso(row.get("next_follow_up"))
@@ -131,6 +146,7 @@ def _row_to_wa_account(row: dict[str, Any]) -> dict[str, Any]:
         "agent_name": row.get("agent_name") or "",
         "connected_at": _iso(row.get("connected_at")),
         "active": bool(row.get("active", True)),
+        "organization_id": row.get("organization_id") or "",
     }
 
 
@@ -139,17 +155,21 @@ def _upsert_rows(
     contacts: list[dict[str, Any]],
     *,
     merge_mobile_fields: bool,
+    organization_id: str,
 ) -> None:
     update_cols = list(_WRITE_COLS) + ["updated_at"]
     if not merge_mobile_fields:
         update_cols = list(_ALL_DATA_COLS) + ["updated_at"]
 
-    insert_cols = ["id", *_ALL_DATA_COLS, "created_at", "updated_at"]
+    insert_cols = ["id", "organization_id", *_ALL_DATA_COLS, "created_at", "updated_at"]
     placeholders = ", ".join(["%s"] * len(insert_cols))
     updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in update_cols)
+    # The WHERE guard means a conflicting id owned by a *different* org is
+    # left untouched instead of being overwritten with this org's data.
     sql = (
         f"INSERT INTO contacts ({', '.join(insert_cols)}) VALUES ({placeholders}) "
-        f"ON CONFLICT (id) DO UPDATE SET {updates}"
+        f"ON CONFLICT (id) DO UPDATE SET {updates} "
+        f"WHERE contacts.organization_id = EXCLUDED.organization_id"
     )
 
     rows = []
@@ -159,6 +179,7 @@ def _upsert_rows(
         parsed = _to_row(contact)
         rows.append([
             parsed["id"],
+            organization_id,
             *(parsed[c] for c in _WRITE_COLS),
             parsed["sentiment"],
             parsed["notes"],
@@ -171,33 +192,40 @@ def _upsert_rows(
         execute_batch(cur, sql, rows, page_size=200)
 
 
-def load_all_contacts() -> list[dict[str, Any]]:
+def load_all_contacts(organization_id: str = DEFAULT_ORG_ID) -> list[dict[str, Any]]:
     with _connect() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT * FROM contacts ORDER BY updated_at DESC")
+        cur.execute(
+            "SELECT * FROM contacts WHERE organization_id = %s ORDER BY updated_at DESC",
+            (organization_id,),
+        )
         return [_row_to_contact(r) for r in cur.fetchall()]
 
 
-def get_contact(contact_id: str) -> dict[str, Any] | None:
+def get_contact(contact_id: str, organization_id: str = DEFAULT_ORG_ID) -> dict[str, Any] | None:
     with _connect() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
+        cur.execute(
+            "SELECT * FROM contacts WHERE id = %s AND organization_id = %s",
+            (contact_id, organization_id),
+        )
         row = cur.fetchone()
     return _row_to_contact(row) if row else None
 
 
-def _all_ids() -> set[str]:
+def _all_ids(organization_id: str) -> set[str]:
     with _connect() as conn, conn.cursor() as cur:
-        cur.execute("SELECT id FROM contacts")
+        cur.execute("SELECT id FROM contacts WHERE organization_id = %s", (organization_id,))
         return {r[0] for r in cur.fetchall()}
 
 
-def count_contacts() -> int:
+def count_contacts(organization_id: str = DEFAULT_ORG_ID) -> int:
     with _connect() as conn, conn.cursor() as cur:
-        cur.execute("SELECT count(*) FROM contacts")
+        cur.execute("SELECT count(*) FROM contacts WHERE organization_id = %s", (organization_id,))
         return int(cur.fetchone()[0])
 
 
 def bulk_upsert(
     contacts: list[dict[str, Any]],
+    organization_id: str = DEFAULT_ORG_ID,
     *,
     merge_mobile_fields: bool = True,
 ) -> int:
@@ -211,33 +239,44 @@ def bulk_upsert(
         return 0
     with _connect() as conn:
         with conn.cursor() as cur:
-            _upsert_rows(cur, valid, merge_mobile_fields=merge_mobile_fields)
+            _upsert_rows(
+                cur, valid,
+                merge_mobile_fields=merge_mobile_fields,
+                organization_id=organization_id,
+            )
         conn.commit()
     return len(valid)
 
 
-def delete_contacts(ids: list[str]) -> None:
+def delete_contacts(ids: list[str], organization_id: str = DEFAULT_ORG_ID) -> None:
     clean = [i for i in ids if i]
     if not clean:
         return
     with _connect() as conn, conn.cursor() as cur:
-        cur.execute("DELETE FROM contacts WHERE id = ANY(%s)", (clean,))
+        cur.execute(
+            "DELETE FROM contacts WHERE id = ANY(%s) AND organization_id = %s",
+            (clean, organization_id),
+        )
         conn.commit()
 
 
-def replace_all_contacts(contacts: list[dict[str, Any]]) -> int:
+def replace_all_contacts(
+    contacts: list[dict[str, Any]], organization_id: str = DEFAULT_ORG_ID,
+) -> int:
     """Upsert everything in `contacts`, then delete rows absent from the list.
 
     Guard: an empty incoming list deletes NOTHING — a failed/empty load must
-    never be able to wipe the shared database.
+    never be able to wipe the shared database. Both the upsert and the
+    delete-set are scoped to organization_id, so this can never touch another
+    tenant's rows.
     """
     incoming_ids = {c["id"] for c in contacts if c.get("id")}
     if not incoming_ids:
         return 0
-    bulk_upsert(contacts, merge_mobile_fields=True)
-    to_delete = list(_all_ids() - incoming_ids)
+    bulk_upsert(contacts, organization_id, merge_mobile_fields=True)
+    to_delete = list(_all_ids(organization_id) - incoming_ids)
     if to_delete:
-        delete_contacts(to_delete)
+        delete_contacts(to_delete, organization_id)
     return len(incoming_ids)
 
 
@@ -252,6 +291,7 @@ def _row_to_interaction(row: dict[str, Any]) -> dict[str, Any]:
     interaction: dict[str, Any] = {
         "id": row.get("id") or "",
         "contact_id": row.get("contact_id") or "",
+        "organization_id": row.get("organization_id") or "",
     }
     for c in _INTERACTION_COLS:
         interaction[c] = row.get(c) or ""
@@ -259,11 +299,14 @@ def _row_to_interaction(row: dict[str, Any]) -> dict[str, Any]:
     return interaction
 
 
-def load_interactions(contact_id: str) -> list[dict[str, Any]]:
+def load_interactions(
+    contact_id: str, organization_id: str = DEFAULT_ORG_ID,
+) -> list[dict[str, Any]]:
     with _connect() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            "SELECT * FROM interactions WHERE contact_id = %s ORDER BY created_at ASC",
-            (contact_id,),
+            "SELECT * FROM interactions WHERE contact_id = %s AND organization_id = %s "
+            "ORDER BY created_at ASC",
+            (contact_id, organization_id),
         )
         return [_row_to_interaction(r) for r in cur.fetchall()]
 
@@ -278,7 +321,9 @@ def message_id_exists(message_id: str) -> bool:
         return cur.fetchone() is not None
 
 
-def insert_interaction(interaction: dict[str, Any]) -> bool:
+def insert_interaction(
+    interaction: dict[str, Any], organization_id: str = DEFAULT_ORG_ID,
+) -> bool:
     """Insert one interaction row. Returns False if message_id is a duplicate
     (caught by the partial unique index, not a round-trip existence check —
     safe against concurrent webhook retries)."""
@@ -289,6 +334,7 @@ def insert_interaction(interaction: dict[str, Any]) -> bool:
     values = {
         "id": interaction.get("id") or str(uuid.uuid4()),
         "contact_id": contact_id,
+        "organization_id": organization_id,
         "kind": str(interaction.get("kind") or "comment"),
         "created_at": interaction.get("created_at") or utc_now_iso(),
     }
@@ -296,7 +342,7 @@ def insert_interaction(interaction: dict[str, Any]) -> bool:
         if c not in values:
             values[c] = str(interaction.get(c) or "")
 
-    cols = ["id", "contact_id", *_INTERACTION_COLS, "created_at"]
+    cols = ["id", "contact_id", "organization_id", *_INTERACTION_COLS, "created_at"]
     sql = (
         f"INSERT INTO interactions ({', '.join(cols)}) "
         f"VALUES ({', '.join(f'%({c})s' for c in cols)}) "
@@ -314,8 +360,11 @@ def update_interaction_status(
 ) -> dict[str, Any] | None:
     """Update an outbound interaction's delivery status by wamid.
 
-    Returns {"contact_id", "status"} of the matched row, or None if no
-    interaction was ever recorded for this message id (orphan status receipt).
+    Returns {"contact_id", "status", "organization_id"} of the matched row,
+    or None if no interaction was ever recorded for this message id (orphan
+    status receipt). message_id (Meta's wamid) is globally unique, so this
+    intentionally isn't org-scoped — the caller uses the returned
+    organization_id for any follow-up lookups.
     """
     mid = (message_id or "").strip()
     if not mid:
@@ -323,7 +372,7 @@ def update_interaction_status(
     with _connect() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             "UPDATE interactions SET status = %s, error = %s "
-            "WHERE message_id = %s RETURNING contact_id, status",
+            "WHERE message_id = %s RETURNING contact_id, status, organization_id",
             (status, error, mid),
         )
         row = cur.fetchone()
@@ -332,16 +381,25 @@ def update_interaction_status(
 
 
 # ── WhatsApp accounts (multi-number Embedded Signup) ──────────────────────────
-def load_whatsapp_accounts() -> list[dict[str, Any]]:
+def load_whatsapp_accounts(organization_id: str = DEFAULT_ORG_ID) -> list[dict[str, Any]]:
     with _connect() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            "SELECT * FROM whatsapp_accounts ORDER BY connected_at DESC"
+            "SELECT * FROM whatsapp_accounts WHERE organization_id = %s "
+            "ORDER BY connected_at DESC",
+            (organization_id,),
         )
         return [_row_to_wa_account(r) for r in cur.fetchall()]
 
 
-def upsert_whatsapp_account(account: dict[str, Any]) -> None:
-    """Save or refresh a connected WhatsApp Business number."""
+def upsert_whatsapp_account(
+    account: dict[str, Any], organization_id: str = DEFAULT_ORG_ID,
+) -> None:
+    """Save or refresh a connected WhatsApp Business number.
+
+    The WHERE guard on the conflict update means re-connecting a
+    phone_number_id already owned by a different org leaves that row alone
+    instead of handing the number to this org.
+    """
     phone_number_id = str(account.get("phone_number_id") or "").strip()
     if not phone_number_id:
         raise ValueError("phone_number_id is required")
@@ -350,6 +408,7 @@ def upsert_whatsapp_account(account: dict[str, Any]) -> None:
     values = {
         "id": row_id,
         "phone_number_id": phone_number_id,
+        "organization_id": organization_id,
         "display_name": str(account.get("display_name") or ""),
         "phone_number": str(account.get("phone_number") or ""),
         "waba_id": str(account.get("waba_id") or ""),
@@ -361,12 +420,12 @@ def upsert_whatsapp_account(account: dict[str, Any]) -> None:
 
     sql = """
         INSERT INTO whatsapp_accounts (
-            id, phone_number_id, display_name, phone_number, waba_id,
-            access_token, agent_name, connected_at, active
+            id, phone_number_id, organization_id, display_name, phone_number,
+            waba_id, access_token, agent_name, connected_at, active
         ) VALUES (
-            %(id)s, %(phone_number_id)s, %(display_name)s, %(phone_number)s,
-            %(waba_id)s, %(access_token)s, %(agent_name)s, %(connected_at)s,
-            %(active)s
+            %(id)s, %(phone_number_id)s, %(organization_id)s, %(display_name)s,
+            %(phone_number)s, %(waba_id)s, %(access_token)s, %(agent_name)s,
+            %(connected_at)s, %(active)s
         )
         ON CONFLICT (phone_number_id) DO UPDATE SET
             display_name = EXCLUDED.display_name,
@@ -376,13 +435,37 @@ def upsert_whatsapp_account(account: dict[str, Any]) -> None:
             agent_name = EXCLUDED.agent_name,
             connected_at = EXCLUDED.connected_at,
             active = EXCLUDED.active
+        WHERE whatsapp_accounts.organization_id = EXCLUDED.organization_id
     """
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(sql, values)
         conn.commit()
 
 
-def delete_whatsapp_account(account_id: str) -> None:
+def delete_whatsapp_account(account_id: str, organization_id: str = DEFAULT_ORG_ID) -> None:
     with _connect() as conn, conn.cursor() as cur:
-        cur.execute("DELETE FROM whatsapp_accounts WHERE id = %s", (account_id,))
+        cur.execute(
+            "DELETE FROM whatsapp_accounts WHERE id = %s AND organization_id = %s",
+            (account_id, organization_id),
+        )
         conn.commit()
+
+
+def resolve_org_for_phone_number_id(phone_number_id: str) -> str | None:
+    """Which tenant owns this WhatsApp Business number, or None if unknown.
+
+    Used by the webhook to resolve organization_id for inbound traffic —
+    deliberately keyed off our own whatsapp_accounts table rather than any
+    field in the webhook payload, since payload contents come from Meta on
+    behalf of the sender and must never be trusted to name a tenant.
+    """
+    pid = (phone_number_id or "").strip()
+    if not pid:
+        return None
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT organization_id FROM whatsapp_accounts WHERE phone_number_id = %s",
+            (pid,),
+        )
+        row = cur.fetchone()
+    return row[0] if row else None
