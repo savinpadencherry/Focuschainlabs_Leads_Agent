@@ -46,6 +46,7 @@ from utils.crm_models import (
 )
 from utils.crm_store import load_crm, save_crm
 from utils.usage_guide import render_usage_guide
+from utils import auth
 
 
 # ── Session state ─────────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ def _invalidate() -> None:
 
 def _load_crm() -> tuple[list, dict]:
     if st.session_state.fin_crm_db is None:
-        db, meta = load_crm()
+        db, meta = load_crm(organization_id=auth.active_org_id())
         st.session_state.fin_crm_db   = db
         st.session_state.fin_crm_meta = meta
     return (
@@ -84,7 +85,10 @@ def _load_crm() -> tuple[list, dict]:
 
 def _save(message: str) -> None:
     meta = st.session_state.fin_crm_meta or {}
-    result = save_crm(st.session_state.fin_crm_db, sha=meta.get("sha"), message=message)
+    result = save_crm(
+        st.session_state.fin_crm_db, sha=meta.get("sha"), message=message,
+        organization_id=auth.active_org_id(),
+    )
     if isinstance(result, dict):
         st.session_state.fin_crm_meta = {**meta, "sha": result.get("sha") or meta.get("sha")}
 

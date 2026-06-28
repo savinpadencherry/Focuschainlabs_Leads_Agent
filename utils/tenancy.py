@@ -47,6 +47,15 @@ def active_org() -> dict[str, Any]:
     for o in orgs:
         if o["id"] == org_id:
             return o
+    if org_id:
+        # The authenticated user's tenant may not appear in CRM_ORGS — the shared
+        # multi-tenant model derives tenants from utils/org_config, not CRM_ORGS.
+        # Honour that id on the shared Cloud SQL backend rather than snapping the
+        # session back to the first configured org.
+        from utils import org_config
+
+        brand = org_config.org_branding(org_id)
+        return {"id": org_id, "label": brand["name"], "backend": "github"}
     st.session_state["crm_org_id"] = orgs[0]["id"]
     return orgs[0]
 

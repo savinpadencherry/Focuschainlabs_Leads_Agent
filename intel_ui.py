@@ -23,6 +23,7 @@ from agent.intel_agent import (
 from utils.crm_models import normalize_comment, utc_now_iso
 from utils.crm_store import load_crm, save_crm
 from utils.intel_store import load_briefings, mark_pushed, upsert_briefings
+from utils import auth
 from utils.usage_guide import render_usage_guide
 
 
@@ -53,7 +54,7 @@ def _reset() -> None:
 
 def _load_crm() -> tuple[list, dict]:
     if st.session_state.intel_crm_db is None:
-        db, meta = load_crm()
+        db, meta = load_crm(organization_id=auth.active_org_id())
         st.session_state.intel_crm_db   = db
         st.session_state.intel_crm_meta = meta
     return (
@@ -385,6 +386,7 @@ def _push_to_crm(briefing: dict) -> str | None:
         db,
         sha=meta.get("sha"),
         message=f"Intel: briefing pushed for {company}",
+        organization_id=auth.active_org_id(),
     )
     if isinstance(result, dict):
         st.session_state.intel_crm_meta = {

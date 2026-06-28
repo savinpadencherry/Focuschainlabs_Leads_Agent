@@ -21,6 +21,7 @@ from agent.proposal_agent import build_html, generate_proposal, send_proposal_em
 from utils.crm_models import normalize_comment, normalize_email_event, utc_now_iso
 from utils.crm_store import load_crm, save_crm
 from utils.usage_guide import render_usage_guide
+from utils import auth
 
 
 # ── Session state ─────────────────────────────────────────────────────────────
@@ -56,7 +57,7 @@ def _reset() -> None:
 
 def _load_crm_cached() -> tuple[list, dict]:
     if st.session_state.proposal_crm_db is None:
-        db, meta = load_crm()
+        db, meta = load_crm(organization_id=auth.active_org_id())
         st.session_state.proposal_crm_db   = db
         st.session_state.proposal_crm_meta = meta
     return (
@@ -739,6 +740,7 @@ def _log_proposal_to_crm(
         db,
         sha=meta.get("sha"),
         message=f"Proposal: drafted for {contact.get('company', contact.get('name',''))}",
+        organization_id=auth.active_org_id(),
     )
     if isinstance(result, dict):
         st.session_state.proposal_crm_meta = {
@@ -765,6 +767,7 @@ def _update_crm_stage(contact: dict, new_stage: str) -> None:
             db,
             sha=meta.get("sha"),
             message=f"Stage → {new_stage}: {contact.get('company', contact.get('name',''))}",
+            organization_id=auth.active_org_id(),
         )
 
 
@@ -788,6 +791,7 @@ def _log_email_sent(contact: dict, to_email: str, subject: str) -> None:
             db,
             sha=meta.get("sha"),
             message=f"Proposal email sent to {to_email}",
+            organization_id=auth.active_org_id(),
         )
     except Exception:
         pass
