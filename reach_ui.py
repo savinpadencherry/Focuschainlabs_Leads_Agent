@@ -19,6 +19,7 @@ import streamlit as st
 from utils.crm_models import normalize_email_event, utc_now_iso
 from utils.crm_store import load_crm, save_crm
 from utils.usage_guide import render_usage_guide
+from utils import auth
 from agent.contact_finder import (
     best_guess_email,
     extract_domain,
@@ -46,7 +47,7 @@ def _init() -> None:
 
 def _load() -> tuple[list, dict]:
     if st.session_state.reach_db is None:
-        db, meta = load_crm()
+        db, meta = load_crm(organization_id=auth.active_org_id())
         st.session_state.reach_db   = db
         st.session_state.reach_meta = meta
     return st.session_state.reach_db.get("contacts", []), st.session_state.reach_meta or {}
@@ -63,6 +64,7 @@ def _save(message: str) -> None:
         st.session_state.reach_db,
         sha=meta.get("sha"),
         message=message,
+        organization_id=auth.active_org_id(),
     )
     if isinstance(result, dict):
         st.session_state.reach_meta = {**meta, "sha": result.get("sha") or meta.get("sha")}

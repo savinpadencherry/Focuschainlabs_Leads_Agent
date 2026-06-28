@@ -12,6 +12,7 @@ import streamlit as st
 
 import utils.crm_models as crm_models
 import utils.tenancy as tenancy
+from utils import auth
 from agent.broadcast_agent import compose_broadcast, personalise
 from agent.crm_search_agent import resolve_status_update, search_contacts
 from agent.reach_agent import send_email_smtp, smtp_configured
@@ -2032,7 +2033,7 @@ div[class*="st-key-crm_row_"].crm-select-mode [data-testid="stElementContainer"]
 def ensure_crm_loaded(*, force: bool = False) -> None:
     org = tenancy.active_org()
     if force or "crm_db" not in st.session_state or st.session_state.get("crm_loaded_org") != org["id"]:
-        db, meta = load_crm(org=org)
+        db, meta = load_crm(org=org, organization_id=org["id"])
         st.session_state["crm_loaded_org"] = org["id"]
         contacts = [
             normalize_contact(c)
@@ -2059,7 +2060,10 @@ def ensure_crm_loaded(*, force: bool = False) -> None:
 def persist_crm(message: str = "Update CRM contacts") -> bool:
     db = st.session_state.get("crm_db") or {"contacts": []}
     org = tenancy.active_org()
-    result = save_crm(db, sha=st.session_state.get("crm_sha"), message=message, org=org)
+    result = save_crm(
+        db, sha=st.session_state.get("crm_sha"), message=message,
+        org=org, organization_id=org["id"],
+    )
     st.session_state.crm_meta = result
     if result.get("committed") or result.get("source") == "local":
         st.session_state.crm_sha = result.get("sha")
@@ -4158,7 +4162,9 @@ def render_crm_page() -> None:
     st.session_state.pop("crm_expanded_contact_id", None)
 
     st.markdown(CRM_CSS, unsafe_allow_html=True)
-    tenancy.render_org_switcher()
+    # Under auth the tenant is fixed by identity — never let users hand-switch it.
+    if not auth.auth_enabled():
+        tenancy.render_org_switcher()
     ensure_crm_loaded()
 
     db = st.session_state.crm_db

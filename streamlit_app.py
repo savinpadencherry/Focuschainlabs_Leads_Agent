@@ -21,6 +21,7 @@ from proposal_ui import render_proposal_page
 from finance_ui import render_finance_page
 from utils.feedback_ui import close_feedback_on_view_change, render_feedback_floater
 from utils.usage_guide import render_usage_guide
+from utils import auth
 
 # ── Environment ──────────────────────────────────────────────────────────────
 try:
@@ -2222,6 +2223,12 @@ def _init():
 
 _init()
 
+# ── Authentication gate ───────────────────────────────────────────────────────
+# Block here until a known-domain Google account is signed in (no-op in dev /
+# when [auth] isn't configured). Resolves the tenant and pins organization_id
+# into the session, so every view below is already org-scoped.
+auth.require_auth()
+
 # ── ICP discovery ─────────────────────────────────────────────────────────────
 def discover_icps() -> dict:
     icps = {}
@@ -2342,14 +2349,15 @@ def render_app_drawer() -> None:
     current = st.session_state.get("app_view", "agent")
     close_feedback_on_view_change()
 
+    brand = auth.active_brand()
     with st.sidebar:
         st.markdown(
-            """
+            f"""
             <div class="drawer-hamburger" aria-hidden="true">
               <span class="drawer-hamburger-bars"></span>
             </div>
             <div class="drawer-hero">
-              <div class="drawer-hero-kicker">FocusChain Labs</div>
+              <div class="drawer-hero-kicker">{html.escape(brand['name'])}</div>
               <div class="drawer-hero-title">Modules</div>
             </div>
             """,
@@ -2366,6 +2374,8 @@ def render_app_drawer() -> None:
                 st.session_state.drawer_open = False
                 st.session_state.app_view = view_id
                 st.rerun()
+
+        auth.render_user_chip()
 
 
 def render_mobile_nav_shell() -> None:
@@ -2394,9 +2404,10 @@ def render_mobile_drawer_menu() -> None:
         st.rerun()
 
     # Slide-in panel with the module links.
+    brand = auth.active_brand()
     with st.container(key="mobile_drawer_panel"):
         st.markdown(
-            '<div class="drawer-menu-title">FocusChain Labs · Modules</div>',
+            f'<div class="drawer-menu-title">{html.escape(brand["name"])} · Modules</div>',
             unsafe_allow_html=True,
         )
         for view_id, label in APP_NAV:
@@ -2411,13 +2422,18 @@ def render_mobile_drawer_menu() -> None:
                 st.session_state.app_view = view_id
                 st.rerun()
 
+        auth.render_user_chip()
+
 
 def render_agent_hero() -> None:
-    st.markdown("""
+    brand = auth.active_brand()
+    eyebrow = html.escape(brand["eyebrow"])
+    tagline = html.escape(brand["tagline"]).replace(" ", "&nbsp;")
+    st.markdown(f"""
 <div class="eyebrow">
   <span class="dot"></span>
   <span class="dash"></span>
-  FOCUSCHAIN LABS · LEAD AGENT
+  {eyebrow}
   <span class="dash"></span>
   <span class="dot"></span>
 </div>
@@ -2425,7 +2441,7 @@ def render_agent_hero() -> None:
   <span class="w1"><i>Find companies</i></span><br>
   <span class="w2"><i class="accent">ready to buy</i></span>
 </h1>
-<p class="tagline">prompt.intake()&nbsp;&nbsp;→&nbsp;&nbsp;signals.scan&nbsp;&nbsp;→&nbsp;&nbsp;outreach.deploy</p>
+<p class="tagline">{tagline}</p>
 """, unsafe_allow_html=True)
 
 
