@@ -32,6 +32,7 @@ load_dotenv()
 
 from utils import crm_store_postgres as pg  # noqa: E402
 from utils import inbound_batch  # noqa: E402
+from utils import obs  # noqa: E402
 
 
 def main() -> int:
@@ -78,6 +79,13 @@ def main() -> int:
             f"{r['llm_calls']} LLM calls · {r['updated']} updated"
             f"{(' · ' + str(r['skipped_no_contact']) + ' orphaned') if r['skipped_no_contact'] else ''}"
             f"{flag}"
+        )
+        # Structured per-org line so Cloud Logging can chart daily batch cost /
+        # volume per tenant (jsonPayload.event="daily_batch").
+        obs.log_event(
+            "daily_batch", organization_id=r["org"], llm_calls=r["llm_calls"],
+            contacts=r["contacts"], messages=r["messages"], updated=r["updated"],
+            budget_stopped=r["budget_stopped"], dry_run=args.dry_run,
         )
     mode = "DRY RUN — " if args.dry_run else ""
     print(f"✓ {mode}done — {total_calls} LLM call(s) across {len(results)} org(s)")
