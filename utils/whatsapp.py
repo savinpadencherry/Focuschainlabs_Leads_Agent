@@ -13,12 +13,31 @@ Secrets (Meta for Developers → your app → WhatsApp → API Setup):
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
 import re
 
 import requests
 
 _GRAPH = "https://graph.facebook.com/v21.0"
+
+
+def verify_signature(raw_body: bytes, signature_header: str, app_secret: str) -> bool:
+    """Verify Meta's X-Hub-Signature-256 over the raw request body.
+
+    Meta signs every webhook POST with HMAC-SHA256 keyed by the app secret. We
+    recompute it over the exact bytes received and constant-time compare. Returns
+    False (reject) when the secret is missing or the header is malformed — the
+    caller must not process unsigned/forged deliveries in production.
+    """
+    if not app_secret:
+        return False
+    sig = (signature_header or "").strip()
+    if not sig.startswith("sha256="):
+        return False
+    expected = hmac.new(app_secret.encode(), raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(sig[len("sha256="):], expected)
 
 
 def _token() -> str:
@@ -53,26 +72,33 @@ def phone_variants(wa_number: str) -> list[str]:
     return out
 
 
-def send_whatsapp_text(to: str, body: str, *, phone_number_id: str | None = None) -> dict:
+def send_whatsapp_text(
+    to: str, body: str, *,
+    phone_number_id: str | None = None,
+    access_token: str | None = None,
+) -> dict:
     """Send a plain text message. Returns the Graph API response dict.
 
     Raises for transport errors; callers treat a failed ack as non-fatal
     (the lead is already stored — the reply is a courtesy).
 
-    phone_number_id: which registered number to send from. Defaults to the
-    WHATSAPP_PHONE_NUMBER_ID env var (single-number / backward-compat mode).
-    Pass explicitly when handling multi-number setups so the reply comes from
-    the same number that received the inbound message.
+    phone_number_id / access_token: which registered number to send from and the
+    token that owns it. In a multi-tenant setup pass BOTH from the matching
+    whatsapp_accounts record, so the reply goes out on the same number that
+    received the message and is authorised by that number's own token — never a
+    shared global token. They default to the WHATSAPP_* env vars (single-number /
+    backward-compat mode).
 
     Note: free-form text only works inside Meta's 24-hour customer-service
     window (user messaged you first). For cold promotions use
     send_whatsapp_template() with an approved template.
     """
     _pid = (phone_number_id or "").strip() or _phone_number_id()
+    _tok = (access_token or "").strip() or _token()
     resp = requests.post(
         f"{_GRAPH}/{_pid}/messages",
         headers={
-            "Authorization": f"Bearer {_token()}",
+            "Authorization": f"Bearer {_tok}",
             "Content-Type": "application/json",
         },
         json={

@@ -62,10 +62,29 @@ _BUILTIN_ORGS: list[dict[str, Any]] = [
         "id": "sn_realtors",
         "name": "SN Realtors",
         "short_name": "SN Realtors",
-        "email_domains": ["snrealtors.in", "snrealtors.com"],
+        # SN Realtors signs in with personal Gmail accounts — there is no company
+        # domain to match, which is exactly why access is membership-based below.
+        "email_domains": [],
         "tagline": "premium homes  →  matched buyers  →  closed deals",
         "eyebrow": "SN REALTORS · LEAD DESK",
     },
+]
+
+# ── Invite-only membership (the authoritative access-control list) ─────────────
+# Access is granted per *email*, never by domain alone. A user signs in only if
+# their exact address is listed here. Roles: "admin" can manage WhatsApp numbers
+# and other sensitive settings; "member" can use the CRM. Override in production
+# with the ORG_MEMBERS secret (JSON list of {email, org, role}).
+ROLE_ADMIN = "admin"
+ROLE_MEMBER = "member"
+_VALID_ROLES = (ROLE_ADMIN, ROLE_MEMBER)
+
+_BUILTIN_MEMBERS: list[dict[str, str]] = [
+    {"email": "savin@focuschainlabs.com",   "org": "focuschainlabs", "role": ROLE_ADMIN},
+    {"email": "bhaskar@focuschainlabs.com", "org": "focuschainlabs", "role": ROLE_MEMBER},
+    {"email": "srikant@focuschainlabs.com", "org": "focuschainlabs", "role": ROLE_MEMBER},
+    {"email": "surajmetgud@gmail.com",      "org": "sn_realtors",    "role": ROLE_ADMIN},
+    {"email": "suhassalgatti71@gmail.com",  "org": "sn_realtors",    "role": ROLE_MEMBER},
 ]
 
 # Branding shown when no org resolves (e.g. auth disabled in local dev). Neutral
@@ -155,13 +174,54 @@ def domain_of(email: str) -> str:
     return email.split("@", 1)[1]
 
 
-def resolve_org_for_email(email: str) -> str | None:
-    """Which tenant a signed-in user belongs to, by email domain.
+def list_members() -> list[dict[str, str]]:
+    """The invite list. ORG_MEMBERS (JSON list) overrides the built-ins."""
+    raw = (os.getenv("ORG_MEMBERS") or "").strip()
+    if raw:
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            parsed = None
+        if isinstance(parsed, list):
+            out: list[dict[str, str]] = []
+            for m in parsed:
+                if not isinstance(m, dict):
+                    continue
+                email = str(m.get("email") or "").strip().lower()
+                org = str(m.get("org") or m.get("organization_id") or "").strip()
+                role = str(m.get("role") or ROLE_MEMBER).strip().lower()
+                if email and org:
+                    out.append({
+                        "email": email, "org": org,
+                        "role": role if role in _VALID_ROLES else ROLE_MEMBER,
+                    })
+            if out:
+                return out
+    return [{**m, "email": m["email"].lower()} for m in _BUILTIN_MEMBERS]
 
-    Returns the org id, or None if the domain isn't mapped to any tenant — the
-    caller (auth) treats None as "access denied" so only known company domains
-    get in. Resolution order: the ORG_EMAIL_DOMAINS override map first, then each
-    org's own email_domains list.
+
+def resolve_membership(email: str) -> dict[str, str] | None:
+    """The tenant + role for an invited user, or None if not a member.
+
+    This — not the email domain — is the authoritative access gate. An address
+    that isn't explicitly listed gets no access, even if its domain matches a
+    tenant. (SN Realtors users are on personal Gmail, so there is no domain to
+    rely on in the first place.)
+    """
+    e = (email or "").strip().lower()
+    if not e:
+        return None
+    for m in list_members():
+        if m["email"] == e:
+            return {"organization_id": m["org"], "role": m["role"], "email": e}
+    return None
+
+
+def resolve_org_for_email(email: str) -> str | None:
+    """Deprecated for access control — kept for branding/listing helpers.
+
+    Domain match alone must NOT grant access (see resolve_membership). This only
+    answers "which tenant does this domain hint at?" and is no longer the gate.
     """
     domain = domain_of(email)
     if not domain:

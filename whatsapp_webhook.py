@@ -44,6 +44,7 @@ from utils.whatsapp import (
     parse_webhook_statuses,
     phone_variants,
     send_whatsapp_text,
+    verify_signature,
     whatsapp_configured,
 )
 from utils.wa_events import (
@@ -153,25 +154,36 @@ def _org() -> dict | None:
     return None
 
 
-def _resolve_org(phone_number_id: str) -> str:
+def _resolve_org(phone_number_id: str) -> str | None:
     """Which Cloud SQL tenant this inbound WhatsApp number belongs to.
 
-    Looks up whatsapp_accounts.phone_number_id → organization_id — never
-    trusts the payload itself to name a tenant. Numbers not yet recorded
-    there (legacy data, or a number connected before multi-tenancy existed)
-    fall back to the default tenant. Non-Postgres backends (GitHub JSON /
-    Supabase) have no whatsapp_accounts table to resolve against, so they
-    always get the default tenant.
+    Looks up whatsapp_accounts.phone_number_id → organization_id — never trusts
+    the payload to name a tenant. Returns None for a number that isn't registered
+    to any tenant: such traffic is REJECTED (skipped), not quietly filed under the
+    default tenant, so one tenant's stray/unconfigured number can't dump data into
+    another. Non-Postgres backends (single-tenant GitHub JSON / Supabase) have no
+    registry, so they use the default tenant. DB errors propagate so the caller
+    returns 5xx and Meta retries (rather than silently dropping the message).
     """
     from utils import crm_store_postgres as pg
 
     if not pg.postgres_configured():
         return pg.DEFAULT_ORG_ID
+    return pg.resolve_org_for_phone_number_id(phone_number_id)
+
+
+def _account_credentials(phone_number_id: str) -> dict:
+    """The connected number's OWN credentials (access_token, phone_number_id) for
+    sending outbound on that same number. Returns {} when unavailable — the
+    caller then falls back to the global env token (single-tenant mode)."""
+    from utils import crm_store_postgres as pg
+
+    if not phone_number_id or not pg.postgres_configured():
+        return {}
     try:
-        org_id = pg.resolve_org_for_phone_number_id(phone_number_id)
-    except Exception:
-        return pg.DEFAULT_ORG_ID
-    return org_id or pg.DEFAULT_ORG_ID
+        return pg.get_whatsapp_account_by_pid(phone_number_id) or {}
+    except Exception:  # noqa: BLE001 - outbound is best-effort
+        return {}
 
 
 def _find_contact(contacts: list[dict], wa_number: str) -> int:
@@ -291,14 +303,15 @@ def _handle_status(st: dict) -> str:
     return f"status_{st.get('status')}"
 
 
-def _handle_interactive(msg: dict) -> tuple[str, str]:
+def _handle_interactive(msg: dict, organization_id: str) -> tuple[str, str]:
     """Store button/list reply and advance CRM stage when mapped.
 
+    organization_id is resolved by the caller (from the receiving number) so an
+    unregistered number is rejected before we ever touch a tenant's data.
     Returns (action, contact_id) — contact_id lets the caller record an
     outbound ack against the right interactions row.
     """
     org = _org()
-    organization_id = _resolve_org(msg.get("phone_number_id") or "")
     db, meta = load_crm(org=org, organization_id=organization_id)
     if meta.get("error"):
         raise RuntimeError(f"CRM load failed: {meta['error']}")
@@ -406,14 +419,15 @@ def _should_run_llm(text: str, is_new_contact: bool) -> bool:
     return any(kw in lower for kw in _TRIGGERS)
 
 
-def _handle_message(msg: dict) -> tuple[str, str]:
+def _handle_message(msg: dict, organization_id: str) -> tuple[str, str]:
     """Store one WhatsApp message into the CRM.
 
+    organization_id is resolved by the caller (from the receiving number) so an
+    unregistered number is rejected before we ever touch a tenant's data.
     Returns (action, contact_id) — contact_id lets the caller record an
     outbound ack against the right interactions row.
     """
     org = _org()
-    organization_id = _resolve_org(msg.get("phone_number_id") or "")
     db, meta = load_crm(org=org, organization_id=organization_id)
     if meta.get("error"):
         raise RuntimeError(f"CRM load failed: {meta['error']}")
@@ -561,11 +575,31 @@ async def receive(request: Request) -> Response:
     stored. If persisting any of them raised (e.g. a transient Cloud SQL
     outage), returns 500 so Meta retries the whole delivery — safe to retry
     because already-stored messages are skipped via the message_id de-dupe.
+
+    Authenticity: when META_APP_SECRET is set, the X-Hub-Signature-256 HMAC over
+    the raw body is verified first — an unsigned or forged delivery is rejected
+    with 403 before any processing.
     """
-    payload = await request.json()
+    raw = await request.body()
+    app_secret = (os.getenv("META_APP_SECRET") or "").strip()
+    if app_secret:
+        if not verify_signature(raw, request.headers.get("X-Hub-Signature-256", ""), app_secret):
+            print("[whatsapp] REJECTED delivery: bad X-Hub-Signature-256")
+            return Response(status_code=403, content='{"error":"bad signature"}',
+                            media_type="application/json")
+    else:
+        print("[whatsapp] WARNING: META_APP_SECRET not set — webhook signature unverified")
+
+    try:
+        payload = json.loads(raw or b"{}")
+    except (ValueError, json.JSONDecodeError):
+        return Response(status_code=400, content='{"error":"invalid json"}',
+                        media_type="application/json")
+
     budget.reset()  # each delivery is its own "run" for the LLM budget guard
     handled = 0
     status_handled = 0
+    rejected = 0
     failed = False
 
     for st in parse_webhook_statuses(payload):
@@ -585,10 +619,19 @@ async def receive(request: Request) -> Response:
         if not msg.get("text") and not is_interactive:
             continue
         try:
+            pid = msg.get("phone_number_id") or ""
+            organization_id = _resolve_org(pid)
+            if organization_id is None:
+                # Number isn't registered to any tenant — reject, don't default it.
+                rejected += 1
+                obs.log_event("rejected_unregistered_number", phone_number_id=pid,
+                              severity="WARNING")
+                print(f"[whatsapp] REJECTED message from unregistered number (pid={pid[:18]})")
+                continue
             if is_interactive:
-                action, contact_id = _handle_interactive(msg)
+                action, contact_id = _handle_interactive(msg, organization_id)
             else:
-                action, contact_id = _handle_message(msg)
+                action, contact_id = _handle_message(msg, organization_id)
             handled += 1
             if (
                 not is_interactive
@@ -597,12 +640,13 @@ async def receive(request: Request) -> Response:
             ):
                 try:
                     ack_text = "Got it — noted in our CRM. We'll get back to you shortly. ✅"
+                    creds = _account_credentials(pid)
                     resp = send_whatsapp_text(
-                        msg["from"], ack_text, phone_number_id=msg.get("phone_number_id") or None,
+                        msg["from"], ack_text,
+                        phone_number_id=pid or None,
+                        access_token=creds.get("access_token") or None,
                     )
-                    _persist_outbound_ack(
-                        contact_id, resp, ack_text, _resolve_org(msg.get("phone_number_id") or ""),
-                    )
+                    _persist_outbound_ack(contact_id, resp, ack_text, organization_id)
                 except Exception:  # noqa: BLE001 - ack is a courtesy only
                     pass
             print(f"[whatsapp] {action}: {msg['from']} ({len(msg.get('text') or '')} chars)")
@@ -612,7 +656,8 @@ async def receive(request: Request) -> Response:
     if handled == 0 and status_handled == 0:
         print(f"[whatsapp] delivery received, stored nothing — {_summarize_delivery(payload)}")
 
-    body = {"status": "partial_failure" if failed else "ok", "handled": handled, "statuses": status_handled}
+    body = {"status": "partial_failure" if failed else "ok",
+            "handled": handled, "statuses": status_handled, "rejected": rejected}
     return Response(
         content=json.dumps(body), media_type="application/json",
         status_code=500 if failed else 200,
@@ -703,8 +748,22 @@ def _api_keys() -> dict[str, str]:
     return {legacy_key: pg.DEFAULT_ORG_ID} if legacy_key else {}
 
 
+def _mobile_api_enabled() -> bool:
+    """The Flutter REST API stays OFF until per-user token auth ships.
+
+    Today it authenticates with a single shared per-org key, which is fine for a
+    server-to-server integration but not for a public mobile app. Until each
+    end-user has their own token, the API is disabled by default and only turns
+    on with an explicit MOBILE_API_ENABLED=true — so it can never be left
+    accidentally public.
+    """
+    return (os.getenv("MOBILE_API_ENABLED") or "").strip().lower() in ("1", "true", "yes")
+
+
 def _require_api_key(request: Request) -> str:
-    """Validate the bearer token and return the organization_id it's scoped to."""
+    """Gate the API, validate the bearer token, return the scoped organization_id."""
+    if not _mobile_api_enabled():
+        raise HTTPException(status_code=503, detail="Mobile API disabled")
     keys = _api_keys()
     if not keys:
         raise HTTPException(status_code=503, detail="API not configured")
@@ -722,6 +781,11 @@ def _pg():
     if not pg.postgres_configured():
         raise HTTPException(status_code=503, detail="Database not configured")
     return pg
+
+
+def _public_account(account: dict) -> dict:
+    """Strip secrets (the WhatsApp access_token) before returning over the API."""
+    return {k: v for k, v in account.items() if k != "access_token"}
 
 
 @app.get("/api/contacts")
@@ -795,7 +859,8 @@ async def api_bulk_contacts(
 async def api_list_whatsapp_accounts(
     organization_id: str = Depends(_require_api_key),
 ) -> list[dict]:
-    return _pg().load_whatsapp_accounts(organization_id)
+    # Never expose the WhatsApp access_token over the API.
+    return [_public_account(a) for a in _pg().load_whatsapp_accounts(organization_id)]
 
 
 @app.post("/api/whatsapp-accounts")
