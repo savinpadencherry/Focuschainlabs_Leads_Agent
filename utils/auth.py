@@ -140,9 +140,28 @@ def require_auth() -> None:
         _render_denied_screen(email)
         st.stop()
 
+    # Fail closed: multi-tenant isolation only holds on the shared Cloud SQL
+    # backend (every row carries organization_id). If auth is on but Cloud SQL
+    # isn't configured, load_crm would fall through to the GitHub-JSON / Supabase
+    # backends, which have no per-tenant scoping — every org would read and write
+    # the same store. Refuse rather than silently leak across tenants.
+    if not _multitenant_backend_ready():
+        _render_backend_error_screen()
+        st.stop()
+
     st.session_state[_SESSION_ORG_KEY] = org_id
     st.session_state[_SESSION_EMAIL_KEY] = email
     st.session_state[_SESSION_NAME_KEY] = current_name()
+
+
+def _multitenant_backend_ready() -> bool:
+    """True when the org-scoped Cloud SQL backend is configured."""
+    try:
+        from utils import crm_store_postgres as pg
+
+        return pg.postgres_configured()
+    except Exception:
+        return False
 
 
 def logout() -> None:
@@ -250,6 +269,41 @@ def _render_denied_screen(email: str) -> None:
     with mid:
         if st.button("Sign in with a different account", use_container_width=True,
                      key="auth_switch_btn"):
+            logout()
+
+
+def _render_backend_error_screen() -> None:
+    """Auth is on but the org-scoped Cloud SQL backend isn't configured."""
+    st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="auth-wrap">
+          <div class="auth-mark"></div>
+          <div class="auth-eyebrow">FocusChain Labs · Configuration</div>
+          <h1 class="auth-title">Almost <span class="accent">there</span></h1>
+          <div class="auth-sub">Sign-in works, but the multi-tenant database
+            isn't connected yet. To keep each organisation's data isolated, the
+            app needs Cloud SQL configured before it can show any leads.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    _, mid, _ = st.columns([1, 2, 1])
+    with mid:
+        st.markdown(
+            """
+            <div class="auth-card" style="text-align:left;">
+              <div class="auth-hint" style="margin-top:0;">
+                Set <code>CLOUD_SQL_CONNECTION_NAME</code> (Cloud Run) or
+                <code>DATABASE_URL</code> (local), apply
+                <code>db/schema_cloudsql.sql</code>, then reload. Until then the
+                app stays locked so no tenant can read another's data.
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("Sign out", use_container_width=True, key="auth_backend_logout_btn"):
             logout()
 
 

@@ -394,7 +394,7 @@ def _push_to_crm(briefing: dict) -> str | None:
             "sha": result.get("sha") or meta.get("sha"),
         }
 
-    mark_pushed(briefing.get("id", ""))
+    mark_pushed(briefing.get("id", ""), auth.active_org_id())
     return None
 
 
@@ -774,7 +774,7 @@ def _render_running() -> None:
         unsafe_allow_html=True,
     )
 
-    existing    = load_briefings()
+    existing    = load_briefings(auth.active_org_id())
     done_events: list = []
 
     for event in run_intel(
@@ -807,7 +807,7 @@ def _render_running() -> None:
         time.sleep(0.05)
 
     # Run complete — persist and transition to results
-    upsert_briefings(st.session_state.intel_briefings)
+    upsert_briefings(st.session_state.intel_briefings, auth.active_org_id())
     st.session_state.intel_stage = "results"
     st.rerun()
 
