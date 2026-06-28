@@ -322,11 +322,20 @@ def message_id_exists(message_id: str) -> bool:
 
 
 def insert_interaction(
-    interaction: dict[str, Any], organization_id: str = DEFAULT_ORG_ID,
+    interaction: dict[str, Any],
+    organization_id: str = DEFAULT_ORG_ID,
+    *,
+    processed: bool = False,
 ) -> bool:
     """Insert one interaction row. Returns False if message_id is a duplicate
     (caught by the partial unique index, not a round-trip existence check —
-    safe against concurrent webhook retries)."""
+    safe against concurrent webhook retries).
+
+    processed=True stamps processed_at=now() so the daily AI batch skips this
+    row — used when the inbound message was already folded into the CRM record
+    in real time (INBOUND_LLM_MODE=realtime). In batch mode the webhook leaves
+    it False so the daily job picks it up.
+    """
     contact_id = str(interaction.get("contact_id") or "").strip()
     if not contact_id:
         raise ValueError("contact_id is required")
@@ -337,12 +346,14 @@ def insert_interaction(
         "organization_id": organization_id,
         "kind": str(interaction.get("kind") or "comment"),
         "created_at": interaction.get("created_at") or utc_now_iso(),
+        "processed_at": utc_now_iso() if processed else None,
     }
     for c in _INTERACTION_COLS:
         if c not in values:
             values[c] = str(interaction.get(c) or "")
 
-    cols = ["id", "contact_id", "organization_id", *_INTERACTION_COLS, "created_at"]
+    cols = ["id", "contact_id", "organization_id", *_INTERACTION_COLS,
+            "created_at", "processed_at"]
     sql = (
         f"INSERT INTO interactions ({', '.join(cols)}) "
         f"VALUES ({', '.join(f'%({c})s' for c in cols)}) "
@@ -353,6 +364,59 @@ def insert_interaction(
         inserted = cur.rowcount > 0
         conn.commit()
     return inserted
+
+
+# ── Daily AI batch queue (scripts/process_inbound_daily.py) ───────────────────
+def org_ids_with_unprocessed_inbound() -> list[str]:
+    """Orgs that have at least one inbound message the daily batch hasn't folded
+    into a CRM record yet — so the job only does work for active tenants."""
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT DISTINCT organization_id FROM interactions "
+            "WHERE processed_at IS NULL AND direction = 'inbound'"
+        )
+        return [r[0] for r in cur.fetchall()]
+
+
+def load_unprocessed_inbound(
+    organization_id: str = DEFAULT_ORG_ID, limit: int = 5000,
+) -> list[dict[str, Any]]:
+    """Pending inbound messages for one tenant, grouped by contact (oldest
+    first), so the batch can make a single LLM call per contact."""
+    with _connect() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT id, contact_id, body, created_at FROM interactions "
+            "WHERE organization_id = %s AND processed_at IS NULL "
+            "AND direction = 'inbound' "
+            "ORDER BY contact_id, created_at ASC LIMIT %s",
+            (organization_id, limit),
+        )
+        return [
+            {
+                "id": r.get("id"),
+                "contact_id": r.get("contact_id") or "",
+                "body": r.get("body") or "",
+                "created_at": _iso(r.get("created_at")),
+            }
+            for r in cur.fetchall()
+        ]
+
+
+def mark_interactions_processed(interaction_ids: list[str]) -> int:
+    """Stamp processed_at=now() on the given rows. Keyed by globally-unique id,
+    so this is intentionally not org-scoped. Returns the number updated."""
+    ids = [i for i in interaction_ids if i]
+    if not ids:
+        return 0
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE interactions SET processed_at = now() "
+            "WHERE id = ANY(%s) AND processed_at IS NULL",
+            (ids,),
+        )
+        n = cur.rowcount
+        conn.commit()
+    return n
 
 
 def update_interaction_status(
