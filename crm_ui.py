@@ -4167,6 +4167,12 @@ def render_crm_page() -> None:
         tenancy.render_org_switcher()
     ensure_crm_loaded()
 
+    # WhatsApp connections — connect numbers (Embedded Signup) for this tenant.
+    with st.expander("WhatsApp connections", expanded=False):
+        from whatsapp_connect_ui import render_whatsapp_connections
+
+        render_whatsapp_connections(auth.active_org_id())
+
     db = st.session_state.crm_db
     meta = st.session_state.get("crm_meta") or {}
     contacts = list(db.get("contacts") or [])

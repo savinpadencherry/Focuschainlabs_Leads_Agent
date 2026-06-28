@@ -24,6 +24,7 @@ import os
 from collections import OrderedDict
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 
 from utils import budget
 from utils.crm_models import (
@@ -52,6 +53,20 @@ from utils.wa_events import (
 )
 
 app = FastAPI(title="FocusChain CRM — WhatsApp webhook")
+
+# The Embedded Signup popup (served inside the Streamlit app) POSTs the connect
+# result here cross-origin, so allow the app's browser origin. Restrict to the
+# configured app URL(s); fall back to "*" only if none are set (dev). The connect
+# endpoint authenticates via a signed state, not cookies, so this is safe.
+_cors_origins = [
+    o.strip() for o in (os.getenv("APP_PUBLIC_URL") or "").split(",") if o.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins or ["*"],
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
 
 # Meta retries deliveries; remember recent message ids so a retry can't
 # double-log a conversation. In-memory is fine: retries land within minutes.
@@ -586,6 +601,54 @@ async def status() -> dict:
     """Second health route — some Cloud Run / load-balancer front ends 404 on
     /healthz depending on routing config, so expose an identical check here."""
     return {"ok": True, "whatsapp_configured": whatsapp_configured()}
+
+
+@app.post("/connect/whatsapp")
+async def connect_whatsapp(request: Request) -> Response:
+    """Complete WhatsApp Embedded Signup for a tenant.
+
+    The Streamlit app's connect popup POSTs {code, state, waba_id,
+    phone_number_id}. The tenant is taken from the HMAC-signed `state` (minted
+    server-side by the app) — never from a plain browser field — so one tenant
+    can't attach a number to another. We exchange the code for a business token,
+    resolve the number from Meta, and store it under that org.
+    """
+    from utils import wa_embedded_signup as es
+
+    if not es.exchange_configured():
+        raise HTTPException(status_code=503, detail="WhatsApp connect not configured")
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    organization_id = es.verify_state(str(body.get("state") or ""))
+    if not organization_id:
+        raise HTTPException(status_code=401, detail="Invalid or expired connect state")
+
+    code = str(body.get("code") or "").strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+
+    try:
+        result = es.complete_connection(
+            organization_id=organization_id,
+            code=code,
+            waba_id=str(body.get("waba_id") or "").strip(),
+            phone_number_id=str(body.get("phone_number_id") or "").strip(),
+        )
+    except Exception as exc:  # noqa: BLE001 - surface a clean error to the popup
+        return Response(
+            content=json.dumps({"ok": False, "error": str(exc)}),
+            media_type="application/json", status_code=502,
+        )
+
+    print(f"[whatsapp] connected {result.get('phone_number_id')} → org {organization_id}")
+    return Response(
+        content=json.dumps({"ok": True, **result}),
+        media_type="application/json", status_code=200,
+    )
 
 
 # ── REST API (Flutter mobile app) ─────────────────────────────────────────────
