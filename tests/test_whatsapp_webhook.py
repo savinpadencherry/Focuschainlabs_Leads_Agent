@@ -1,4 +1,5 @@
 import json
+import os
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -107,6 +108,88 @@ class HealthRouteTests(unittest.TestCase):
         resp = self.client.get("/status")
         self.assertEqual(200, resp.status_code)
         self.assertTrue(resp.json()["ok"])
+
+
+class ResolveOrgTests(unittest.TestCase):
+    """Multi-tenancy: inbound phone_number_id -> organization_id resolution."""
+
+    def test_no_postgres_configured_returns_default_without_query(self):
+        with patch.object(pg, "postgres_configured", return_value=False), \
+             patch.object(pg, "resolve_org_for_phone_number_id") as resolve:
+            org = wh._resolve_org("pid1")
+        self.assertEqual(org, pg.DEFAULT_ORG_ID)
+        resolve.assert_not_called()
+
+    def test_known_number_resolves_to_its_org(self):
+        with patch.object(pg, "postgres_configured", return_value=True), \
+             patch.object(pg, "resolve_org_for_phone_number_id", return_value="acme"):
+            org = wh._resolve_org("pid1")
+        self.assertEqual(org, "acme")
+
+    def test_unknown_number_falls_back_to_default(self):
+        with patch.object(pg, "postgres_configured", return_value=True), \
+             patch.object(pg, "resolve_org_for_phone_number_id", return_value=None):
+            org = wh._resolve_org("pid-unregistered")
+        self.assertEqual(org, pg.DEFAULT_ORG_ID)
+
+    def test_db_error_falls_back_to_default(self):
+        with patch.object(pg, "postgres_configured", return_value=True), \
+             patch.object(
+                 pg, "resolve_org_for_phone_number_id", side_effect=RuntimeError("db down"),
+             ):
+            org = wh._resolve_org("pid1")
+        self.assertEqual(org, pg.DEFAULT_ORG_ID)
+
+
+class ApiKeyOrgResolutionTests(unittest.TestCase):
+    """REST API: bearer token -> organization_id, per the API_KEYS / legacy
+    API_SECRET_KEY scheme."""
+
+    def setUp(self):
+        self._env_backup = {
+            k: os.environ.get(k) for k in ("API_KEYS", "API_SECRET_KEY")
+        }
+
+    def tearDown(self):
+        for k, v in self._env_backup.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    def _request_with_auth(self, token: str | None):
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        return MagicMock(headers=headers)
+
+    def test_api_keys_json_maps_token_to_org(self):
+        os.environ["API_KEYS"] = json.dumps({"key-acme": "acme", "key-beta": "beta"})
+        os.environ.pop("API_SECRET_KEY", None)
+        self.assertEqual(wh._require_api_key(self._request_with_auth("key-acme")), "acme")
+        self.assertEqual(wh._require_api_key(self._request_with_auth("key-beta")), "beta")
+
+    def test_legacy_api_secret_key_maps_to_default_org(self):
+        os.environ.pop("API_KEYS", None)
+        os.environ["API_SECRET_KEY"] = "legacy-secret"
+        org = wh._require_api_key(self._request_with_auth("legacy-secret"))
+        self.assertEqual(org, pg.DEFAULT_ORG_ID)
+
+    def test_unknown_token_is_unauthorized(self):
+        os.environ["API_KEYS"] = json.dumps({"key-acme": "acme"})
+        os.environ.pop("API_SECRET_KEY", None)
+        from fastapi import HTTPException
+
+        with self.assertRaises(HTTPException) as ctx:
+            wh._require_api_key(self._request_with_auth("not-a-real-key"))
+        self.assertEqual(ctx.exception.status_code, 401)
+
+    def test_no_keys_configured_is_503(self):
+        os.environ.pop("API_KEYS", None)
+        os.environ.pop("API_SECRET_KEY", None)
+        from fastapi import HTTPException
+
+        with self.assertRaises(HTTPException) as ctx:
+            wh._require_api_key(self._request_with_auth("anything"))
+        self.assertEqual(ctx.exception.status_code, 503)
 
 
 if __name__ == "__main__":

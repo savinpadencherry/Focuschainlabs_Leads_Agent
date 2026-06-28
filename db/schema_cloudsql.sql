@@ -1,5 +1,16 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
+-- Multi-tenancy: shared tables, one row per tenant in `organizations`, every
+-- tenant-owned row elsewhere carries organization_id. All existing data
+-- before this migration belongs to the seeded 'default' org.
+CREATE TABLE IF NOT EXISTS organizations (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO organizations (id, name) VALUES ('default', 'Default')
+    ON CONFLICT (id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS contacts (
     id                  TEXT PRIMARY KEY,
     name                TEXT NOT NULL DEFAULT '',
@@ -62,6 +73,36 @@ CREATE TABLE IF NOT EXISTS whatsapp_accounts (
     active            BOOLEAN NOT NULL DEFAULT true
 );
 
+-- organization_id backfill: existing rows get 'default' via the column
+-- DEFAULT, then DROP DEFAULT so every future insert must name a tenant
+-- explicitly — a missing organization_id fails loudly (NOT NULL) instead of
+-- silently landing in the wrong tenant's data.
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS organization_id TEXT NOT NULL DEFAULT 'default';
+ALTER TABLE contacts ALTER COLUMN organization_id DROP DEFAULT;
+ALTER TABLE interactions ADD COLUMN IF NOT EXISTS organization_id TEXT NOT NULL DEFAULT 'default';
+ALTER TABLE interactions ALTER COLUMN organization_id DROP DEFAULT;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS organization_id TEXT NOT NULL DEFAULT 'default';
+ALTER TABLE whatsapp_accounts ALTER COLUMN organization_id DROP DEFAULT;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_contacts_org') THEN
+        ALTER TABLE contacts ADD CONSTRAINT fk_contacts_org
+            FOREIGN KEY (organization_id) REFERENCES organizations(id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_interactions_org') THEN
+        ALTER TABLE interactions ADD CONSTRAINT fk_interactions_org
+            FOREIGN KEY (organization_id) REFERENCES organizations(id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_whatsapp_accounts_org') THEN
+        ALTER TABLE whatsapp_accounts ADD CONSTRAINT fk_whatsapp_accounts_org
+            FOREIGN KEY (organization_id) REFERENCES organizations(id);
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_contacts_org        ON contacts(organization_id);
+CREATE INDEX IF NOT EXISTS idx_interactions_org    ON interactions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_accounts_org ON whatsapp_accounts(organization_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_status     ON contacts(status);
 CREATE INDEX IF NOT EXISTS idx_contacts_updated    ON contacts(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_contacts_phone      ON contacts(phone);
