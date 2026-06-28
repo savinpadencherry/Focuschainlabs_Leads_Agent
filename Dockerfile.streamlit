@@ -1,0 +1,28 @@
+# FocusChain CRM — Streamlit app image for Cloud Run (shared multi-tenant).
+# Auto-built and deployed by .github/workflows/deploy-app.yml.
+#   docker build -f Dockerfile.streamlit -t crm-app .
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PORT=8080
+
+WORKDIR /app
+
+# Install deps first for better layer caching.
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+COPY . .
+
+# Cloud Run sends traffic to $PORT. Streamlit must bind 0.0.0.0 and run headless
+# behind the Cloud Run proxy. XSRF protection is left ON so the native OIDC
+# (st.login) cookie flow stays protected; CORS is disabled because the Cloud Run
+# proxy fronts the app on a single origin.
+EXPOSE 8080
+CMD streamlit run streamlit_app.py \
+    --server.port=${PORT} \
+    --server.address=0.0.0.0 \
+    --server.headless=true \
+    --server.enableCORS=false \
+    --browser.gatherUsageStats=false

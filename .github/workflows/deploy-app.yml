@@ -1,27 +1,30 @@
-name: Deploy WhatsApp webhook to Cloud Run
+name: Deploy CRM app to Cloud Run
 
-# Builds the webhook image from the root Dockerfile, pushes it to Artifact
-# Registry, and deploys it to the existing crm-webhook Cloud Run service.
+# Builds the Streamlit app image from Dockerfile.streamlit, pushes it to Artifact
+# Registry, and deploys the shared multi-tenant crm-app Cloud Run service.
 # Auth uses Workload Identity Federation — no long-lived key in GitHub.
-# One-time GCP setup required before this can run; see repo chat/PR notes.
+# Runtime secrets (API keys, [auth], DB) are configured on the service itself,
+# not here. One-time GCP setup is documented in the architecture PDF / docs.
 
 on:
   push:
     branches: [main]
     paths:
-      - "whatsapp_webhook.py"
+      - "streamlit_app.py"
+      - "*_ui.py"
       - "utils/**"
       - "agent/**"
-      - "requirements-webhook.txt"
-      - "Dockerfile"
-      - ".github/workflows/deploy-webhook.yml"
+      - "config/**"
+      - "requirements.txt"
+      - "Dockerfile.streamlit"
+      - ".github/workflows/deploy-app.yml"
   workflow_dispatch: {}
 
 env:
   REGION: asia-south1
-  SERVICE: crm-webhook
+  SERVICE: crm-app
   REPOSITORY: focuschain
-  IMAGE_NAME: webhook
+  IMAGE_NAME: app
 
 jobs:
   deploy:
@@ -49,7 +52,7 @@ jobs:
       - name: Build and push image
         run: |
           IMAGE_URI="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-          docker build -t "$IMAGE_URI" .
+          docker build -f Dockerfile.streamlit -t "$IMAGE_URI" .
           docker push "$IMAGE_URI"
           echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
 
@@ -60,20 +63,8 @@ jobs:
             --region "${{ env.REGION }}" \
             --project "${{ secrets.GCP_PROJECT_ID }}" \
             --allow-unauthenticated \
-            --labels app=focuschain-crm,component=webhook,env=prod,tenant-model=shared,managed-by=github-actions \
+            --labels app=focuschain-crm,component=app,env=prod,tenant-model=shared,managed-by=github-actions \
             --quiet
-
-      - name: Update daily AI batch job image
-        # The batch job (scripts/process_inbound_daily.py) reuses this image, so
-        # keep it in lock-step. `update` only touches the image and never fails
-        # the deploy if the job hasn't been created yet (one-time setup in docs).
-        run: |
-          gcloud run jobs update crm-daily-batch \
-            --image "$IMAGE_URI" \
-            --region "${{ env.REGION }}" \
-            --project "${{ secrets.GCP_PROJECT_ID }}" \
-            --quiet \
-          || echo "crm-daily-batch job not created yet — skipping (see docs/DAILY_AI_BATCH.md)"
 
       - name: Show service URL
         run: |

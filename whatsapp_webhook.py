@@ -27,6 +27,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from utils import budget
+from utils import obs
 from utils.crm_models import (
     contact_fingerprint,
     merge_contacts,
@@ -362,6 +363,10 @@ def _handle_interactive(msg: dict) -> tuple[str, str]:
             "message_id": msg.get("id") or "",
             "status": "received",
         }, organization_id, processed=True)
+    obs.log_event(
+        "inbound_interaction", organization_id=organization_id,
+        action=action, contact_id=contact_id, channel="whatsapp",
+    )
     return action, contact_id
 
 
@@ -501,6 +506,10 @@ def _handle_message(msg: dict) -> tuple[str, str]:
             "message_id": msg["id"],
             "status": "received",
         }, organization_id, processed=not batch_mode)
+    obs.log_event(
+        "inbound_message", organization_id=organization_id,
+        action=action, contact_id=contact_id, channel="whatsapp",
+    )
     return action, contact_id
 
 
