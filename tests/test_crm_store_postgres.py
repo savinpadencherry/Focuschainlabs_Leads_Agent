@@ -281,5 +281,62 @@ class OrgScopingTests(unittest.TestCase):
         self.assertEqual(params, ("acct1", "acme"))
 
 
+class DailyBatchQueueTests(unittest.TestCase):
+    def test_insert_interaction_processed_stamps_processed_at(self):
+        cursor = _FakeCursor(rowcount=1)
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            pg.insert_interaction(
+                {"contact_id": "c1", "message_id": "wamid.x"}, "acme", processed=True
+            )
+        _, params = cursor.executed[0]
+        self.assertIsNotNone(params["processed_at"])
+
+    def test_insert_interaction_unprocessed_leaves_processed_at_null(self):
+        cursor = _FakeCursor(rowcount=1)
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            pg.insert_interaction({"contact_id": "c1", "message_id": "wamid.y"}, "acme")
+        _, params = cursor.executed[0]
+        self.assertIsNone(params["processed_at"])
+
+    def test_load_unprocessed_inbound_filters_org_and_pending(self):
+        cursor = _FakeCursor(fetchall_result=[
+            {"id": "i1", "contact_id": "c1", "body": "hi", "created_at": "2026-01-01T00:00:00+00:00"},
+        ])
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            rows = pg.load_unprocessed_inbound("acme")
+        sql, params = cursor.executed[0]
+        self.assertIn("processed_at IS NULL", sql)
+        self.assertIn("direction = 'inbound'", sql)
+        self.assertEqual(params[0], "acme")
+        self.assertEqual(rows[0]["contact_id"], "c1")
+
+    def test_mark_interactions_processed_updates_rows(self):
+        cursor = _FakeCursor(rowcount=2)
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            n = pg.mark_interactions_processed(["i1", "i2"])
+        self.assertEqual(n, 2)
+        sql, params = cursor.executed[0]
+        self.assertIn("SET processed_at = now()", sql)
+        self.assertEqual(params, (["i1", "i2"],))
+
+    def test_mark_interactions_processed_noop_on_empty(self):
+        cursor = _FakeCursor()
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            self.assertEqual(pg.mark_interactions_processed([]), 0)
+        self.assertEqual(cursor.executed, [])
+
+    def test_org_ids_with_unprocessed_inbound(self):
+        cursor = _FakeCursor(fetchall_result=[("focuschainlabs",), ("sn_realtors",)])
+        patcher, _ = _patched_connect(cursor)
+        with patcher:
+            ids = pg.org_ids_with_unprocessed_inbound()
+        self.assertEqual(ids, ["focuschainlabs", "sn_realtors"])
+
+
 if __name__ == "__main__":
     unittest.main()

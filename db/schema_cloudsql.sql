@@ -55,6 +55,11 @@ ALTER TABLE interactions ADD COLUMN IF NOT EXISTS status         TEXT NOT NULL D
 ALTER TABLE interactions ADD COLUMN IF NOT EXISTS campaign_id    TEXT NOT NULL DEFAULT '';
 ALTER TABLE interactions ADD COLUMN IF NOT EXISTS template_name  TEXT NOT NULL DEFAULT '';
 ALTER TABLE interactions ADD COLUMN IF NOT EXISTS error          TEXT NOT NULL DEFAULT '';
+-- processed_at: when the daily AI batch (scripts/process_inbound_daily.py) has
+-- folded this inbound message into its contact's CRM record. NULL = still
+-- pending. Realtime-handled messages are stamped at insert so the batch never
+-- redoes them; this makes the batch idempotent and cheap to re-run.
+ALTER TABLE interactions ADD COLUMN IF NOT EXISTS processed_at   TIMESTAMPTZ;
 
 -- Multi-number WhatsApp coexistence:
 -- Each agent connects their WhatsApp Business number via Embedded Signup.
@@ -108,6 +113,10 @@ CREATE INDEX IF NOT EXISTS idx_contacts_updated    ON contacts(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_contacts_phone      ON contacts(phone);
 CREATE INDEX IF NOT EXISTS idx_contacts_wa_pid     ON contacts(wa_phone_number_id);
 CREATE INDEX IF NOT EXISTS idx_interactions_cid    ON interactions(contact_id);
+-- Fast lookup of the daily batch's work queue: unprocessed inbound messages.
+CREATE INDEX IF NOT EXISTS idx_interactions_unprocessed
+    ON interactions(organization_id, contact_id)
+    WHERE processed_at IS NULL AND direction = 'inbound';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_interactions_message_id
     ON interactions(message_id) WHERE message_id <> '';
 

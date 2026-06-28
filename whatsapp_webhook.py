@@ -127,6 +127,17 @@ def _summarize_delivery(payload: dict) -> str:
     return "; ".join(bits) or "no messages or statuses"
 
 
+def _batch_llm_mode() -> bool:
+    """True when per-message LLM enrichment is deferred to the daily AI batch.
+
+    INBOUND_LLM_MODE=batch (the cost-optimized SaaS default for high lead
+    volumes) makes the webhook store messages cheaply without an LLM call; the
+    once-a-day job (scripts/process_inbound_daily.py) then makes one call per
+    active contact. Default 'realtime' keeps the original per-message behaviour.
+    """
+    return (os.getenv("INBOUND_LLM_MODE") or "realtime").strip().lower() == "batch"
+
+
 def _org() -> dict | None:
     """Resolve which tenant this WhatsApp number feeds (None = default/GitHub)."""
     org_id = (os.getenv("WHATSAPP_ORG_ID") or "").strip()
@@ -339,6 +350,8 @@ def _handle_interactive(msg: dict) -> tuple[str, str]:
     from utils import crm_store_postgres as pg
 
     if pg.postgres_configured():
+        # Button/list replies are handled live (stage advance), so they never
+        # need the daily LLM pass — mark processed so the batch skips them.
         pg.insert_interaction({
             "contact_id": contact_id,
             "author": display,
@@ -348,7 +361,7 @@ def _handle_interactive(msg: dict) -> tuple[str, str]:
             "direction": "inbound",
             "message_id": msg.get("id") or "",
             "status": "received",
-        }, organization_id)
+        }, organization_id, processed=True)
     return action, contact_id
 
 
@@ -414,10 +427,14 @@ def _handle_message(msg: dict) -> tuple[str, str]:
     # Which of our registered numbers received this message.
     wa_pid = (msg.get("phone_number_id") or "").strip()
 
-    # Decide once whether this message warrants LLM processing.
-    run_llm = _should_run_llm(msg["text"], is_new_contact=is_new)
+    # Decide once whether this message warrants LLM processing. In batch mode we
+    # store the message cheaply and let the daily AI job enrich it later, so the
+    # per-message webhook path stays free of LLM calls.
+    batch_mode = _batch_llm_mode()
+    run_llm = (not batch_mode) and _should_run_llm(msg["text"], is_new_contact=is_new)
     if not run_llm:
-        print(f"[whatsapp] triage: skipping LLM for short/filler message from {msg['from']}")
+        why = "deferred to daily batch" if batch_mode else "short/filler message"
+        print(f"[whatsapp] triage: skipping realtime LLM ({why}) from {msg['from']}")
 
     if idx >= 0:
         contact = dict(contacts[idx])
@@ -472,6 +489,8 @@ def _handle_message(msg: dict) -> tuple[str, str]:
     from utils import crm_store_postgres as pg
 
     if pg.postgres_configured():
+        # In realtime mode we already folded this message into the record, so
+        # mark it processed; in batch mode leave it for the daily AI job.
         pg.insert_interaction({
             "contact_id": contact_id,
             "author": display,
@@ -481,7 +500,7 @@ def _handle_message(msg: dict) -> tuple[str, str]:
             "direction": "inbound",
             "message_id": msg["id"],
             "status": "received",
-        }, organization_id)
+        }, organization_id, processed=not batch_mode)
     return action, contact_id
 
 
