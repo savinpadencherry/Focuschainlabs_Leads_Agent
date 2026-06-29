@@ -1,0 +1,45 @@
+name: Security regression tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "utils/**"
+      - "whatsapp_webhook.py"
+      - "secure_webhook_app.py"
+      - "whatsapp_connect_ui.py"
+      - "tests/**"
+      - "requirements.txt"
+      - "requirements-webhook.txt"
+      - ".github/workflows/**"
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-webhook.txt
+
+      - name: Run auth, webhook, and tenant-isolation tests
+        run: |
+          set -euo pipefail
+          for pattern in \
+            test_auth.py \
+            test_org_config.py \
+            test_whatsapp_hardening.py \
+            test_whatsapp_webhook.py \
+            test_multitenant_outbound_hardening.py
+          do
+            python -m unittest discover -s tests -p "$pattern"
+          done
