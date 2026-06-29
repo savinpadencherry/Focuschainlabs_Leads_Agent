@@ -56,7 +56,8 @@ jobs:
             test_org_config.py \
             test_whatsapp_hardening.py \
             test_whatsapp_webhook.py \
-            test_multitenant_outbound_hardening.py
+            test_multitenant_outbound_hardening.py \
+            test_secure_webhook_entrypoint.py
           do
             python -m unittest discover -s tests -p "$pattern"
           done
