@@ -11,9 +11,10 @@ COPY utils/ utils/
 COPY agent/ agent/
 COPY scripts/ scripts/
 COPY whatsapp_webhook.py .
+COPY secure_webhook_app.py .
 
 # The daily AI batch (scripts/process_inbound_daily.py) reuses this same image —
 # the Cloud Run Job just overrides the command with:
 #   python scripts/process_inbound_daily.py --all
 ENV PORT=8080
-CMD exec uvicorn whatsapp_webhook:app --host 0.0.0.0 --port ${PORT}
+CMD exec uvicorn secure_webhook_app:app --host 0.0.0.0 --port ${PORT}
