@@ -17,10 +17,12 @@ import hashlib
 import hmac
 import os
 import re
+from typing import Any
 
 import requests
 
 _GRAPH = "https://graph.facebook.com/v21.0"
+_SESSION_SENDER_PID = "wa_sender_phone_number_id"
 
 
 def verify_signature(raw_body: bytes, signature_header: str, app_secret: str) -> bool:
@@ -48,7 +50,129 @@ def _phone_number_id() -> str:
     return (os.getenv("WHATSAPP_PHONE_NUMBER_ID") or "").strip()
 
 
+def _postgres_store():
+    """Return the configured Cloud SQL store, or None outside Postgres mode."""
+    try:
+        from utils import crm_store_postgres as pg
+
+        return pg if pg.postgres_configured() else None
+    except Exception:
+        return None
+
+
+def _streamlit_tenant_account(pg, *, required: bool) -> tuple[bool, dict[str, Any] | None]:
+    """Resolve the active tenant's selected WhatsApp account.
+
+    Returns ``(is_streamlit_context, account)``. In a Streamlit session, one
+    active account is selected automatically. When several active accounts exist,
+    an organisation admin must choose one in the WhatsApp connections panel; the
+    choice is stored in ``st.session_state``. Outside Streamlit (the webhook
+    container), callers must pass a phone_number_id explicitly.
+    """
+    try:
+        import streamlit as st
+        from utils import auth
+    except Exception:
+        return False, None
+
+    try:
+        organization_id = auth.active_org_id()
+        accounts = [
+            a for a in pg.load_whatsapp_accounts(organization_id)
+            if a.get("active", True)
+            and (a.get("phone_number_id") or "").strip()
+            and (a.get("access_token") or "").strip()
+        ]
+    except Exception as exc:
+        if required:
+            raise RuntimeError(f"Could not load this organisation's WhatsApp accounts: {exc}") from exc
+        return True, None
+
+    selected_pid = str(st.session_state.get(_SESSION_SENDER_PID) or "").strip()
+    if selected_pid:
+        for account in accounts:
+            if str(account.get("phone_number_id") or "").strip() == selected_pid:
+                return True, account
+        st.session_state.pop(_SESSION_SENDER_PID, None)
+
+    if len(accounts) == 1:
+        st.session_state[_SESSION_SENDER_PID] = str(accounts[0]["phone_number_id"])
+        return True, accounts[0]
+
+    if not accounts:
+        if required:
+            raise RuntimeError("No active WhatsApp number is connected for this organisation.")
+        return True, None
+
+    if required:
+        if not auth.is_admin():
+            raise RuntimeError(
+                "Multiple WhatsApp numbers are connected. An organisation admin must select "
+                "the sending number before broadcasts can be sent."
+            )
+        raise RuntimeError(
+            "Multiple WhatsApp numbers are connected. Select the sending number in the "
+            "WhatsApp connections panel before sending."
+        )
+    return True, None
+
+
+def _resolve_credentials(
+    *,
+    phone_number_id: str | None = None,
+    access_token: str | None = None,
+) -> tuple[str, str]:
+    """Resolve outbound credentials without crossing tenant boundaries.
+
+    In Cloud SQL multi-tenant mode, the database is authoritative. A supplied
+    phone_number_id must exist in ``whatsapp_accounts`` and its stored token is
+    used. Streamlit broadcasts resolve the active organisation's selected account.
+    Global WHATSAPP_* environment variables are only a legacy single-tenant
+    fallback when Postgres is not configured.
+    """
+    pid = (phone_number_id or "").strip()
+    token = (access_token or "").strip()
+    pg = _postgres_store()
+
+    if pg is not None:
+        if pid:
+            account = pg.get_whatsapp_account_by_pid(pid)
+            if not account or not account.get("active", True):
+                raise RuntimeError("WhatsApp phone_number_id is not registered as an active account.")
+            stored_token = str(account.get("access_token") or "").strip()
+            if not stored_token:
+                raise RuntimeError("The registered WhatsApp account has no access token.")
+            return str(account.get("phone_number_id") or pid).strip(), stored_token
+
+        in_streamlit, account = _streamlit_tenant_account(pg, required=True)
+        if in_streamlit and account:
+            return (
+                str(account.get("phone_number_id") or "").strip(),
+                str(account.get("access_token") or "").strip(),
+            )
+
+        raise RuntimeError(
+            "PostgreSQL multi-tenant mode requires a registered tenant WhatsApp account; "
+            "global WHATSAPP_* credentials are never used as a fallback."
+        )
+
+    resolved_pid = pid or _phone_number_id()
+    resolved_token = token or _token()
+    if not resolved_pid or not resolved_token:
+        raise RuntimeError("WhatsApp phone number ID and access token are not configured.")
+    return resolved_pid, resolved_token
+
+
 def whatsapp_configured() -> bool:
+    """Whether WhatsApp sending is available in the current runtime context."""
+    pg = _postgres_store()
+    if pg is not None:
+        in_streamlit, account = _streamlit_tenant_account(pg, required=False)
+        if in_streamlit:
+            return bool(account)
+        # Webhook runtime: the receiving phone_number_id is supplied per request
+        # and resolved against Cloud SQL at send time.
+        return True
     return bool(_token() and _phone_number_id())
 
 
@@ -79,26 +203,19 @@ def send_whatsapp_text(
 ) -> dict:
     """Send a plain text message. Returns the Graph API response dict.
 
-    Raises for transport errors; callers treat a failed ack as non-fatal
-    (the lead is already stored — the reply is a courtesy).
-
-    phone_number_id / access_token: which registered number to send from and the
-    token that owns it. In a multi-tenant setup pass BOTH from the matching
-    whatsapp_accounts record, so the reply goes out on the same number that
-    received the message and is authorised by that number's own token — never a
-    shared global token. They default to the WHATSAPP_* env vars (single-number /
-    backward-compat mode).
-
-    Note: free-form text only works inside Meta's 24-hour customer-service
-    window (user messaged you first). For cold promotions use
-    send_whatsapp_template() with an approved template.
+    In multi-tenant Postgres mode the credentials always come from the matching
+    ``whatsapp_accounts`` row. Streamlit broadcasts use the active organisation's
+    selected number; webhook replies pass the receiving phone_number_id. There is
+    no global-token fallback in multi-tenant mode.
     """
-    _pid = (phone_number_id or "").strip() or _phone_number_id()
-    _tok = (access_token or "").strip() or _token()
+    resolved_pid, resolved_token = _resolve_credentials(
+        phone_number_id=phone_number_id,
+        access_token=access_token,
+    )
     resp = requests.post(
-        f"{_GRAPH}/{_pid}/messages",
+        f"{_GRAPH}/{resolved_pid}/messages",
         headers={
-            "Authorization": f"Bearer {_tok}",
+            "Authorization": f"Bearer {resolved_token}",
             "Content-Type": "application/json",
         },
         json={
@@ -119,12 +236,10 @@ def send_whatsapp_template(
     *,
     language_code: str = "en",
     body_params: list[str] | None = None,
+    phone_number_id: str | None = None,
+    access_token: str | None = None,
 ) -> dict:
-    """Send an approved WhatsApp template (required for marketing/promotions).
-
-    Template must be created and approved in Meta Business Manager →
-    WhatsApp Manager → Message templates.
-    """
+    """Send an approved WhatsApp template using tenant-scoped credentials."""
     components = []
     if body_params:
         components.append({
@@ -142,10 +257,15 @@ def send_whatsapp_template(
     }
     if components:
         payload["template"]["components"] = components
+
+    resolved_pid, resolved_token = _resolve_credentials(
+        phone_number_id=phone_number_id,
+        access_token=access_token,
+    )
     resp = requests.post(
-        f"{_GRAPH}/{_phone_number_id()}/messages",
+        f"{_GRAPH}/{resolved_pid}/messages",
         headers={
-            "Authorization": f"Bearer {_token()}",
+            "Authorization": f"Bearer {resolved_token}",
             "Content-Type": "application/json",
         },
         json=payload,
