@@ -211,60 +211,171 @@ def logout() -> None:
 # ── Screens ───────────────────────────────────────────────────────────────────
 _LOGIN_CSS = """
 <style>
-.auth-wrap{max-width:420px;margin:8vh auto 0;text-align:center;
-  animation:fadeUp .7s cubic-bezier(.16,1,.3,1) both;}
-.auth-mark{width:54px;height:54px;border-radius:16px;margin:0 auto 22px;
-  background:linear-gradient(135deg,#2E8B4D,#37A85C);
-  box-shadow:0 12px 30px rgba(46,139,77,.28);display:flex;align-items:center;
-  justify-content:center;}
+/* Keep the authentication view focused and remove the normal app chrome. */
+[data-testid="stSidebar"], [data-testid="collapsedControl"]{display:none!important;}
+[data-testid="stHeader"]{background:transparent!important;}
+[data-testid="stAppViewContainer"]{
+  background:
+    radial-gradient(circle at 18% 14%, rgba(46,139,77,.14), transparent 28%),
+    radial-gradient(circle at 84% 18%, rgba(242,190,92,.12), transparent 24%),
+    linear-gradient(145deg,#F9F6EE 0%,#F4F0E7 52%,#EFE9DC 100%)!important;
+  min-height:100vh;
+}
+[data-testid="stMainBlockContainer"]{padding-top:clamp(34px,7vh,82px)!important;
+  padding-bottom:48px!important;max-width:920px!important;}
+
+.auth-wrap{position:relative;max-width:520px;margin:0 auto;text-align:center;
+  animation:authFadeUp .75s cubic-bezier(.16,1,.3,1) both;}
+.auth-wrap::before,.auth-wrap::after{content:"";position:absolute;border-radius:999px;
+  filter:blur(2px);pointer-events:none;z-index:-1;}
+.auth-wrap::before{width:210px;height:210px;left:-155px;top:20px;
+  background:radial-gradient(circle,rgba(46,139,77,.13),rgba(46,139,77,0) 68%);
+  animation:authDrift 7s ease-in-out infinite alternate;}
+.auth-wrap::after{width:170px;height:170px;right:-130px;top:100px;
+  background:radial-gradient(circle,rgba(183,121,31,.10),rgba(183,121,31,0) 68%);
+  animation:authDrift 8.5s ease-in-out 1s infinite alternate-reverse;}
+.auth-mark{position:relative;width:62px;height:62px;border-radius:19px;margin:0 auto 24px;
+  background:linear-gradient(145deg,#228445,#36B765);display:grid;place-items:center;
+  box-shadow:0 18px 42px rgba(46,139,77,.25),inset 0 1px 0 rgba(255,255,255,.35);
+  animation:authMarkIn .8s cubic-bezier(.16,1,.3,1) .08s both;}
+.auth-mark::before{content:"";position:absolute;inset:-8px;border-radius:25px;
+  border:1px solid rgba(46,139,77,.18);animation:authPulse 3s ease-out infinite;}
 .auth-mark::after{content:"";width:20px;height:20px;border-radius:50%;
-  background:#F4F0E7;}
-.auth-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;
-  letter-spacing:.34em;text-transform:uppercase;color:#2E8B4D;margin-bottom:14px;}
-.auth-title{font-family:'Bricolage Grotesque',sans-serif;font-size:34px;font-weight:800;
-  letter-spacing:-.03em;line-height:1.04;color:#0F2A33;margin:0 0 10px;}
-.auth-title .accent{color:#2E8B4D;}
-.auth-sub{font-family:'JetBrains Mono',monospace;font-size:12px;color:#6B7F85;
-  letter-spacing:.03em;line-height:1.7;margin:0 auto 26px;max-width:340px;}
-.auth-card{background:#FDFCF9;border:1.5px solid rgba(15,42,51,.09);border-radius:18px;
-  padding:30px 26px;box-shadow:0 14px 34px rgba(15,42,51,.10);}
-.auth-hint{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#6B7F85;
-  letter-spacing:.04em;margin-top:18px;line-height:1.6;}
+  background:#F7F4EC;box-shadow:0 0 0 6px rgba(255,255,255,.10);}
+.auth-eyebrow{font-family:'JetBrains Mono',monospace!important;font-size:10px;font-weight:700;
+  letter-spacing:.34em;text-transform:uppercase;color:#2E8B4D;margin-bottom:15px;
+  animation:authFadeUp .65s ease .12s both;}
+.auth-title{font-family:'Bricolage Grotesque',sans-serif!important;
+  font-size:clamp(38px,6vw,56px);font-weight:800;letter-spacing:-.045em;
+  line-height:.98;color:#0F2A33;margin:0 0 16px;animation:authFadeUp .68s ease .18s both;}
+.auth-title .accent{background:linear-gradient(110deg,#1F7D40,#35B663);
+  -webkit-background-clip:text;background-clip:text;color:transparent;}
+.auth-sub{font-family:'JetBrains Mono',monospace!important;font-size:12px;color:#60757B;
+  letter-spacing:.025em;line-height:1.75;margin:0 auto 20px;max-width:430px;
+  animation:authFadeUp .68s ease .24s both;}
+.auth-trust-row{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:0 auto 8px;
+  animation:authFadeUp .7s ease .3s both;}
+.auth-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;
+  border:1px solid rgba(15,42,51,.09);background:rgba(253,252,249,.66);
+  backdrop-filter:blur(10px);font-family:'JetBrains Mono',monospace!important;
+  color:#52686E;font-size:9.5px;font-weight:600;letter-spacing:.06em;}
+.auth-pill-dot{width:6px;height:6px;border-radius:50%;background:#2E8B4D;
+  box-shadow:0 0 0 3px rgba(46,139,77,.11);}
+
+/* Real Streamlit container: unlike an opening/closing HTML div split across
+   markdown calls, this actually contains the button and therefore cannot render
+   as the mysterious empty white rectangle seen in production. */
+div[class*="st-key-auth_login_card"]{max-width:430px;margin:24px auto 0!important;
+  padding:22px!important;border:1px solid rgba(15,42,51,.10)!important;
+  border-radius:22px!important;background:rgba(253,252,249,.78)!important;
+  box-shadow:0 24px 70px rgba(15,42,51,.12),inset 0 1px 0 rgba(255,255,255,.85)!important;
+  backdrop-filter:blur(18px);animation:authCardIn .78s cubic-bezier(.16,1,.3,1) .22s both;}
+div[class*="st-key-auth_login_card"] [data-testid="stVerticalBlock"]{gap:12px!important;}
+.auth-card-kicker{font-family:'JetBrains Mono',monospace!important;font-size:9.5px;
+  font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#6B7F85;
+  text-align:center;margin:0 0 2px;}
+div[class*="st-key-auth_login_card"] .stButton>button{
+  position:relative;min-height:54px!important;border:0!important;border-radius:14px!important;
+  background:linear-gradient(110deg,#238646,#31A95A)!important;color:#fff!important;
+  font-family:'Bricolage Grotesque',sans-serif!important;font-size:15px!important;
+  font-weight:700!important;letter-spacing:.005em!important;
+  box-shadow:0 12px 26px rgba(46,139,77,.24)!important;
+  transition:transform .18s ease,box-shadow .18s ease,filter .18s ease!important;}
+div[class*="st-key-auth_login_card"] .stButton>button:hover{
+  transform:translateY(-2px)!important;box-shadow:0 17px 34px rgba(46,139,77,.31)!important;
+  filter:saturate(1.06)!important;}
+div[class*="st-key-auth_login_card"] .stButton>button:active{transform:translateY(0)!important;}
+div[class*="st-key-auth_login_card"] .stButton>button::before{
+  content:"G";display:inline-grid;place-items:center;width:24px;height:24px;margin-right:10px;
+  border-radius:7px;background:#fff;color:#2E8B4D;font-size:13px;font-weight:800;
+  box-shadow:0 2px 8px rgba(15,42,51,.12);}
+.auth-card{background:rgba(253,252,249,.78);border:1px solid rgba(15,42,51,.10);
+  border-radius:18px;padding:22px;box-shadow:0 18px 48px rgba(15,42,51,.10);
+  backdrop-filter:blur(16px);}
+.auth-hint{font-family:'JetBrains Mono',monospace!important;font-size:10px;color:#6B7F85;
+  letter-spacing:.03em;text-align:center;line-height:1.6;margin:2px 4px 0;}
+.auth-hint strong{color:#3C5158;font-weight:700;}
 .auth-hint code{background:rgba(46,139,77,.10);color:#2E8B4D;border-radius:5px;
   padding:1px 6px;font-size:10px;}
+.auth-foot{font-family:'JetBrains Mono',monospace!important;font-size:9px;color:#87979B;
+  letter-spacing:.08em;text-align:center;margin-top:18px;animation:authFadeUp .7s ease .42s both;}
+
+@keyframes authFadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes authCardIn{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes authMarkIn{from{opacity:0;transform:translateY(12px) rotate(-8deg) scale(.9)}to{opacity:1;transform:none}}
+@keyframes authPulse{0%{opacity:.7;transform:scale(.88)}70%,100%{opacity:0;transform:scale(1.28)}}
+@keyframes authDrift{from{transform:translate3d(0,0,0)}to{transform:translate3d(12px,14px,0)}}
+
+@media(max-width:640px){
+  [data-testid="stMainBlockContainer"]{padding:44px 20px 34px!important;}
+  .auth-wrap{max-width:100%;}
+  .auth-title{font-size:39px;}
+  .auth-sub{font-size:11px;max-width:330px;}
+  .auth-trust-row{gap:6px;}
+  .auth-pill{font-size:8.7px;padding:6px 8px;}
+  div[class*="st-key-auth_login_card"]{padding:18px!important;border-radius:18px!important;
+    margin-top:20px!important;}
+}
+@media(prefers-reduced-motion:reduce){
+  .auth-wrap,.auth-mark,.auth-eyebrow,.auth-title,.auth-sub,.auth-trust-row,.auth-foot,
+  div[class*="st-key-auth_login_card"]{animation:none!important;}
+  .auth-wrap::before,.auth-wrap::after,.auth-mark::before{animation:none!important;}
+  div[class*="st-key-auth_login_card"] .stButton>button{transition:none!important;}
+}
 </style>
 """
 
 
 def _render_login_screen() -> None:
-    """Minimalist, on-brand Google sign-in screen."""
+    """Animated, on-brand Google sign-in screen without phantom containers."""
     st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
-    # Invite-only — don't advertise the member list. Generic, privacy-preserving.
-    hint = (
-        "<div class='auth-hint'>Invite-only · sign in with the Google account "
-        "you were invited with. No access? Ask your admin.</div>"
-    )
-
     st.markdown(
-        f"""
+        """
         <div class="auth-wrap">
           <div class="auth-mark"></div>
           <div class="auth-eyebrow">FocusChain Labs · Secure Access</div>
           <h1 class="auth-title">Welcome <span class="accent">back</span></h1>
-          <div class="auth-sub">Your leads, your conversations, your pipeline —
-            one organisation at a time. Sign in to continue.</div>
+          <div class="auth-sub">Your leads, conversations and pipeline — securely
+            separated by organisation. Sign in to enter your workspace.</div>
+          <div class="auth-trust-row">
+            <span class="auth-pill"><span class="auth-pill-dot"></span>Invite only</span>
+            <span class="auth-pill"><span class="auth-pill-dot"></span>Google protected</span>
+            <span class="auth-pill"><span class="auth-pill-dot"></span>Tenant isolated</span>
+          </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    _, mid, _ = st.columns([1, 2, 1])
+
+    _, mid, _ = st.columns([1, 2.15, 1])
     with mid:
-        with st.container():
-            st.markdown('<div class="auth-card">', unsafe_allow_html=True)
-            if st.button("Continue with Google", type="primary",
-                         use_container_width=True, key="auth_google_btn"):
+        # Use a real keyed Streamlit container so the visual card truly contains
+        # the button and hint. The previous split HTML wrapper rendered as an
+        # empty white rectangle because Streamlit markdown calls are separate DOMs.
+        with st.container(key="auth_login_card"):
+            st.markdown(
+                '<div class="auth-card-kicker">Secure workspace access</div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                "Continue with Google",
+                type="primary",
+                use_container_width=True,
+                key="auth_google_btn",
+            ):
                 _do_login()
-            st.markdown((hint or "") + "</div>", unsafe_allow_html=True)
+            st.markdown(
+                """
+                <div class="auth-hint"><strong>Invite-only access.</strong> Use the
+                Google account your organisation administrator approved.</div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    st.markdown(
+        '<div class="auth-foot">OIDC sign-in · encrypted session · organisation-scoped data</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _do_login() -> None:

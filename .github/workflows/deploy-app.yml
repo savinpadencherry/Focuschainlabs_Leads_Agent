@@ -4,7 +4,8 @@ name: Deploy CRM app to Cloud Run
 # Registry, and deploys the shared multi-tenant crm-app Cloud Run service.
 # Auth uses Workload Identity Federation — no long-lived key in GitHub.
 # Runtime secrets (API keys, [auth], DB) are configured on the service itself,
-# not here. One-time GCP setup is documented in the architecture PDF / docs.
+# not here. Existing Cloud SQL attachments, secret mounts and environment values
+# are preserved when only the image is updated.
 
 on:
   push:
@@ -53,6 +54,7 @@ jobs:
           set -euo pipefail
           for pattern in \
             test_auth.py \
+            test_auth_login_ui.py \
             test_org_config.py \
             test_whatsapp_hardening.py \
             test_whatsapp_webhook.py \
@@ -88,7 +90,7 @@ jobs:
             --image "$IMAGE_URI" \
             --region "${{ env.REGION }}" \
             --project "${{ secrets.GCP_PROJECT_ID }}" \
-            --allow-unauthenticated \
+            --no-invoker-iam-check \
             --labels app=focuschain-crm,component=app,env=prod,tenant-model=shared,managed-by=github-actions \
             --quiet
 
