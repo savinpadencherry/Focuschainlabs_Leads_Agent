@@ -31,6 +31,7 @@ from utils import org_config
 _SESSION_ORG_KEY = "crm_org_id"   # shared with utils/tenancy.active_org()
 _SESSION_EMAIL_KEY = "auth_email"
 _SESSION_NAME_KEY = "auth_name"
+_SESSION_ROLE_KEY = "auth_role"
 
 
 # ── Capability / configuration probes ─────────────────────────────────────────
@@ -46,16 +47,28 @@ def _auth_secrets_present() -> bool:
         return False
 
 
-def auth_enabled() -> bool:
-    """Whether to actually gate the app behind Google sign-in.
+def auth_required() -> bool:
+    """Production fail-closed switch. When AUTH_REQUIRED is set, the app must
+    NEVER run unauthenticated — even if [auth] is missing it refuses to serve
+    rather than dropping into single-tenant dev mode."""
+    return (os.getenv("AUTH_REQUIRED") or "").strip().lower() in ("1", "true", "yes")
 
-    Disabled when explicitly turned off, when the Streamlit build is too old, or
-    when no [auth] secrets exist (local dev / CI) — in those cases the app runs
-    in single-tenant dev mode instead of showing a broken login button.
+
+def _properly_configured() -> bool:
+    return login_supported() and _auth_secrets_present()
+
+
+def auth_enabled() -> bool:
+    """Whether to gate the app behind Google sign-in.
+
+    Always on when AUTH_REQUIRED is set. Otherwise on when [auth] is configured;
+    off (single-tenant dev mode) for local dev / CI, or when AUTH_DISABLED is set.
     """
+    if auth_required():
+        return True
     if (os.getenv("AUTH_DISABLED") or "").strip().lower() in ("1", "true", "yes"):
         return False
-    return login_supported() and _auth_secrets_present()
+    return _properly_configured()
 
 
 def _user():
@@ -116,13 +129,26 @@ def active_brand() -> dict:
     return org_config.org_branding(active_org_id())
 
 
+def active_role() -> str:
+    """The signed-in user's role. Dev mode (auth off) is treated as admin so a
+    contributor can exercise every feature locally; under auth, missing = member."""
+    stored = (st.session_state.get(_SESSION_ROLE_KEY) or "").strip()
+    if stored:
+        return stored
+    return org_config.ROLE_ADMIN if not auth_enabled() else org_config.ROLE_MEMBER
+
+
+def is_admin() -> bool:
+    return active_role() == org_config.ROLE_ADMIN
+
+
 # ── The gate ──────────────────────────────────────────────────────────────────
 def require_auth() -> None:
-    """Block the app until a known-domain user is signed in.
+    """Block the app until an invited user is signed in.
 
     Call once near the top of the app, before any view renders. Renders the
-    login or access-denied screen and st.stop()s when the user isn't allowed
-    through; otherwise stores the resolved tenant in session and returns.
+    login / access-denied / config screens and st.stop()s when the user isn't
+    allowed through; otherwise stores the resolved tenant + role in session.
     """
     if not auth_enabled():
         # Dev / CI: no gate. Pin the session to the dev tenant so org-scoped
@@ -130,13 +156,20 @@ def require_auth() -> None:
         st.session_state.setdefault(_SESSION_ORG_KEY, active_org_id())
         return
 
+    # AUTH_REQUIRED is set but sign-in isn't actually configured — fail closed
+    # rather than letting anyone in or crashing on a broken login button.
+    if not _properly_configured():
+        _render_config_required_screen()
+        st.stop()
+
     if not is_logged_in():
         _render_login_screen()
         st.stop()
 
+    # Invite-only: access is granted per-email, never by domain alone.
     email = current_email()
-    org_id = org_config.resolve_org_for_email(email)
-    if not org_id:
+    membership = org_config.resolve_membership(email)
+    if not membership:
         _render_denied_screen(email)
         st.stop()
 
@@ -149,7 +182,8 @@ def require_auth() -> None:
         _render_backend_error_screen()
         st.stop()
 
-    st.session_state[_SESSION_ORG_KEY] = org_id
+    st.session_state[_SESSION_ORG_KEY] = membership["organization_id"]
+    st.session_state[_SESSION_ROLE_KEY] = membership["role"]
     st.session_state[_SESSION_EMAIL_KEY] = email
     st.session_state[_SESSION_NAME_KEY] = current_name()
 
@@ -165,7 +199,7 @@ def _multitenant_backend_ready() -> bool:
 
 
 def logout() -> None:
-    for k in (_SESSION_ORG_KEY, _SESSION_EMAIL_KEY, _SESSION_NAME_KEY,
+    for k in (_SESSION_ORG_KEY, _SESSION_EMAIL_KEY, _SESSION_NAME_KEY, _SESSION_ROLE_KEY,
               "crm_db", "crm_meta", "crm_sha", "crm_page", "crm_loaded_org"):
         st.session_state.pop(k, None)
     try:
@@ -205,11 +239,11 @@ _LOGIN_CSS = """
 def _render_login_screen() -> None:
     """Minimalist, on-brand Google sign-in screen."""
     st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
-    domains = org_config.all_allowed_domains()
-    hint = ""
-    if domains:
-        chips = " ".join(f"<code>@{html.escape(d)}</code>" for d in domains[:4])
-        hint = f"<div class='auth-hint'>Sign in with your company account &nbsp;{chips}</div>"
+    # Invite-only — don't advertise the member list. Generic, privacy-preserving.
+    hint = (
+        "<div class='auth-hint'>Invite-only · sign in with the Google account "
+        "you were invited with. No access? Ask your admin.</div>"
+    )
 
     st.markdown(
         f"""
@@ -248,19 +282,18 @@ def _do_login() -> None:
 
 
 def _render_denied_screen(email: str) -> None:
-    """Signed in, but the email domain maps to no tenant."""
+    """Signed in, but the email isn't on any tenant's invite list."""
     st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
     safe_email = html.escape(email or "your account")
-    domains = ", ".join(f"@{d}" for d in org_config.all_allowed_domains()) or "an approved company domain"
     st.markdown(
         f"""
         <div class="auth-wrap">
           <div class="auth-mark"></div>
           <div class="auth-eyebrow">FocusChain Labs · Access</div>
-          <h1 class="auth-title">No workspace <span class="accent">for {safe_email}</span></h1>
-          <div class="auth-sub">This account isn't linked to an organisation.
-            Access is limited to {html.escape(domains)}. Use your company email,
-            or ask an admin to add your domain.</div>
+          <h1 class="auth-title">Not invited <span class="accent">yet</span></h1>
+          <div class="auth-sub">{safe_email} isn't on an organisation's member
+            list. Access is invite-only — ask your admin to add your address,
+            or sign in with a different account.</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -270,6 +303,24 @@ def _render_denied_screen(email: str) -> None:
         if st.button("Sign in with a different account", use_container_width=True,
                      key="auth_switch_btn"):
             logout()
+
+
+def _render_config_required_screen() -> None:
+    """AUTH_REQUIRED is set but the [auth] sign-in config is missing — fail closed."""
+    st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="auth-wrap">
+          <div class="auth-mark"></div>
+          <div class="auth-eyebrow">FocusChain Labs · Locked</div>
+          <h1 class="auth-title">Sign-in not <span class="accent">configured</span></h1>
+          <div class="auth-sub">AUTH_REQUIRED is on but Google sign-in isn't set
+            up yet, so the app is locked rather than running open. Add the [auth]
+            section to the app's secrets and reload.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _render_backend_error_screen() -> None:

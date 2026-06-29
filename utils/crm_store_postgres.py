@@ -533,3 +533,21 @@ def resolve_org_for_phone_number_id(phone_number_id: str) -> str | None:
         )
         row = cur.fetchone()
     return row[0] if row else None
+
+
+def get_whatsapp_account_by_pid(phone_number_id: str) -> dict[str, Any] | None:
+    """The full whatsapp_accounts record for a phone_number_id, or None.
+
+    Returns organization_id and the number's own access_token, so the webhook can
+    both resolve the tenant for inbound traffic and reply on the same number with
+    that number's own token — never a shared global token.
+    """
+    pid = (phone_number_id or "").strip()
+    if not pid:
+        return None
+    with _connect() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT * FROM whatsapp_accounts WHERE phone_number_id = %s", (pid,)
+        )
+        row = cur.fetchone()
+    return _row_to_wa_account(row) if row else None

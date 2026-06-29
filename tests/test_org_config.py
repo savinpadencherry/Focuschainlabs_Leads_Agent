@@ -34,13 +34,13 @@ class BuiltinOrgTests(_EnvBase):
 
     def test_domain_resolves_to_focuschainlabs(self):
         self.assertEqual(
-            org_config.resolve_org_for_email("savin@focuschainlabs.com"), "focuschainlabs"
+            org_config.resolve_org_for_email("anyone@focuschainlabs.com"), "focuschainlabs"
         )
 
-    def test_domain_resolves_to_sn_realtors(self):
-        self.assertEqual(
-            org_config.resolve_org_for_email("owner@snrealtors.in"), "sn_realtors"
-        )
+    def test_sn_realtors_has_no_domain(self):
+        # SN Realtors users are on personal Gmail — domain resolution must not
+        # grant access (membership does). focuschainlabs domain still hints.
+        self.assertIsNone(org_config.resolve_org_for_email("owner@snrealtors.in"))
 
     def test_resolution_is_case_insensitive(self):
         self.assertEqual(
@@ -110,10 +110,74 @@ class EnvOverrideTests(_EnvBase):
         ])
         self.assertEqual(org_config.resolve_org_for_email("x@acme.test"), "acme")
 
-    def test_all_allowed_domains_lists_every_domain(self):
+    def test_all_allowed_domains_lists_configured_domains(self):
         domains = org_config.all_allowed_domains()
         self.assertIn("focuschainlabs.com", domains)
-        self.assertIn("snrealtors.in", domains)
+
+
+class MembershipTests(_EnvBase):
+    def setUp(self):
+        super().setUp()
+        self._mkey = os.environ.get("ORG_MEMBERS")
+        os.environ.pop("ORG_MEMBERS", None)
+
+    def tearDown(self):
+        if self._mkey is None:
+            os.environ.pop("ORG_MEMBERS", None)
+        else:
+            os.environ["ORG_MEMBERS"] = self._mkey
+        super().tearDown()
+
+    def test_known_members_resolve_with_org_and_role(self):
+        m = org_config.resolve_membership("savin@focuschainlabs.com")
+        self.assertEqual(m["organization_id"], "focuschainlabs")
+        self.assertEqual(m["role"], "admin")
+        m2 = org_config.resolve_membership("bhaskar@focuschainlabs.com")
+        self.assertEqual(m2["organization_id"], "focuschainlabs")
+        self.assertEqual(m2["role"], "member")
+
+    def test_sn_realtors_gmail_members_resolve(self):
+        m = org_config.resolve_membership("surajmetgud@gmail.com")
+        self.assertEqual(m["organization_id"], "sn_realtors")
+        self.assertEqual(m["role"], "admin")
+        self.assertEqual(
+            org_config.resolve_membership("suhassalgatti71@gmail.com")["organization_id"],
+            "sn_realtors",
+        )
+
+    def test_membership_is_case_insensitive(self):
+        self.assertEqual(
+            org_config.resolve_membership("Savin@FocusChainLabs.com")["organization_id"],
+            "focuschainlabs",
+        )
+
+    def test_non_member_denied_even_with_matching_domain(self):
+        # A focuschainlabs.com address NOT on the invite list gets no access —
+        # domain match alone must not grant entry.
+        self.assertIsNone(org_config.resolve_membership("stranger@focuschainlabs.com"))
+
+    def test_unknown_email_denied(self):
+        self.assertIsNone(org_config.resolve_membership("random@gmail.com"))
+        self.assertIsNone(org_config.resolve_membership(""))
+
+    def test_org_members_env_override(self):
+        import json
+        os.environ["ORG_MEMBERS"] = json.dumps([
+            {"email": "new@acme.test", "org": "acme", "role": "admin"},
+        ])
+        self.assertEqual(
+            org_config.resolve_membership("new@acme.test"),
+            {"organization_id": "acme", "role": "admin", "email": "new@acme.test"},
+        )
+        # built-ins no longer apply once overridden
+        self.assertIsNone(org_config.resolve_membership("savin@focuschainlabs.com"))
+
+    def test_invalid_role_defaults_to_member(self):
+        import json
+        os.environ["ORG_MEMBERS"] = json.dumps([
+            {"email": "x@acme.test", "org": "acme", "role": "superuser"},
+        ])
+        self.assertEqual(org_config.resolve_membership("x@acme.test")["role"], "member")
 
 
 if __name__ == "__main__":

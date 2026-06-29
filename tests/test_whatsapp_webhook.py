@@ -126,29 +126,109 @@ class ResolveOrgTests(unittest.TestCase):
             org = wh._resolve_org("pid1")
         self.assertEqual(org, "acme")
 
-    def test_unknown_number_falls_back_to_default(self):
+    def test_unknown_number_is_rejected_not_defaulted(self):
+        # Hardening H3: an unregistered number must NOT fall to the default tenant.
         with patch.object(pg, "postgres_configured", return_value=True), \
              patch.object(pg, "resolve_org_for_phone_number_id", return_value=None):
             org = wh._resolve_org("pid-unregistered")
-        self.assertEqual(org, pg.DEFAULT_ORG_ID)
+        self.assertIsNone(org)
 
-    def test_db_error_falls_back_to_default(self):
+    def test_db_error_propagates(self):
+        # DB error must propagate so receive() returns 5xx and Meta retries —
+        # not be swallowed into the default tenant.
         with patch.object(pg, "postgres_configured", return_value=True), \
-             patch.object(
-                 pg, "resolve_org_for_phone_number_id", side_effect=RuntimeError("db down"),
-             ):
-            org = wh._resolve_org("pid1")
-        self.assertEqual(org, pg.DEFAULT_ORG_ID)
+             patch.object(pg, "resolve_org_for_phone_number_id",
+                          side_effect=RuntimeError("db down")):
+            with self.assertRaises(RuntimeError):
+                wh._resolve_org("pid1")
+
+
+class RejectUnregisteredNumberTests(unittest.TestCase):
+    """H3: inbound from an unregistered number is rejected, never stored."""
+
+    def setUp(self):
+        wh._SEEN_IDS.clear()
+        self.client = TestClient(wh.app)
+        self._sec = os.environ.pop("META_APP_SECRET", None)
+
+    def tearDown(self):
+        if self._sec is not None:
+            os.environ["META_APP_SECRET"] = self._sec
+
+    def _payload(self):
+        return {"entry": [{"changes": [{"value": {
+            "metadata": {"phone_number_id": "ghostpid"},
+            "messages": [{"id": "wamid.x", "from": "919", "type": "text",
+                          "text": {"body": "hi"}, "timestamp": "1700000000"}],
+        }}]}]}
+
+    def test_unregistered_number_rejected(self):
+        with patch.object(wh, "_resolve_org", return_value=None), \
+             patch.object(wh, "_handle_message") as handle:
+            resp = self.client.post("/webhook", json=self._payload())
+        handle.assert_not_called()
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["handled"], 0)
+        self.assertEqual(resp.json()["rejected"], 1)
+
+    def test_registered_number_processed(self):
+        with patch.object(wh, "_resolve_org", return_value="acme"), \
+             patch.object(wh, "_handle_message", return_value=("created", "c1")) as handle:
+            resp = self.client.post("/webhook", json=self._payload())
+        handle.assert_called_once()
+        self.assertEqual(resp.json()["handled"], 1)
+        # org from resolution is passed to the handler
+        self.assertEqual(handle.call_args[0][1], "acme")
+
+
+class SignatureVerificationTests(unittest.TestCase):
+    """H2: X-Hub-Signature-256 enforced when META_APP_SECRET is set."""
+
+    def setUp(self):
+        wh._SEEN_IDS.clear()
+        self.client = TestClient(wh.app)
+        self._sec = os.environ.get("META_APP_SECRET")
+        os.environ["META_APP_SECRET"] = "test-app-secret"
+
+    def tearDown(self):
+        if self._sec is None:
+            os.environ.pop("META_APP_SECRET", None)
+        else:
+            os.environ["META_APP_SECRET"] = self._sec
+
+    def test_missing_signature_is_403(self):
+        resp = self.client.post("/webhook", json={"entry": []})
+        self.assertEqual(resp.status_code, 403)
+
+    def test_bad_signature_is_403(self):
+        resp = self.client.post(
+            "/webhook", content=b'{"entry":[]}',
+            headers={"X-Hub-Signature-256": "sha256=deadbeef",
+                     "Content-Type": "application/json"},
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_valid_signature_passes(self):
+        import hashlib
+        import hmac
+        body = b'{"entry":[]}'
+        sig = hmac.new(b"test-app-secret", body, hashlib.sha256).hexdigest()
+        resp = self.client.post(
+            "/webhook", content=body,
+            headers={"X-Hub-Signature-256": f"sha256={sig}",
+                     "Content-Type": "application/json"},
+        )
+        self.assertEqual(resp.status_code, 200)
 
 
 class ApiKeyOrgResolutionTests(unittest.TestCase):
-    """REST API: bearer token -> organization_id, per the API_KEYS / legacy
-    API_SECRET_KEY scheme."""
+    """REST API: gated by MOBILE_API_ENABLED (H8), then bearer token -> org."""
 
     def setUp(self):
         self._env_backup = {
-            k: os.environ.get(k) for k in ("API_KEYS", "API_SECRET_KEY")
+            k: os.environ.get(k) for k in ("API_KEYS", "API_SECRET_KEY", "MOBILE_API_ENABLED")
         }
+        os.environ["MOBILE_API_ENABLED"] = "true"  # most tests assume it's on
 
     def tearDown(self):
         for k, v in self._env_backup.items():
@@ -160,6 +240,15 @@ class ApiKeyOrgResolutionTests(unittest.TestCase):
     def _request_with_auth(self, token: str | None):
         headers = {"Authorization": f"Bearer {token}"} if token else {}
         return MagicMock(headers=headers)
+
+    def test_disabled_by_default_is_503(self):
+        os.environ.pop("MOBILE_API_ENABLED", None)
+        os.environ["API_KEYS"] = json.dumps({"key-acme": "acme"})
+        from fastapi import HTTPException
+
+        with self.assertRaises(HTTPException) as ctx:
+            wh._require_api_key(self._request_with_auth("key-acme"))
+        self.assertEqual(ctx.exception.status_code, 503)
 
     def test_api_keys_json_maps_token_to_org(self):
         os.environ["API_KEYS"] = json.dumps({"key-acme": "acme", "key-beta": "beta"})
@@ -190,6 +279,37 @@ class ApiKeyOrgResolutionTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as ctx:
             wh._require_api_key(self._request_with_auth("anything"))
         self.assertEqual(ctx.exception.status_code, 503)
+
+
+class TokenRedactionTests(unittest.TestCase):
+    """H4: WhatsApp access_token never leaves via the REST API."""
+
+    def test_public_account_strips_access_token(self):
+        acct = {"id": "1", "phone_number_id": "pid", "access_token": "SECRET",
+                "display_name": "Acme", "organization_id": "acme"}
+        out = wh._public_account(acct)
+        self.assertNotIn("access_token", out)
+        self.assertEqual(out["phone_number_id"], "pid")
+
+    def test_list_endpoint_redacts_token(self):
+        os.environ["MOBILE_API_ENABLED"] = "true"
+        os.environ["API_KEYS"] = json.dumps({"k": "acme"})
+        client = TestClient(wh.app)
+        fake_pg = MagicMock()
+        fake_pg.load_whatsapp_accounts.return_value = [
+            {"id": "1", "phone_number_id": "pid", "access_token": "SECRET",
+             "organization_id": "acme"},
+        ]
+        try:
+            with patch.object(wh, "_pg", return_value=fake_pg):
+                resp = client.get("/api/whatsapp-accounts",
+                                  headers={"Authorization": "Bearer k"})
+            self.assertEqual(resp.status_code, 200)
+            self.assertNotIn("access_token", resp.text)
+            self.assertNotIn("SECRET", resp.text)
+        finally:
+            os.environ.pop("MOBILE_API_ENABLED", None)
+            os.environ.pop("API_KEYS", None)
 
 
 if __name__ == "__main__":

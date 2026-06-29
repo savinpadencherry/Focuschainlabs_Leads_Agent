@@ -10,6 +10,7 @@ import html
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils import auth
 from utils import wa_embedded_signup as es
 
 _PANEL_CSS = """
@@ -50,6 +51,7 @@ def render_whatsapp_connections(organization_id: str) -> None:
         st.warning(f"Couldn't load WhatsApp numbers: {exc}")
         accounts = []
 
+    is_admin = auth.is_admin()
     st.markdown(
         "<div class='wa-conn-hint' style='margin-bottom:10px;'>"
         "Numbers connected here receive customer messages straight into this "
@@ -73,7 +75,8 @@ def render_whatsapp_connections(organization_id: str) -> None:
                     unsafe_allow_html=True,
                 )
             with btn:
-                if st.button("Disconnect", key=f"wa_disc_{a.get('id')}"):
+                # Only admins can remove a connected number.
+                if is_admin and st.button("Disconnect", key=f"wa_disc_{a.get('id')}"):
                     try:
                         pg.delete_whatsapp_account(a.get("id") or "", organization_id)
                         st.toast("WhatsApp number disconnected.")
@@ -82,6 +85,15 @@ def render_whatsapp_connections(organization_id: str) -> None:
                     st.rerun()
     else:
         st.caption("No WhatsApp numbers connected yet.")
+
+    # Connecting / removing numbers is an admin-only action.
+    if not is_admin:
+        st.markdown(
+            "<div class='wa-conn-hint'>Only organisation admins can connect or "
+            "remove WhatsApp numbers.</div>",
+            unsafe_allow_html=True,
+        )
+        return
 
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
