@@ -31,6 +31,14 @@ _PANEL_CSS = """
 </style>
 """
 
+_SENDER_SESSION_KEY = "wa_sender_phone_number_id"
+
+
+def _account_label(account: dict) -> str:
+    name = account.get("display_name") or account.get("agent_name") or "WhatsApp number"
+    number = account.get("phone_number") or account.get("phone_number_id") or ""
+    return f"{name} · {number}"
+
 
 def render_whatsapp_connections(organization_id: str) -> None:
     """Connected-numbers manager for one tenant. Safe to call on every CRM render."""
@@ -52,6 +60,46 @@ def render_whatsapp_connections(organization_id: str) -> None:
         accounts = []
 
     is_admin = auth.is_admin()
+    active_accounts = [
+        a for a in accounts
+        if a.get("active", True)
+        and (a.get("phone_number_id") or "").strip()
+        and (a.get("access_token") or "").strip()
+    ]
+
+    # Tenant-safe outbound selection. A single active number is automatic. When
+    # several exist, an admin must choose the sender for this session before the
+    # broadcast controls become enabled. The WhatsApp helper reads this same key.
+    selected_pid = str(st.session_state.get(_SENDER_SESSION_KEY) or "").strip()
+    active_pids = [str(a.get("phone_number_id") or "").strip() for a in active_accounts]
+    if selected_pid and selected_pid not in active_pids:
+        st.session_state.pop(_SENDER_SESSION_KEY, None)
+        selected_pid = ""
+
+    if len(active_accounts) == 1:
+        st.session_state[_SENDER_SESSION_KEY] = active_pids[0]
+    elif len(active_accounts) > 1:
+        if is_admin:
+            by_pid = {str(a["phone_number_id"]): a for a in active_accounts}
+            default_index = active_pids.index(selected_pid) if selected_pid in active_pids else 0
+            picked = st.selectbox(
+                "Sending number for broadcasts",
+                active_pids,
+                index=default_index,
+                format_func=lambda pid: _account_label(by_pid[pid]),
+                key="wa_sender_picker",
+                help="Broadcasts use only this organisation's selected WhatsApp account.",
+            )
+            st.session_state[_SENDER_SESSION_KEY] = picked
+        else:
+            st.session_state.pop(_SENDER_SESSION_KEY, None)
+            st.warning(
+                "Multiple WhatsApp numbers are connected. An organisation admin must "
+                "select the sending number before broadcasts can be sent."
+            )
+    else:
+        st.session_state.pop(_SENDER_SESSION_KEY, None)
+
     st.markdown(
         "<div class='wa-conn-hint' style='margin-bottom:10px;'>"
         "Numbers connected here receive customer messages straight into this "
@@ -79,6 +127,10 @@ def render_whatsapp_connections(organization_id: str) -> None:
                 if is_admin and st.button("Disconnect", key=f"wa_disc_{a.get('id')}"):
                     try:
                         pg.delete_whatsapp_account(a.get("id") or "", organization_id)
+                        if str(a.get("phone_number_id") or "") == str(
+                            st.session_state.get(_SENDER_SESSION_KEY) or ""
+                        ):
+                            st.session_state.pop(_SENDER_SESSION_KEY, None)
                         st.toast("WhatsApp number disconnected.")
                     except Exception as exc:  # noqa: BLE001
                         st.error(f"Disconnect failed: {exc}")
@@ -135,6 +187,7 @@ def render_whatsapp_connections(organization_id: str) -> None:
                             },
                             organization_id,
                         )
+                        st.session_state[_SENDER_SESSION_KEY] = pid.strip()
                         st.success("WhatsApp number saved.")
                         st.rerun()
                     except Exception as exc:  # noqa: BLE001
