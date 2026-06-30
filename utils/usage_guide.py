@@ -74,7 +74,7 @@ _GUIDES: dict[str, dict] = {
         "steps": [
             "Add a lead with <b>Add with AI</b> — type a sentence (or tap the box and use your keyboard's mic to dictate, free, no AI), then let the agent structure and save it.",
             "Search and filter to find anyone instantly, even across thousands.",
-            "Open a contact to log activity, set follow-ups, and run the other agents.",
+            "Open a contact → <b>Activity</b> tab → <b>Send WhatsApp</b> to message one lead, or select multiple leads for a broadcast.",
         ],
         "example": "Click Add with AI → type or dictate “Add Priya Nair, founder of Zenith Interiors, 98xxxxxx12, met at the Mumbai expo, wants a demo next week” → review the text → Review with AI.",
     },

@@ -26,7 +26,7 @@ from utils.whatsapp import (
     send_whatsapp_text,
     whatsapp_configured,
 )
-from utils.wa_events import append_outbound_event, campaign_summary
+from utils.wa_events import append_outbound_event, campaign_summary, normalize_wa_event
 
 
 CRM_STATUSES = getattr(crm_models, "CRM_STATUSES", ["new", "contacted", "qualified", "proposal", "won", "lost"])
@@ -1344,6 +1344,32 @@ div[class*="st-key-crm_row_"]:has(button:active) .crm-lead-card {
     border: 1px solid rgba(26,115,232,.22);
     background: rgba(26,115,232,.08); color: #1a73e8;
 }
+/* ── WhatsApp send panel ── */
+.crm-wa-shell {
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1.5px solid rgba(37,211,102,.22);
+    background: linear-gradient(165deg, rgba(255,255,255,.95), rgba(236,253,245,.55));
+    box-shadow: 0 8px 28px rgba(37,211,102,.08);
+    margin-bottom: 12px;
+}
+.crm-wa-shell .wa-head {
+    display: flex; align-items: center; gap: 10px;
+}
+.crm-wa-shell .wa-icon {
+    width: 36px; height: 36px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    color: #fff; font-size: 11px; font-weight: 800; letter-spacing: -.02em;
+    box-shadow: 0 6px 18px rgba(37,211,102,.28);
+}
+.crm-wa-shell .wa-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 15px; font-weight: 800; color: var(--ink); margin: 0;
+}
+.crm-wa-shell .wa-sub {
+    font-size: 12px; color: var(--ink-mute); margin: 2px 0 0;
+}
 .crm-meet-actions a.meet {
     border: 1px solid rgba(46,139,77,.25);
     background: rgba(46,139,77,.10); color: var(--green);
@@ -2501,6 +2527,143 @@ def _broadcast_whatsapp_selected(
     return {"sent": sent, "skipped": skipped, "failed": failed, "campaign_id": campaign_id}
 
 
+def _whatsapp_send_configured(contact: dict) -> tuple[bool, str]:
+    """Whether a one-to-one WhatsApp send is possible for this lead."""
+    if not (contact.get("phone") or "").strip():
+        return False, "Add a phone number on this lead before sending."
+    if not whatsapp_configured():
+        return False, "Connect a WhatsApp number in WhatsApp connections first."
+    return True, ""
+
+
+def _send_whatsapp_to_contact(
+    contact: dict,
+    idx: int,
+    body: str,
+    *,
+    template_name: str = "",
+    use_template: bool = False,
+) -> tuple[bool, str]:
+    """Send one WhatsApp message to a lead. Returns (ok, user-facing message)."""
+    phone = (contact.get("phone") or "").strip()
+    if not phone:
+        return False, "Add a phone number on this lead before sending."
+    if not whatsapp_configured():
+        return False, "Connect a WhatsApp number in WhatsApp connections first."
+    msg_body = personalise(body, contact)
+    try:
+        if use_template and template_name:
+            resp = send_whatsapp_template(phone, template_name, body_params=[msg_body[:1024]])
+        else:
+            resp = send_whatsapp_text(phone, msg_body)
+        mid = extract_sent_message_id(resp)
+        contacts = st.session_state.crm_db.get("contacts", [])
+        updated = normalize_contact({**contact})
+        _log_broadcast_whatsapp(
+            updated,
+            msg_body,
+            message_id=mid,
+            campaign_id="",
+            template_name=template_name if use_template else "",
+        )
+        contacts[idx] = updated
+        st.session_state.crm_db["contacts"] = contacts
+        name = display_name(updated)
+        if persist_crm(f"CRM: WhatsApp to {name}"):
+            return True, f"WhatsApp sent to {name}"
+        return True, f"Sent to {name} (save pending)"
+    except Exception as exc:  # noqa: BLE001 — show Meta/API error in the UI
+        return False, str(exc)
+
+
+def _render_whatsapp_compose(
+    contact: dict,
+    idx: int,
+    *,
+    key_prefix: str,
+) -> None:
+    """Reusable WhatsApp compose + send panel for one lead."""
+    phone = (contact.get("phone") or "").strip()
+    can_send, _ = _whatsapp_send_configured(contact)
+    feas = broadcast_feasibility([contact])
+
+    st.markdown(
+        '<div class="crm-wa-shell">'
+        '<div class="wa-head">'
+        '<div class="wa-icon">WA</div>'
+        '<div>'
+        '<p class="wa-title">Send WhatsApp message</p>'
+        '<p class="wa-sub">Goes from your connected WhatsApp Business number and is logged in Activity.</p>'
+        '</div></div></div>',
+        unsafe_allow_html=True,
+    )
+
+    if not phone:
+        st.warning("This lead has no phone number. Add one on the **Details** tab first.")
+        return
+    st.caption(f"To: **{phone}** · {display_name(contact)}")
+
+    if not whatsapp_configured():
+        st.warning("Connect a WhatsApp number first — expand **WhatsApp connections** at the top of this page.")
+        return
+
+    st.info(feas["free_text_window"])
+
+    use_tpl_key = f"{key_prefix}_wa_tpl"
+    tpl_name_key = f"{key_prefix}_wa_tpl_name"
+    body_key = f"{key_prefix}_wa_body"
+    send_key = f"{key_prefix}_wa_send"
+    ai_key = f"{key_prefix}_wa_ai"
+
+    use_tpl = st.checkbox("Use approved template (promotions)", key=use_tpl_key)
+    tpl_name = st.text_input(
+        "Template name",
+        key=tpl_name_key,
+        disabled=not use_tpl,
+        placeholder="promo_offer",
+    )
+    wa_body = st.text_area(
+        "Message",
+        key=body_key,
+        height=100,
+        placeholder="Hi {{name}}, …",
+    )
+
+    ai_col, send_col = st.columns([1, 1])
+    with ai_col:
+        if st.button("AI draft", key=ai_key, use_container_width=True, disabled=not llm_configured()):
+            draft = compose_broadcast(
+                lead_count=1,
+                industries=[contact.get("industry") or ""],
+                goal=st.session_state.get(body_key) or "follow up",
+            )
+            st.session_state[body_key] = draft["whatsapp_body"]
+            st.rerun()
+    with send_col:
+        if st.button(
+            "Send WhatsApp message",
+            key=send_key,
+            type="primary",
+            use_container_width=True,
+            disabled=not can_send,
+        ):
+            if not wa_body.strip():
+                st.error("Write a message first.")
+            else:
+                ok, msg = _send_whatsapp_to_contact(
+                    contact,
+                    idx,
+                    wa_body,
+                    template_name=tpl_name,
+                    use_template=use_tpl,
+                )
+                if ok:
+                    st.session_state.crm_save_toast = msg
+                    st.rerun()
+                else:
+                    st.error(msg)
+
+
 def _render_selection_toolbar(*, filtered_ids: list[str], page_ids: list[str]) -> None:
     st.session_state.setdefault("crm_sel_ids", set())
     st.session_state.setdefault("crm_select_mode", False)
@@ -2583,9 +2746,10 @@ def _render_selection_toolbar(*, filtered_ids: list[str], page_ids: list[str]) -
                     )
                     st.rerun()
         with act_c:
-            with st.popover("WhatsApp", use_container_width=True, disabled=n_sel == 0):
+            with st.popover("📱 WhatsApp broadcast", use_container_width=True, disabled=n_sel == 0):
                 feas = broadcast_feasibility(_selected_contacts())
                 st.caption(
+                    f"Send one message to all selected leads. "
                     f"{feas['with_phone']}/{feas['total']} selected have phone numbers. "
                     f"{feas['whatsapp_source']} messaged via WhatsApp before."
                 )
@@ -2609,7 +2773,7 @@ def _render_selection_toolbar(*, filtered_ids: list[str], page_ids: list[str]) -
                     st.session_state.crm_bc_wa_body = draft["whatsapp_body"]
                     st.rerun()
                 if st.button(
-                    "Send WhatsApp",
+                    "Send to selected leads",
                     key="crm_bc_wa_send",
                     type="primary",
                     use_container_width=True,
@@ -3475,6 +3639,11 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
         for m in (contact.get("meetings") or [])
         if isinstance(m, dict)
     ]
+    wa_events = [
+        normalize_wa_event(e)
+        for e in (contact.get("wa_events") or [])
+        if isinstance(e, dict)
+    ]
 
     thread: list[dict] = []
     for e in email_events:
@@ -3483,6 +3652,8 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
         thread.append({**c, "_type": "comment"})
     for m in meetings:
         thread.append({**m, "_type": "meeting"})
+    for w in wa_events:
+        thread.append({**w, "_type": "whatsapp"})
 
     def _sort_key(item: dict) -> str:
         return item.get("sent_at") or item.get("created_at") or ""
@@ -3524,6 +3695,20 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
                     f'{link_html}'
                     '</div>'
                 )
+            elif item["_type"] == "whatsapp":
+                date_str = (item.get("created_at") or item.get("updated_at") or "")[:10]
+                status = (item.get("status") or "sent").title()
+                body = item.get("body") or ""
+                body = f"{body[:480]}..." if len(body) > 480 else body
+                campaign = item.get("campaign_id") or ""
+                campaign_html = f" · {html.escape(campaign)}" if campaign else ""
+                meta = " / ".join(p for p in ["WhatsApp sent", status, date_str] if p) + campaign_html
+                items.append(
+                    '<div class="crm-thread-item comment" style="border-left-color:rgba(37,211,102,.55);background:rgba(37,211,102,.05);">'
+                    f'<div class="crm-thread-meta">{html.escape(meta)}</div>'
+                    f'<div class="crm-thread-body">{html.escape(body or "No message text saved.")}</div>'
+                    '</div>'
+                )
             else:
                 author = item.get("author") or "Team"
                 date_str = (item.get("created_at") or "")[:10]
@@ -3539,9 +3724,12 @@ def _render_thread_tab(contact: dict, idx: int) -> None:
                 )
         st.markdown(f'<div class="crm-thread">{"".join(items)}</div>', unsafe_allow_html=True)
     else:
-        st.caption("No emails, comments, or meetings yet. Use the forms below to add the first entry.")
+        st.caption("No emails, comments, meetings, or WhatsApp messages yet. Use the tabs below to send or log activity.")
 
-    note_tab, meet_tab, email_tab = st.tabs(["Add note", "Schedule Meet", "Log email"])
+    wa_tab, note_tab, meet_tab, email_tab = st.tabs(["Send WhatsApp", "Add note", "Schedule Meet", "Log email"])
+
+    with wa_tab:
+        _render_whatsapp_compose(contact, idx, key_prefix=f"crm_act_{cid}")
 
     with note_tab:
         with st.form(f"activity_note_{cid}", clear_on_submit=True, border=False):
@@ -3980,11 +4168,19 @@ def _render_lead_detail_view(contact: dict, idx: int, statuses: list[str]) -> No
     ) or "No email or phone"
 
     st.markdown('<div class="crm-detail-back-row">', unsafe_allow_html=True)
-    back_col, del_col, _ = st.columns([1.1, 1, 3.3])
+    back_col, wa_col, del_col, _ = st.columns([1.1, 1.3, 1, 2.1])
     with back_col:
         if st.button("← Back to list", key="crm_detail_back", use_container_width=True):
             _close_lead_detail()
             st.rerun()
+    with wa_col:
+        _, wa_hint = _whatsapp_send_configured(contact)
+        with st.popover(
+            "💬 Send WhatsApp",
+            use_container_width=True,
+            help=wa_hint or "Compose and send a WhatsApp message to this lead",
+        ):
+            _render_whatsapp_compose(contact, idx, key_prefix=f"crm_hdr_{cid}")
     with del_col:
         with st.popover("Delete lead", use_container_width=True):
             st.warning(f"Delete {name} and all its activity? This can't be undone.")
@@ -4456,7 +4652,8 @@ def render_crm_page() -> None:
     )
 
     st.caption(
-        "Tap any lead to open its workspace. Select leads for bulk stage updates, email/WhatsApp broadcast, or delete."
+        "Tap any lead to open its workspace — use **Send WhatsApp** there for one-to-one messages. "
+        "Select leads for bulk stage updates, email/WhatsApp broadcast, or delete."
         if not select_mode
         else "Tap leads to toggle selection — use the toolbar for stage updates and broadcasts."
     )
