@@ -103,7 +103,8 @@ def render_whatsapp_connections(organization_id: str) -> None:
     st.markdown(
         "<div class='wa-conn-hint' style='margin-bottom:10px;'>"
         "Numbers connected here receive customer messages straight into this "
-        "organisation's CRM. You can connect more than one.</div>",
+        "organisation's CRM. To <b>send</b> a message, open a lead → "
+        "<b>Activity</b> → <b>Send WhatsApp</b>, or select multiple leads for a broadcast.</div>",
         unsafe_allow_html=True,
     )
 
