@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import types
@@ -21,6 +22,15 @@ sys.modules.setdefault("streamlit.components.v1", _components_v1)
 
 from utils import org_config  # noqa: E402
 import whatsapp_connect_ui as wa_ui  # noqa: E402
+
+
+_CORE_USERS = {
+    "savin@focuschainlabs.com": "focuschainlabs",
+    "bhaskar@focuschainlabs.com": "focuschainlabs",
+    "srikant@focuschainlabs.com": "focuschainlabs",
+    "surajmetgud@gmail.com": "sn_realtors",
+    "suhassalgatti71@gmail.com": "sn_realtors",
+}
 
 
 class WhatsAppCoexistenceUiTests(unittest.TestCase):
@@ -65,12 +75,28 @@ class WhatsAppCoexistenceUiTests(unittest.TestCase):
                 ["META_CONFIG_ID", "WEBHOOK_PUBLIC_URL"],
             )
 
-    def test_srikant_can_operate_connection_setup(self):
+    def test_all_five_launch_users_are_admins(self):
         with patch.dict(os.environ, {}, clear=True):
-            membership = org_config.resolve_membership("srikant@focuschainlabs.com")
+            for email, organization_id in _CORE_USERS.items():
+                membership = org_config.resolve_membership(email)
+                self.assertIsNotNone(membership, email)
+                self.assertEqual(membership["organization_id"], organization_id)
+                self.assertEqual(membership["role"], "admin")
 
-        self.assertEqual(membership["organization_id"], "focuschainlabs")
-        self.assertEqual(membership["role"], "admin")
+    def test_stale_gcp_org_members_cannot_hide_connect_button(self):
+        stale = [
+            {"email": email, "org": org, "role": "member"}
+            for email, org in _CORE_USERS.items()
+        ]
+        with patch.dict(
+            os.environ,
+            {"ORG_MEMBERS": json.dumps(stale)},
+            clear=True,
+        ):
+            for email, organization_id in _CORE_USERS.items():
+                membership = org_config.resolve_membership(email)
+                self.assertEqual(membership["organization_id"], organization_id)
+                self.assertEqual(membership["role"], "admin")
 
 
 if __name__ == "__main__":
