@@ -2171,6 +2171,85 @@ h1, h2, h3, h4, p, div, span, label {
     100% { background-position: -200% 0; }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK-MODE HARDENING — keep the brand light theme readable even when the
+   visitor's browser / OS is set to dark. The app paints .stApp cream + ink
+   text, but BaseWeb portals (dialogs, dropdown menus) and the expander DOM
+   render with the *active* Streamlit theme. In dark mode those surfaces stay
+   dark while our ink text sits on top → invisible. Force light surfaces + ink
+   text on exactly those elements so contrast holds in every theme.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root { color-scheme: light; }
+
+/* Dialog / modal surface — covers the global feedback dialog and any dialog
+   whose panel isn't styled elsewhere. Selectors span Streamlit versions; the
+   older [data-testid="stModal"] markup no longer matches in 1.42+, so the
+   feedback dialog otherwise falls through to the dark theme default. */
+[data-testid="stDialog"] [role="dialog"],
+[data-testid="stDialog"] [data-testid="stModal"] > div:first-child {
+    background: linear-gradient(180deg, #FDFCF9 0%, #F5F1E8 100%) !important;
+    color: var(--ink) !important;
+}
+[data-testid="stDialog"] [role="dialog"] [data-testid="stMarkdownContainer"] {
+    color: var(--ink) !important;
+}
+
+/* Expander — current Streamlit DOM uses <details>/<summary>; the legacy
+   .streamlit-expanderHeader class above no longer exists, so the header
+   (e.g. "WhatsApp connections") inherited the dark theme. */
+[data-testid="stExpander"] details {
+    background: var(--cream-3) !important;
+    border: 1px solid var(--line-soft) !important;
+    border-radius: var(--rs) !important;
+}
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] summary p,
+[data-testid="stExpander"] summary span,
+[data-testid="stExpander"] summary svg,
+[data-testid="stExpanderDetails"] {
+    color: var(--ink) !important;
+    fill: var(--ink) !important;
+    background: transparent !important;
+}
+[data-testid="stExpander"] summary:hover { background: var(--cream-2) !important; }
+
+/* Dropdown / select popovers render in a body-level portal that follows the
+   theme — force a light list with ink options. */
+[data-baseweb="popover"] [role="listbox"],
+[data-baseweb="popover"] [data-baseweb="menu"],
+[data-baseweb="popover"] ul,
+[data-baseweb="popover"] [role="option"] {
+    background: var(--cream-3) !important;
+    color: var(--ink) !important;
+}
+[data-baseweb="popover"] [role="option"]:hover,
+[data-baseweb="popover"] [role="option"][aria-selected="true"] {
+    background: var(--green-bg) !important;
+    color: var(--ink) !important;
+}
+
+/* Fields — keep inputs light with ink text + visible placeholders in any theme. */
+.stTextInput input,
+.stTextArea textarea,
+.stNumberInput input,
+.stDateInput input,
+[data-baseweb="select"] > div {
+    background: #fff !important;
+    color: var(--ink) !important;
+    -webkit-text-fill-color: var(--ink) !important;
+}
+.stTextInput input::placeholder,
+.stTextArea textarea::placeholder {
+    color: var(--ink-mute) !important;
+    opacity: 1 !important;
+}
+
+/* Tabs — never let the strip or panel become a dark slab. */
+.stTabs [data-baseweb="tab-list"],
+.stTabs [data-baseweb="tab"],
+.stTabs [data-baseweb="tab-panel"],
+.stTabs [data-baseweb="tab-highlight"] { background: transparent !important; }
+
 /* ── Misc ── */
 .stApp [data-testid="stToolbar"] { display: none !important; }
 footer { display: none !important; }
