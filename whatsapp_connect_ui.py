@@ -6,6 +6,8 @@ organization_id so each tenant only ever sees and manages its own numbers.
 from __future__ import annotations
 
 import html
+import json
+import os
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -99,12 +101,39 @@ _PANEL_CSS = """
 """
 
 _SENDER_SESSION_KEY = "wa_sender_phone_number_id"
+_COEXISTENCE_FEATURE_TYPE = "whatsapp_business_app_onboarding"
 
 
 def _account_label(account: dict) -> str:
     name = account.get("display_name") or account.get("agent_name") or "WhatsApp number"
     number = account.get("phone_number") or account.get("phone_number_id") or ""
     return f"{name} · {number}"
+
+
+def _missing_embedded_signup_settings() -> list[str]:
+    required = {
+        "META_APP_ID": os.getenv("META_APP_ID"),
+        "META_CONFIG_ID": os.getenv("META_CONFIG_ID"),
+        "WA_CONNECT_SECRET": os.getenv("WA_CONNECT_SECRET"),
+        "WEBHOOK_PUBLIC_URL": os.getenv("WEBHOOK_PUBLIC_URL"),
+    }
+    return [name for name, value in required.items() if not str(value or "").strip()]
+
+
+def _coexistence_launcher_html(organization_id: str) -> str:
+    """Force Meta's WhatsApp Business app coexistence onboarding configuration.
+
+    The shared launcher previously sent an empty featureType, which opens the
+    generic Cloud API signup instead of the mobile-app linking/QR experience.
+    Keep the central signed-state implementation and switch only Meta's public
+    Embedded Signup feature flag here.
+    """
+    markup = es.launcher_html(organization_id)
+    feature = (
+        os.getenv("META_EMBEDDED_SIGNUP_FEATURE_TYPE")
+        or _COEXISTENCE_FEATURE_TYPE
+    ).strip()
+    return markup.replace("featureType: ''", f"featureType: {json.dumps(feature)}")
 
 
 def _render_connection_summary(active_accounts: list[dict]) -> None:
@@ -160,18 +189,18 @@ def render_whatsapp_connections(organization_id: str) -> None:
 
     is_admin = auth.is_admin()
     active_accounts = [
-        a
-        for a in accounts
-        if a.get("active", True)
-        and (a.get("phone_number_id") or "").strip()
-        and (a.get("access_token") or "").strip()
+        account
+        for account in accounts
+        if account.get("active", True)
+        and (account.get("phone_number_id") or "").strip()
+        and (account.get("access_token") or "").strip()
     ]
 
     # Tenant-safe outbound selection. A single active number is automatic. When
     # several exist, an admin must choose the sender for this session before the
     # broadcast controls become enabled. The WhatsApp helper reads this same key.
     selected_pid = str(st.session_state.get(_SENDER_SESSION_KEY) or "").strip()
-    active_pids = [str(a.get("phone_number_id") or "").strip() for a in active_accounts]
+    active_pids = [str(account.get("phone_number_id") or "").strip() for account in active_accounts]
     if selected_pid and selected_pid not in active_pids:
         st.session_state.pop(_SENDER_SESSION_KEY, None)
         selected_pid = ""
@@ -180,7 +209,7 @@ def render_whatsapp_connections(organization_id: str) -> None:
         st.session_state[_SENDER_SESSION_KEY] = active_pids[0]
     elif len(active_accounts) > 1:
         if is_admin:
-            by_pid = {str(a["phone_number_id"]): a for a in active_accounts}
+            by_pid = {str(account["phone_number_id"]): account for account in active_accounts}
             default_index = active_pids.index(selected_pid) if selected_pid in active_pids else 0
             picked = st.selectbox(
                 "Sending number for broadcasts",
@@ -212,9 +241,13 @@ def render_whatsapp_connections(organization_id: str) -> None:
     st.markdown("<div class='wa-conn-section-title'>Connect a number</div>", unsafe_allow_html=True)
     if is_admin:
         if es.embedded_signup_configured():
-            components.html(es.launcher_html(organization_id), height=258, scrolling=False)
+            components.html(
+                _coexistence_launcher_html(organization_id),
+                height=258,
+                scrolling=False,
+            )
         else:
-            missing = ", ".join(es.missing_launcher_settings()) or "required Meta settings"
+            missing = ", ".join(_missing_embedded_signup_settings()) or "required Meta settings"
             st.markdown(
                 "<div class='wa-conn-config'><b>Connect button is not configured yet.</b><br>"
                 "Add these app settings: "
