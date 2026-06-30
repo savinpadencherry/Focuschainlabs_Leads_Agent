@@ -73,21 +73,25 @@ _BUILTIN_ORGS: list[dict[str, Any]] = [
 # ── Invite-only membership (the authoritative access-control list) ─────────────
 # Access is granted per *email*, never by domain alone. A user signs in only if
 # their exact address is listed here. Roles: "admin" can manage WhatsApp numbers
-# and other sensitive settings; "member" can use the CRM. Override in production
-# with the ORG_MEMBERS secret (JSON list of {email, org, role}).
+# and other sensitive settings; "member" can use the CRM.
 ROLE_ADMIN = "admin"
 ROLE_MEMBER = "member"
 _VALID_ROLES = (ROLE_ADMIN, ROLE_MEMBER)
 
-_BUILTIN_MEMBERS: list[dict[str, str]] = [
+# These five launch users are permanent organisation administrators. This is
+# intentional: every one of them must be able to operate WhatsApp Business app
+# coexistence (connect/disconnect a number and scan Meta's QR/linking prompt).
+# GCP's ORG_MEMBERS secret may contain stale "member" roles, so list_members()
+# reconciles these accounts to admin after reading the secret rather than letting
+# an old deployment value silently hide the Connect WhatsApp button.
+_CORE_ADMIN_MEMBERS: list[dict[str, str]] = [
     {"email": "savin@focuschainlabs.com",   "org": "focuschainlabs", "role": ROLE_ADMIN},
-    {"email": "bhaskar@focuschainlabs.com", "org": "focuschainlabs", "role": ROLE_MEMBER},
-    # Srikant validates and operates the WhatsApp coexistence flow, so he needs
-    # the same admin capability as Savin for connect/disconnect and sender setup.
+    {"email": "bhaskar@focuschainlabs.com", "org": "focuschainlabs", "role": ROLE_ADMIN},
     {"email": "srikant@focuschainlabs.com", "org": "focuschainlabs", "role": ROLE_ADMIN},
     {"email": "surajmetgud@gmail.com",      "org": "sn_realtors",    "role": ROLE_ADMIN},
-    {"email": "suhassalgatti71@gmail.com",  "org": "sn_realtors",    "role": ROLE_MEMBER},
+    {"email": "suhassalgatti71@gmail.com",  "org": "sn_realtors",    "role": ROLE_ADMIN},
 ]
+_BUILTIN_MEMBERS = _CORE_ADMIN_MEMBERS
 
 # Branding shown when no org resolves (e.g. auth disabled in local dev). Neutral
 # so an unconfigured deployment still looks intentional rather than broken.
@@ -176,8 +180,43 @@ def domain_of(email: str) -> str:
     return email.split("@", 1)[1]
 
 
+def _ensure_core_admins(members: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Keep the five launch owners present and admin, even with stale GCP config.
+
+    ORG_MEMBERS remains authoritative for every other user. For the core five,
+    the code deliberately repairs a missing entry, wrong tenant or old member
+    role so production cannot hide the coexistence control after a deployment.
+    """
+    core_by_email = {m["email"].lower(): dict(m) for m in _CORE_ADMIN_MEMBERS}
+    result: list[dict[str, str]] = []
+    seen: set[str] = set()
+
+    for member in members:
+        email = str(member.get("email") or "").strip().lower()
+        if not email or email in seen:
+            continue
+        if email in core_by_email:
+            result.append(dict(core_by_email[email]))
+        else:
+            result.append({**member, "email": email})
+        seen.add(email)
+
+    for core in _CORE_ADMIN_MEMBERS:
+        email = core["email"].lower()
+        if email not in seen:
+            result.append(dict(core))
+            seen.add(email)
+
+    return result
+
+
 def list_members() -> list[dict[str, str]]:
-    """The invite list. ORG_MEMBERS (JSON list) overrides the built-ins."""
+    """Invite list plus the permanent five-person launch-admin roster.
+
+    ORG_MEMBERS may add users and configure their roles, but the five core
+    administrators are always restored as admins so each can complete WhatsApp
+    coexistence setup from their respective organisation.
+    """
     raw = (os.getenv("ORG_MEMBERS") or "").strip()
     if raw:
         try:
@@ -194,12 +233,13 @@ def list_members() -> list[dict[str, str]]:
                 role = str(m.get("role") or ROLE_MEMBER).strip().lower()
                 if email and org:
                     out.append({
-                        "email": email, "org": org,
+                        "email": email,
+                        "org": org,
                         "role": role if role in _VALID_ROLES else ROLE_MEMBER,
                     })
             if out:
-                return out
-    return [{**m, "email": m["email"].lower()} for m in _BUILTIN_MEMBERS]
+                return _ensure_core_admins(out)
+    return _ensure_core_admins([{**m, "email": m["email"].lower()} for m in _BUILTIN_MEMBERS])
 
 
 def resolve_membership(email: str) -> dict[str, str] | None:
