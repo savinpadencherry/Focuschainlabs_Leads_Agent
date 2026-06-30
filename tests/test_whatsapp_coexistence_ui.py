@@ -19,8 +19,16 @@ sys.modules.setdefault("streamlit", _streamlit)
 sys.modules.setdefault("streamlit.components", _components_pkg)
 sys.modules.setdefault("streamlit.components.v1", _components_v1)
 
-from utils import org_config  # noqa: E402
 import whatsapp_connect_ui as wa_ui  # noqa: E402
+
+
+_CORE_USERS = (
+    "savin@focuschainlabs.com",
+    "bhaskar@focuschainlabs.com",
+    "srikant@focuschainlabs.com",
+    "surajmetgud@gmail.com",
+    "suhassalgatti71@gmail.com",
+)
 
 
 class WhatsAppCoexistenceUiTests(unittest.TestCase):
@@ -65,12 +73,28 @@ class WhatsAppCoexistenceUiTests(unittest.TestCase):
                 ["META_CONFIG_ID", "WEBHOOK_PUBLIC_URL"],
             )
 
-    def test_srikant_can_operate_connection_setup(self):
-        with patch.dict(os.environ, {}, clear=True):
-            membership = org_config.resolve_membership("srikant@focuschainlabs.com")
+    def test_all_five_users_can_manage_whatsapp_connections(self):
+        for email in _CORE_USERS:
+            with self.subTest(email=email), patch.object(
+                wa_ui.auth, "is_admin", return_value=False
+            ), patch.object(wa_ui.auth, "current_email", return_value=email):
+                self.assertTrue(wa_ui._can_manage_whatsapp_connections())
 
-        self.assertEqual(membership["organization_id"], "focuschainlabs")
-        self.assertEqual(membership["role"], "admin")
+    def test_unlisted_member_cannot_manage_connections(self):
+        with patch.object(
+            wa_ui.auth, "is_admin", return_value=False
+        ), patch.object(
+            wa_ui.auth, "current_email", return_value="other@example.com"
+        ):
+            self.assertFalse(wa_ui._can_manage_whatsapp_connections())
+
+    def test_regular_org_admin_still_can_manage_connections(self):
+        with patch.object(
+            wa_ui.auth, "is_admin", return_value=True
+        ), patch.object(
+            wa_ui.auth, "current_email", return_value="other@example.com"
+        ):
+            self.assertTrue(wa_ui._can_manage_whatsapp_connections())
 
 
 if __name__ == "__main__":
