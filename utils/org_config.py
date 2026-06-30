@@ -82,7 +82,9 @@ _VALID_ROLES = (ROLE_ADMIN, ROLE_MEMBER)
 _BUILTIN_MEMBERS: list[dict[str, str]] = [
     {"email": "savin@focuschainlabs.com",   "org": "focuschainlabs", "role": ROLE_ADMIN},
     {"email": "bhaskar@focuschainlabs.com", "org": "focuschainlabs", "role": ROLE_MEMBER},
-    {"email": "srikant@focuschainlabs.com", "org": "focuschainlabs", "role": ROLE_MEMBER},
+    # Srikant validates and operates the WhatsApp coexistence flow, so he needs
+    # the same admin capability as Savin for connect/disconnect and sender setup.
+    {"email": "srikant@focuschainlabs.com", "org": "focuschainlabs", "role": ROLE_ADMIN},
     {"email": "surajmetgud@gmail.com",      "org": "sn_realtors",    "role": ROLE_ADMIN},
     {"email": "suhassalgatti71@gmail.com",  "org": "sn_realtors",    "role": ROLE_MEMBER},
 ]
