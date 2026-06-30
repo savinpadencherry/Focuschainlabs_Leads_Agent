@@ -56,6 +56,7 @@ jobs:
             test_auth.py \
             test_auth_login_ui.py \
             test_org_config.py \
+            test_whatsapp_coexistence_ui.py \
             test_whatsapp_hardening.py \
             test_whatsapp_webhook.py \
             test_multitenant_outbound_hardening.py \
