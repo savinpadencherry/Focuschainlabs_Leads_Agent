@@ -56,8 +56,7 @@ _PANEL_CSS = """
   font-weight:800;color:#0F2A33;margin:2px 0 7px;}
 
 /* Streamlit popover trigger buttons are theme-owned and were becoming black in
-   dark-mode browsers while inheriting the app's dark ink text. Keep every CRM
-   action readable, including Update stage, Email/WhatsApp broadcast and Delete. */
+   dark-mode browsers while inheriting the app's dark ink text. */
 [data-testid="stPopover"] button,
 [data-testid="stPopoverButton"] button{
   background:#FDFCF9!important;color:#0F2A33!important;
@@ -79,23 +78,53 @@ _PANEL_CSS = """
   border-color:#2E8B4D!important;}
 [data-testid="stPopover"] button[data-testid="stBaseButton-primary"] *{color:#fff!important;-webkit-text-fill-color:#fff!important;}
 
-/* Toasts are also rendered in a theme portal. Pin a light, high-contrast card
-   so warnings such as "connect a WhatsApp number first" never look like a black block. */
+/* The expanded popover body is rendered in a body-level portal. In dark mode
+   Streamlit kept that portal nearly black even though the CRM itself is light.
+   Pin the complete panel, arrow and inner blocks to the brand surface. */
+[data-testid="stPopoverBody"],
+[data-testid="stPopoverBody"]>div,
+[data-baseweb="popover"] [data-testid="stPopoverBody"]{
+  background:linear-gradient(180deg,#FDFCF9 0%,#F5F1E8 100%)!important;
+  color:#0F2A33!important;border:1px solid rgba(15,42,51,.14)!important;
+  border-radius:16px!important;box-shadow:0 18px 42px rgba(15,42,51,.16)!important;}
+[data-testid="stPopoverBody"] [data-testid="stVerticalBlock"],
+[data-testid="stPopoverBody"] [data-testid="stElementContainer"],
+[data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"]{
+  background:transparent!important;color:#0F2A33!important;}
+[data-testid="stPopoverBody"] p,
+[data-testid="stPopoverBody"] label,
+[data-testid="stPopoverBody"] small,
+[data-testid="stPopoverBody"] [data-testid="stCaptionContainer"]{
+  color:#0F2A33!important;-webkit-text-fill-color:#0F2A33!important;}
+[data-baseweb="popover"] [data-popper-arrow]::before,
+[data-baseweb="popover"] [data-popper-arrow]::after{
+  background:#FDFCF9!important;border-color:rgba(15,42,51,.14)!important;}
+
+/* Toast markup differs between Streamlit versions. Cover the container, toast,
+   notification and role-based fallbacks so transient messages stay readable. */
+[data-testid="stToastContainer"]>div,
+[data-testid="stToastContainer"] [role="alert"],
 [data-testid="stToast"],
 [data-testid="stToast"]>div,
+[data-baseweb="toast"],
 [data-baseweb="notification"]{
   background:#FDFCF9!important;color:#0F2A33!important;
   border:1px solid rgba(15,42,51,.14)!important;border-radius:12px!important;
   box-shadow:0 14px 34px rgba(15,42,51,.16)!important;}
+[data-testid="stToastContainer"] *,
 [data-testid="stToast"] *,
+[data-baseweb="toast"] *,
 [data-baseweb="notification"] *{color:#0F2A33!important;-webkit-text-fill-color:#0F2A33!important;}
+[data-testid="stToastContainer"] svg,
 [data-testid="stToast"] svg,
+[data-baseweb="toast"] svg,
 [data-baseweb="notification"] svg{fill:#0F2A33!important;color:#0F2A33!important;}
 
 @media(max-width:720px){
   .wa-conn-hero{flex-direction:column;padding:14px;}
   .wa-conn-badge{align-self:flex-start;}
   .wa-conn-row{padding:11px 12px;}
+  [data-testid="stPopoverBody"]{max-width:calc(100vw - 24px)!important;max-height:70vh!important;overflow:auto!important;}
 }
 </style>
 """
@@ -121,13 +150,7 @@ def _missing_embedded_signup_settings() -> list[str]:
 
 
 def _coexistence_launcher_html(organization_id: str) -> str:
-    """Force Meta's WhatsApp Business app coexistence onboarding configuration.
-
-    The shared launcher previously sent an empty featureType, which opens the
-    generic Cloud API signup instead of the mobile-app linking/QR experience.
-    Keep the central signed-state implementation and switch only Meta's public
-    Embedded Signup feature flag here.
-    """
+    """Force Meta's WhatsApp Business app coexistence onboarding configuration."""
     markup = es.launcher_html(organization_id)
     feature = (
         os.getenv("META_EMBEDDED_SIGNUP_FEATURE_TYPE")
@@ -196,9 +219,6 @@ def render_whatsapp_connections(organization_id: str) -> None:
         and (account.get("access_token") or "").strip()
     ]
 
-    # Tenant-safe outbound selection. A single active number is automatic. When
-    # several exist, an admin must choose the sender for this session before the
-    # broadcast controls become enabled. The WhatsApp helper reads this same key.
     selected_pid = str(st.session_state.get(_SENDER_SESSION_KEY) or "").strip()
     active_pids = [str(account.get("phone_number_id") or "").strip() for account in active_accounts]
     if selected_pid and selected_pid not in active_pids:
@@ -282,7 +302,6 @@ def render_whatsapp_connections(organization_id: str) -> None:
                     unsafe_allow_html=True,
                 )
             with btn:
-                # Only admins can remove a connected number.
                 if is_admin and st.button(
                     "Disconnect",
                     key=f"wa_disc_{account.get('id')}",
