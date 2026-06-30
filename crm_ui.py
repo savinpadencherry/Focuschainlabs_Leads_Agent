@@ -2642,6 +2642,8 @@ def _open_lead_detail(contact_id: str) -> None:
 def _close_lead_detail() -> None:
     st.session_state.crm_view_mode = "list"
     st.session_state.crm_selected_contact_id = None
+    # Navigating back to the list shouldn't leave the feedback dialog open.
+    st.session_state.feedback_open = False
 
 
 def _safe_widget_key(raw: str) -> str:
