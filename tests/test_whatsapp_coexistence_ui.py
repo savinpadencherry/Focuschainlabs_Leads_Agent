@@ -73,6 +73,12 @@ class WhatsAppCoexistenceUiTests(unittest.TestCase):
                 ["META_CONFIG_ID", "WEBHOOK_PUBLIC_URL"],
             )
 
+    def test_dark_mode_css_covers_tooltips_and_password_controls(self):
+        self.assertIn('[data-baseweb="tooltip"]', wa_ui._PANEL_CSS)
+        self.assertIn('[role="tooltip"]', wa_ui._PANEL_CSS)
+        self.assertIn('button[aria-label*="password" i]', wa_ui._PANEL_CSS)
+        self.assertIn('.wa-conn-config code', wa_ui._PANEL_CSS)
+
     def test_all_five_users_can_manage_whatsapp_connections(self):
         for email in _CORE_USERS:
             with self.subTest(email=email), patch.object(
