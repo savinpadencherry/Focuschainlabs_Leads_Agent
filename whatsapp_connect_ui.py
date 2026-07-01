@@ -52,11 +52,16 @@ _PANEL_CSS = """
 .wa-conn-empty{border:1px dashed rgba(15,42,51,.20);background:rgba(255,255,255,.48);color:#5D7278;}
 .wa-conn-locked{border:1px solid rgba(183,121,31,.22);background:rgba(183,121,31,.08);color:#60491f;}
 .wa-conn-config{border:1px solid rgba(169,61,61,.20);background:rgba(169,61,61,.07);color:#6f3030;}
+.wa-conn-config code{background:#EDF7EF!important;color:#226B3D!important;border:1px solid rgba(46,139,77,.18);
+  border-radius:6px;padding:2px 6px;box-shadow:none!important;}
+.wa-config-list{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 8px;}
+.wa-config-chip{display:inline-flex;align-items:center;padding:5px 8px;border-radius:8px;
+  background:#EDF7EF;color:#226B3D;border:1px solid rgba(46,139,77,.18);
+  font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:750;letter-spacing:.035em;}
 .wa-conn-section-title{font-family:'Bricolage Grotesque',sans-serif;font-size:14px;
   font-weight:800;color:#0F2A33;margin:2px 0 7px;}
 
-/* Streamlit popover trigger buttons are theme-owned and were becoming black in
-   dark-mode browsers while inheriting the app's dark ink text. */
+/* Trigger buttons: force the light CRM palette even when the OS/browser uses dark mode. */
 [data-testid="stPopover"] button,
 [data-testid="stPopoverButton"] button{
   background:#FDFCF9!important;color:#0F2A33!important;
@@ -78,8 +83,7 @@ _PANEL_CSS = """
   border-color:#2E8B4D!important;}
 [data-testid="stPopover"] button[data-testid="stBaseButton-primary"] *{color:#fff!important;-webkit-text-fill-color:#fff!important;}
 
-/* Expanded popovers are body-level portals. Streamlit's dark theme was leaving
-   the complete compose panel black while the CRM itself stayed light. */
+/* Expanded compose/delete popovers are body-level portals. */
 [data-testid="stPopoverBody"],
 [data-testid="stPopoverBody"]>div,
 [data-baseweb="popover"] [data-testid="stPopoverBody"]{
@@ -99,8 +103,22 @@ _PANEL_CSS = """
 [data-baseweb="popover"] [data-popper-arrow]::after{
   background:#FDFCF9!important;border-color:rgba(15,42,51,.14)!important;}
 
-/* Toast markup differs between Streamlit releases. Cover every current portal
-   shape so transient messages never become black unreadable rectangles. */
+/* The remaining black strip in the screenshots is the button help tooltip, not
+   a permanent layout block. BaseWeb gives it a dark surface in dark mode. */
+[data-baseweb="tooltip"],
+[data-baseweb="tooltip"]>div,
+[data-testid="stTooltipContent"],
+[role="tooltip"]{
+  background:#FDFCF9!important;color:#0F2A33!important;
+  -webkit-text-fill-color:#0F2A33!important;border:1px solid rgba(15,42,51,.16)!important;
+  border-radius:10px!important;box-shadow:0 10px 26px rgba(15,42,51,.15)!important;}
+[data-baseweb="tooltip"] *,
+[data-testid="stTooltipContent"] *,
+[role="tooltip"] *{color:#0F2A33!important;-webkit-text-fill-color:#0F2A33!important;}
+[data-baseweb="tooltip"] [data-popper-arrow]::before,
+[role="tooltip"] [data-popper-arrow]::before{background:#FDFCF9!important;}
+
+/* Toast markup differs between Streamlit releases. */
 [data-testid="stToastContainer"]>div,
 [data-testid="stToastContainer"] [role="alert"],
 [data-testid="stToast"],
@@ -118,6 +136,23 @@ _PANEL_CSS = """
 [data-testid="stToast"] svg,
 [data-baseweb="toast"] svg,
 [data-baseweb="notification"] svg{fill:#0F2A33!important;color:#0F2A33!important;}
+
+/* Password reveal control and input end-adornments were the other black square. */
+[data-testid="stTextInput"] [data-baseweb="input"],
+[data-testid="stTextInput"] [data-baseweb="input"]>div,
+[data-testid="stTextInput"] [data-baseweb="base-input"]{
+  background:#fff!important;color:#0F2A33!important;}
+[data-testid="stTextInput"] button,
+[data-testid="stTextInput"] [role="button"],
+button[aria-label*="password" i],
+button[title*="password" i]{
+  background:#FDFCF9!important;color:#0F2A33!important;
+  -webkit-text-fill-color:#0F2A33!important;border-color:rgba(15,42,51,.14)!important;
+  box-shadow:none!important;}
+[data-testid="stTextInput"] button svg,
+[data-testid="stTextInput"] [role="button"] svg,
+button[aria-label*="password" i] svg,
+button[title*="password" i] svg{fill:#0F2A33!important;color:#0F2A33!important;}
 
 @media(max-width:720px){
   .wa-conn-hero{flex-direction:column;padding:14px;}
@@ -282,12 +317,18 @@ def render_whatsapp_connections(organization_id: str) -> None:
                 scrolling=False,
             )
         else:
-            missing = ", ".join(_missing_embedded_signup_settings()) or "required Meta settings"
+            missing_settings = _missing_embedded_signup_settings()
+            missing_html = "".join(
+                f"<span class='wa-config-chip'>{html.escape(name)}</span>"
+                for name in missing_settings
+            )
             st.markdown(
                 "<div class='wa-conn-config'><b>Connect button is not configured yet.</b><br>"
-                "Add these app settings: "
-                f"<code>{html.escape(missing)}</code>. The webhook service must also have "
-                "<code>META_APP_SECRET</code> and the same <code>WA_CONNECT_SECRET</code>."
+                "The CRM Cloud Run service is missing these settings:"
+                f"<div class='wa-config-list'>{missing_html}</div>"
+                "The webhook service must also have <code>META_APP_SECRET</code> and the same "
+                "<code>WA_CONNECT_SECRET</code>. Run <code>scripts/check_whatsapp_setup.sh</code> "
+                "from Google Cloud Shell after deploying this revision."
                 "</div>",
                 unsafe_allow_html=True,
             )
